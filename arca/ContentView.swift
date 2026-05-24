@@ -4595,6 +4595,7 @@ struct SettingsView: View {
     @State private var exportPasswordError = ""
     @State private var showExportPassword = false
     @State private var showImportPasswordReveal = false
+    @State private var importMerge = true
     @State private var showExportFailure = false
     @State private var showExportShare = false
     @State private var exportURL: URL? = nil
@@ -4805,6 +4806,23 @@ struct SettingsView: View {
                         } footer: {
                             Text("Gib das Passwort ein, das beim Export vergeben wurde.")
                         }
+
+                        Section {
+                            Toggle(isOn: $importMerge) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Zusammenführen")
+                                        .font(.body)
+                                    Text("Bestehende Daten bleiben erhalten — nur neue Einträge werden hinzugefügt.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        } footer: {
+                            Text(importMerge
+                                 ? "✓ Sicher: Vorhandene Notizen, Dokumente und Listen bleiben."
+                                 : "⚠️ Alles wird durch den Backup-Stand ersetzt.")
+                                .foregroundStyle(importMerge ? .green : .orange)
+                        }
                     }
                     .navigationTitle("Wiederherstellen")
                     .navigationBarTitleDisplayMode(.inline)
@@ -4817,12 +4835,13 @@ struct SettingsView: View {
                             }
                         }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Wiederherstellen") {
+                            Button(importMerge ? "Zusammenführen" : "Ersetzen") {
                                 guard let url = pendingImportURL else { return }
                                 showImportPasswordSheet = false
                                 showImportPasswordReveal = false
+                                let mergeMode = importMerge
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    if store.importData(from: url, password: importPassword) {
+                                    if store.importData(from: url, password: importPassword, merge: mergeMode) {
                                         showImportSuccess = true
                                     } else {
                                         importErrorMessage = "Falsches Passwort oder beschädigte Datei."

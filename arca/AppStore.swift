@@ -121,7 +121,7 @@ final class AppStore: ObservableObject {
         return url
     }
 
-    func importData(from url: URL, password: String) -> Bool {
+    func importData(from url: URL, password: String, merge: Bool = false) -> Bool {
         guard url.startAccessingSecurityScopedResource() else { return false }
         defer { url.stopAccessingSecurityScopedResource() }
         guard let encryptedData = try? Data(contentsOf: url),
@@ -138,13 +138,31 @@ final class AppStore: ObservableObject {
             }
         }
 
-        vaultItems = backup.vaultItems
-        documents = backup.documents
-        notes = backup.notes
-        lists = backup.lists
-        documentCategories = backup.documentCategories.isEmpty
-            ? AppStore.defaultCategories
-            : backup.documentCategories
+        if merge {
+            // Merge: nur neue Einträge (per ID) hinzufügen, bestehende behalten
+            let existingNoteIDs      = Set(notes.map(\.id))
+            let existingDocIDs       = Set(documents.map(\.id))
+            let existingListIDs      = Set(lists.map(\.id))
+            let existingVaultIDs     = Set(vaultItems.map(\.id))
+
+            notes      += backup.notes.filter      { !existingNoteIDs.contains($0.id) }
+            documents  += backup.documents.filter  { !existingDocIDs.contains($0.id) }
+            lists      += backup.lists.filter      { !existingListIDs.contains($0.id) }
+            vaultItems += backup.vaultItems.filter { !existingVaultIDs.contains($0.id) }
+
+            // Kategorien zusammenführen
+            let newCategories = backup.documentCategories.filter { !documentCategories.contains($0) }
+            if !newCategories.isEmpty { documentCategories += newCategories }
+        } else {
+            // Ersetzen: alles überschreiben (bisheriges Verhalten)
+            vaultItems = backup.vaultItems
+            documents  = backup.documents
+            notes      = backup.notes
+            lists      = backup.lists
+            documentCategories = backup.documentCategories.isEmpty
+                ? AppStore.defaultCategories
+                : backup.documentCategories
+        }
         return true
     }
 
