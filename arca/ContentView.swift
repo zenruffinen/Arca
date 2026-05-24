@@ -1,6 +1,6 @@
 //
 //
-//  ARCA 2.1
+//  ARCA 2.2
 //  Autor: Hans Zen Ruffinen
 //  Ein lokaler Mini-Tresor für Passwörter, Dokumente und Notizen.
 //  Erstellt mit SwiftUI.
@@ -4615,7 +4615,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section("Über ARCA") {
-                    Label("Version 2.1", systemImage: "app.badge")
+                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.2")", systemImage: "app.badge")
                     Label("© 2026 Hans Zen Ruffinen", systemImage: "c.circle")
                 }
 
