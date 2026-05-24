@@ -158,10 +158,13 @@ struct ArcaShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: CreateQuickNoteIntent(),
             phrases: [
-                // Siri fragt danach: "Was soll ich notieren?"
+                // Kurznotiz-Varianten
                 "Kurznotiz in \(.applicationName)",
                 "Neue Kurznotiz in \(.applicationName)",
-                "\(.applicationName) Kurznotiz erstellen"
+                "\(.applicationName) Kurznotiz erstellen",
+                // Ideen-Varianten
+                "Ich habe eine Idee für \(.applicationName)",
+                "\(.applicationName) ich habe eine Idee"
             ],
             shortTitle: "Kurznotiz",
             systemImageName: "note.text.badge.plus"
