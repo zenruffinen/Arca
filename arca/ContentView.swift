@@ -888,7 +888,7 @@ struct HeaderStatPills: View {
     var body: some View {
         // Einfache monochrome Zahlen — dezent, kein Farb-Overload im Header
         HStack(spacing: 8) {
-            ForEach([formatted(vault), formatted(documents), formatted(tasks), formatted(notes)], id: \.self) { val in
+            ForEach(Array([formatted(vault), formatted(documents), formatted(tasks), formatted(notes)].enumerated()), id: \.offset) { _, val in
                 Text(val)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.primary.opacity(0.4))
