@@ -4628,21 +4628,18 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach([
-                            ("square.and.arrow.down.fill", "Öffnen mit – Arca-Dateien erscheinen zuverlässig in der Auswahl"),
-                            ("arrow.triangle.merge",       "Backup importieren – Zusammenführen oder Ersetzen wählbar"),
-                            ("mic.fill",                   "Siri: Kurznotiz in Arca speichert ohne App zu öffnen"),
-                            ("lightbulb.fill",             "Siri: Ich habe eine Idee für Arca als neuer Befehl"),
-                            ("checkmark.circle.fill",      "Bestätigung beim Speichern per Vibration und Benachrichtigung"),
-                            ("app.badge",                  "Versionsnummer in den Einstellungen wird korrekt angezeigt")
-                        ], id: \.0) { icon, text in
-                            Label(text, systemImage: icon)
-                                .font(.footnote)
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    Label("Öffnen mit – Arca-Dateien erscheinen zuverlässig in der Auswahl", systemImage: "square.and.arrow.down.fill")
+                        .font(.footnote)
+                    Label("Backup importieren – Zusammenführen oder Ersetzen wählbar", systemImage: "arrow.triangle.merge")
+                        .font(.footnote)
+                    Label("Siri: Kurznotiz in Arca speichert ohne App zu öffnen", systemImage: "mic.fill")
+                        .font(.footnote)
+                    Label("Siri: Ich habe eine Idee für Arca als neuer Befehl", systemImage: "lightbulb.fill")
+                        .font(.footnote)
+                    Label("Bestätigung beim Speichern per Vibration und Benachrichtigung", systemImage: "checkmark.circle.fill")
+                        .font(.footnote)
+                    Label("Versionsnummer in den Einstellungen wird korrekt angezeigt", systemImage: "app.badge")
+                        .font(.footnote)
                 } header: {
                     Text("Neu in Version 2.2.1")
                 }
