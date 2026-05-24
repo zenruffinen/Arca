@@ -5226,7 +5226,7 @@ struct QuickCaptureSheet: View {
                     saveCurrentIfNeeded()
                     transcribedText = ""
                     justSaved = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { dismiss() }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { dismiss() }
                 } else {
                     startCloseTimer()
                 }
@@ -5269,6 +5269,8 @@ struct QuickCaptureSheet: View {
         guard !text.isEmpty else { return }
         onSave(String(text.prefix(50)), text)
         savedIdeas.append(text)
+        // Haptisches Feedback: kurze Erfolgs-Vibration
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }
 

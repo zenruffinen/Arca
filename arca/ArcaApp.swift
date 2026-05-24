@@ -1,5 +1,6 @@
 import SwiftUI
 import AppIntents
+import UserNotifications
 
 @main
 struct ArcaApp: App {
@@ -7,6 +8,8 @@ struct ArcaApp: App {
 
     init() {
         ArcaShortcuts.updateAppShortcutParameters()
+        // Benachrichtigungs-Berechtigung anfragen (für Kurznotiz-Quittierung)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
     @State private var isUnlocked = false
     @Environment(\.scenePhase) private var scenePhase
@@ -124,7 +127,25 @@ struct ArcaApp: App {
                 ? lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
                 : ""
             store.addNote(title: title, text: body)
+
+            // Quittierung: lokale Benachrichtigung zeigen
+            sendSavedNotification(title: title, preview: text)
         }
+    }
+
+    /// Sendet eine lokale Benachrichtigung als Quittierung für eine gespeicherte Kurznotiz
+    private func sendSavedNotification(title: String, preview: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "📝 Kurznotiz gespeichert"
+        content.body  = String(preview.prefix(100))
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil  // sofort anzeigen
+        )
+        UNUserNotificationCenter.current().add(request)
     }
 
     /// Prüft ob ein Siri-Intent eine Navigation hinterlassen hat
