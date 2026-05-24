@@ -4627,33 +4627,7 @@ struct SettingsView: View {
                     Label("© 2026 Hans Zen Ruffinen", systemImage: "c.circle")
                 }
 
-                Section {
-                    Label("Öffnen mit – Arca-Dateien erscheinen zuverlässig in der Auswahl", systemImage: "square.and.arrow.down.fill")
-                        .font(.footnote)
-                    Label("Backup importieren – Zusammenführen oder Ersetzen wählbar", systemImage: "arrow.triangle.merge")
-                        .font(.footnote)
-                    Label("Siri: Kurznotiz in Arca speichert ohne App zu öffnen", systemImage: "mic.fill")
-                        .font(.footnote)
-                    Label("Siri: Ich habe eine Idee für Arca als neuer Befehl", systemImage: "lightbulb.fill")
-                        .font(.footnote)
-                    Label("Bestätigung beim Speichern per Vibration und Benachrichtigung", systemImage: "checkmark.circle.fill")
-                        .font(.footnote)
-                    Label("Versionsnummer in den Einstellungen wird korrekt angezeigt", systemImage: "app.badge")
-                        .font(.footnote)
-                } header: {
-                    Text("Neu in Version 2.2.1")
-                }
-
-                // Statistik
-                Section {
-                    StatRow(icon: "key.fill",      color: NoteColor.for_(2).accent, label: "Passwörter",     value: "\(store.vaultItems.count)")
-                    StatRow(icon: "doc.fill",      color: NoteColor.for_(5).accent, label: "Dokumente",      value: "\(store.documents.count)", subValue: "\(store.documentCategories.count) \(store.documentCategories.count == 1 ? "Gruppe" : "Gruppen")")
-                    StatRow(icon: "note.text",     color: NoteColor.for_(4).accent, label: "Notizen",        value: "\(store.notes.count)", subValue: store.notes.contains(where: \.isPinned) ? "\(store.notes.filter(\.isPinned).count) angepinnt" : nil)
-                    StatRow(icon: "checklist",     color: NoteColor.for_(3).accent, label: "Tasklisten",     value: "\(store.lists.count)", subValue: totalTasks > 0 ? "\(doneTasks) von \(totalTasks) erledigt" : nil)
-                } header: {
-                    Text("Deine Daten in Zahlen")
-                }
-
+                // Backup — wichtigste Funktion, direkt oben
                 Section {
                     Button {
                         exportPassword = ""
@@ -4676,6 +4650,34 @@ struct SettingsView: View {
                     Text("Sichern und wiederherstellen")
                 } footer: {
                     Text("Das Backup wird verschlüsselt gespeichert. Du kannst es in iCloud Drive, per Mail oder lokal sichern. Falls du deinen PIN vergisst und die App zurücksetzen musst, kannst du alle Daten daraus wiederherstellen.")
+                }
+
+                // Statistik
+                Section {
+                    StatRow(icon: "key.fill",      color: NoteColor.for_(2).accent, label: "Passwörter",     value: "\(store.vaultItems.count)")
+                    StatRow(icon: "doc.fill",      color: NoteColor.for_(5).accent, label: "Dokumente",      value: "\(store.documents.count)", subValue: "\(store.documentCategories.count) \(store.documentCategories.count == 1 ? "Gruppe" : "Gruppen")")
+                    StatRow(icon: "note.text",     color: NoteColor.for_(4).accent, label: "Notizen",        value: "\(store.notes.count)", subValue: store.notes.contains(where: \.isPinned) ? "\(store.notes.filter(\.isPinned).count) angepinnt" : nil)
+                    StatRow(icon: "checklist",     color: NoteColor.for_(3).accent, label: "Tasklisten",     value: "\(store.lists.count)", subValue: totalTasks > 0 ? "\(doneTasks) von \(totalTasks) erledigt" : nil)
+                } header: {
+                    Text("Deine Daten in Zahlen")
+                }
+
+                // Was ist neu — ganz unten, wer's lesen will scrollt hin
+                Section {
+                    Label("Öffnen mit – Arca-Dateien erscheinen zuverlässig in der Auswahl", systemImage: "square.and.arrow.down.fill")
+                        .font(.footnote)
+                    Label("Backup importieren – Zusammenführen oder Ersetzen wählbar", systemImage: "arrow.triangle.merge")
+                        .font(.footnote)
+                    Label("Siri: Kurznotiz in Arca speichert ohne App zu öffnen", systemImage: "mic.fill")
+                        .font(.footnote)
+                    Label("Siri: Ich habe eine Idee für Arca als neuer Befehl", systemImage: "lightbulb.fill")
+                        .font(.footnote)
+                    Label("Bestätigung beim Speichern per Vibration und Benachrichtigung", systemImage: "checkmark.circle.fill")
+                        .font(.footnote)
+                    Label("Versionsnummer in den Einstellungen wird korrekt angezeigt", systemImage: "app.badge")
+                        .font(.footnote)
+                } header: {
+                    Text("Neu in Version 2.2.1")
                 }
             }
             .navigationTitle("Einstellungen")
