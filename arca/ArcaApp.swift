@@ -79,6 +79,8 @@ struct ArcaApp: App {
                     }
                 }
                 backgroundedAt = nil
+                // Kurznotiz-Queue aus Siri verarbeiten
+                processPendingQuickNotes()
                 // Siri-Intent-Navigation auswerten (gesetzt von ArcaIntents.perform())
                 checkIntentNavigation()
             default:
@@ -101,6 +103,27 @@ struct ArcaApp: App {
             }
         } else {
             store.pendingSharedURL = url
+        }
+    }
+
+    /// Verarbeitet Kurznotizen die Siri im Hintergrund in die Queue geschrieben hat
+    private func processPendingQuickNotes() {
+        guard let defaults = UserDefaults(suiteName: "group.com.hansruffin.arca") else { return }
+        guard let pending = defaults.array(forKey: "pendingQuickNotes") as? [[String: String]],
+              !pending.isEmpty else { return }
+
+        // Queue sofort leeren (damit doppelte Verarbeitung unmöglich ist)
+        defaults.removeObject(forKey: "pendingQuickNotes")
+
+        for noteData in pending {
+            guard let text = noteData["text"], !text.isEmpty else { continue }
+            // Erste Zeile → Titel, Rest → Body
+            let lines = text.components(separatedBy: "\n")
+            let title = String(lines.first?.prefix(60) ?? "Kurznotiz")
+            let body  = lines.count > 1
+                ? lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                : ""
+            store.addNote(title: title, text: body)
         }
     }
 

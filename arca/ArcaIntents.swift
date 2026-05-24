@@ -4,6 +4,7 @@ import AppIntents
 extension Notification.Name {
     static let arcaNavigate    = Notification.Name("com.hansruffin.arca.navigate")
     static let arcaBlitzidee   = Notification.Name("com.hansruffin.arca.blitzidee")
+    static let arcaQuickNote   = Notification.Name("com.hansruffin.arca.quicknote")
 }
 
 // MARK: - Siri Shortcuts
@@ -57,6 +58,38 @@ struct OpenTasksIntent: AppIntent {
         NotificationCenter.default.post(name: .arcaNavigate, object: "tasks")
         UserDefaults(suiteName: "group.com.hansruffin.arca")?.set("tasks", forKey: "intentNavigation")
         return .result()
+    }
+}
+
+// MARK: - Kurznotiz per Siri (ohne App zu öffnen)
+struct CreateQuickNoteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Kurznotiz erstellen"
+    static var description = IntentDescription("Erstellt sofort eine neue Notiz in Arca – die App muss nicht geöffnet werden")
+    // false = Siri bestätigt kurz, App öffnet sich NICHT → schnellster Weg
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(
+        title: "Notiztext",
+        description: "Was soll notiert werden?",
+        requestValueDialog: "Was soll ich notieren?"
+    )
+    var text: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let defaults = UserDefaults(suiteName: "group.com.hansruffin.arca")
+
+        // Bestehende Queue lesen
+        var pending = defaults?.array(forKey: "pendingQuickNotes") as? [[String: String]] ?? []
+
+        // Neue Notiz anhängen
+        pending.append([
+            "id":   UUID().uuidString,
+            "text": text,
+            "date": ISO8601DateFormatter().string(from: Date())
+        ])
+        defaults?.set(pending, forKey: "pendingQuickNotes")
+
+        return .result(dialog: "Kurznotiz in Arca gespeichert")
     }
 }
 
@@ -121,6 +154,17 @@ struct ArcaShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Blitzidee",
             systemImageName: "bolt.fill"
+        )
+        AppShortcut(
+            intent: CreateQuickNoteIntent(),
+            phrases: [
+                // Siri fragt danach: "Was soll ich notieren?"
+                "Kurznotiz in \(.applicationName)",
+                "Neue Kurznotiz in \(.applicationName)",
+                "\(.applicationName) Kurznotiz erstellen"
+            ],
+            shortTitle: "Kurznotiz",
+            systemImageName: "note.text.badge.plus"
         )
     }
 }
