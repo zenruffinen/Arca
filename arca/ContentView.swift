@@ -4627,6 +4627,26 @@ struct SettingsView: View {
                     Label("© 2026 Hans Zen Ruffinen", systemImage: "c.circle")
                 }
 
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach([
+                            ("square.and.arrow.down.fill", "Öffnen mit – Arca-Dateien erscheinen zuverlässig in der Auswahl"),
+                            ("arrow.triangle.merge",       "Backup importieren – Zusammenführen oder Ersetzen wählbar"),
+                            ("mic.fill",                   "Siri: Kurznotiz in Arca speichert ohne App zu öffnen"),
+                            ("lightbulb.fill",             "Siri: Ich habe eine Idee für Arca als neuer Befehl"),
+                            ("checkmark.circle.fill",      "Bestätigung beim Speichern per Vibration und Benachrichtigung"),
+                            ("app.badge",                  "Versionsnummer in den Einstellungen wird korrekt angezeigt")
+                        ], id: \.0) { icon, text in
+                            Label(text, systemImage: icon)
+                                .font(.footnote)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Neu in Version 2.2.1")
+                }
+
                 // Statistik
                 Section {
                     StatRow(icon: "key.fill",      color: NoteColor.for_(2).accent, label: "Passwörter",     value: "\(store.vaultItems.count)")
