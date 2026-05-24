@@ -262,10 +262,10 @@
 				};
 			};
 			buildConfigurationList = BA7C67052F8CEAE0001B326B /* Build configuration list for PBXProject "Arca" */;
-			developmentRegion = en;
+			developmentRegion = de;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
+				de,
 				Base,
 			);
 			mainGroup = BA7C67012F8CEAE0001B326B;
