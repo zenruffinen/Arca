@@ -4623,7 +4623,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section("Über ARCA") {
-                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.2")", systemImage: "app.badge")
+                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.2.1")", systemImage: "app.badge")
                     Label("© 2026 Hans Zen Ruffinen", systemImage: "c.circle")
                 }
 
