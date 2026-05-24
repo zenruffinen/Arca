@@ -1,0 +1,757 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		90EC922B50484CB6A3EA38EC /* ArcaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BA9694F72F8D782200FEB0F9 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BA7C67182F8CEAE1001B326B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA7C67022F8CEAE0001B326B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA7C67092F8CEAE0001B326B;
+			remoteInfo = Arca;
+		};
+		BA7C67222F8CEAE1001B326B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA7C67022F8CEAE0001B326B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA7C67092F8CEAE0001B326B;
+			remoteInfo = Arca;
+		};
+		F538C0CA2988422BB26C21D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA7C67022F8CEAE0001B326B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C91BAF9212454029914B1B98;
+			remoteInfo = ArcaWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D5A07E3DD15F419CBE1361D4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				90EC922B50484CB6A3EA38EC /* ArcaWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ArcaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA7C670A2F8CEAE0001B326B /* Arca.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Arca.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA7C67172F8CEAE1001B326B /* ArcaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArcaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA7C67212F8CEAE1001B326B /* ArcaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArcaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		0208819E7FBF46249079CF50 /* ArcaWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ArcaWidget;
+			sourceTree = "<group>";
+		};
+		BA7C670C2F8CEAE0001B326B /* arca */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = arca;
+			sourceTree = "<group>";
+		};
+		BA7C671A2F8CEAE1001B326B /* ArcaTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ArcaTests;
+			sourceTree = "<group>";
+		};
+		BA7C67242F8CEAE1001B326B /* ArcaUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ArcaUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BA7C67072F8CEAE0001B326B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA9694F72F8D782200FEB0F9 /* SwiftAnthropic in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C67142F8CEAE1001B326B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C671E2F8CEAE1001B326B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EA8DD82F41B74E29B6FF4EDE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BA7C67012F8CEAE0001B326B = {
+			isa = PBXGroup;
+			children = (
+				BA7C670C2F8CEAE0001B326B /* arca */,
+				BA7C671A2F8CEAE1001B326B /* ArcaTests */,
+				BA7C67242F8CEAE1001B326B /* ArcaUITests */,
+				BA9694F52F8D782200FEB0F9 /* Frameworks */,
+				BA7C670B2F8CEAE0001B326B /* Products */,
+				0208819E7FBF46249079CF50 /* ArcaWidget */,
+			);
+			sourceTree = "<group>";
+		};
+		BA7C670B2F8CEAE0001B326B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BA7C670A2F8CEAE0001B326B /* Arca.app */,
+				BA7C67172F8CEAE1001B326B /* ArcaTests.xctest */,
+				BA7C67212F8CEAE1001B326B /* ArcaUITests.xctest */,
+				AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BA9694F52F8D782200FEB0F9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BA7C67092F8CEAE0001B326B /* Arca */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7C672B2F8CEAE1001B326B /* Build configuration list for PBXNativeTarget "Arca" */;
+			buildPhases = (
+				BA7C67062F8CEAE0001B326B /* Sources */,
+				BA7C67072F8CEAE0001B326B /* Frameworks */,
+				BA7C67082F8CEAE0001B326B /* Resources */,
+				D5A07E3DD15F419CBE1361D4 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3D061955C22545909BC29D68 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BA7C670C2F8CEAE0001B326B /* arca */,
+			);
+			name = Arca;
+			packageProductDependencies = (
+				BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */,
+			);
+			productName = Arca;
+			productReference = BA7C670A2F8CEAE0001B326B /* Arca.app */;
+			productType = "com.apple.product-type.application";
+		};
+		BA7C67162F8CEAE1001B326B /* ArcaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7C672E2F8CEAE1001B326B /* Build configuration list for PBXNativeTarget "ArcaTests" */;
+			buildPhases = (
+				BA7C67132F8CEAE1001B326B /* Sources */,
+				BA7C67142F8CEAE1001B326B /* Frameworks */,
+				BA7C67152F8CEAE1001B326B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BA7C67192F8CEAE1001B326B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BA7C671A2F8CEAE1001B326B /* ArcaTests */,
+			);
+			name = ArcaTests;
+			packageProductDependencies = (
+			);
+			productName = ArcaTests;
+			productReference = BA7C67172F8CEAE1001B326B /* ArcaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		BA7C67202F8CEAE1001B326B /* ArcaUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7C67312F8CEAE1001B326B /* Build configuration list for PBXNativeTarget "ArcaUITests" */;
+			buildPhases = (
+				BA7C671D2F8CEAE1001B326B /* Sources */,
+				BA7C671E2F8CEAE1001B326B /* Frameworks */,
+				BA7C671F2F8CEAE1001B326B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BA7C67232F8CEAE1001B326B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BA7C67242F8CEAE1001B326B /* ArcaUITests */,
+			);
+			name = ArcaUITests;
+			packageProductDependencies = (
+			);
+			productName = ArcaUITests;
+			productReference = BA7C67212F8CEAE1001B326B /* ArcaUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		C91BAF9212454029914B1B98 /* ArcaWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6FA0281850864DC3800D0690 /* Build configuration list for PBXNativeTarget "ArcaWidget" */;
+			buildPhases = (
+				851488A8D8444E89B59BB639 /* Sources */,
+				EA8DD82F41B74E29B6FF4EDE /* Frameworks */,
+				833BE8A805454E6991B7C6EF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0208819E7FBF46249079CF50 /* ArcaWidget */,
+			);
+			name = ArcaWidget;
+			packageProductDependencies = (
+			);
+			productName = ArcaWidget;
+			productReference = AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BA7C67022F8CEAE0001B326B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					BA7C67092F8CEAE0001B326B = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					BA7C67162F8CEAE1001B326B = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = BA7C67092F8CEAE0001B326B;
+					};
+					BA7C67202F8CEAE1001B326B = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = BA7C67092F8CEAE0001B326B;
+					};
+				};
+			};
+			buildConfigurationList = BA7C67052F8CEAE0001B326B /* Build configuration list for PBXProject "Arca" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = BA7C67012F8CEAE0001B326B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BA9694F22F8D6CB300FEB0F9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = BA7C670B2F8CEAE0001B326B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BA7C67092F8CEAE0001B326B /* Arca */,
+				BA7C67162F8CEAE1001B326B /* ArcaTests */,
+				BA7C67202F8CEAE1001B326B /* ArcaUITests */,
+				C91BAF9212454029914B1B98 /* ArcaWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		833BE8A805454E6991B7C6EF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C67082F8CEAE0001B326B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C67152F8CEAE1001B326B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C671F2F8CEAE1001B326B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		851488A8D8444E89B59BB639 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C67062F8CEAE0001B326B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C67132F8CEAE1001B326B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA7C671D2F8CEAE1001B326B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3D061955C22545909BC29D68 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C91BAF9212454029914B1B98 /* ArcaWidget */;
+			targetProxy = F538C0CA2988422BB26C21D6 /* PBXContainerItemProxy */;
+		};
+		BA7C67192F8CEAE1001B326B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA7C67092F8CEAE0001B326B /* Arca */;
+			targetProxy = BA7C67182F8CEAE1001B326B /* PBXContainerItemProxy */;
+		};
+		BA7C67232F8CEAE1001B326B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA7C67092F8CEAE0001B326B /* Arca */;
+			targetProxy = BA7C67222F8CEAE1001B326B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		349479FB0C0D47A998055E60 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ArcaWidget/ArcaWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 22;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ArcaWidgetInfo.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.Arca.ArcaWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BA7C67292F8CEAE1001B326B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		BA7C672A2F8CEAE1001B326B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BA7C672C2F8CEAE1001B326B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Arca.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 23;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.Arca;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BA7C672D2F8CEAE1001B326B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Arca.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 23;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.Arca;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BA7C672F2F8CEAE1001B326B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 22;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Arca.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Arca";
+			};
+			name = Debug;
+		};
+		BA7C67302F8CEAE1001B326B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 22;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Arca.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Arca";
+			};
+			name = Release;
+		};
+		BA7C67322F8CEAE1001B326B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 22;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Arca;
+			};
+			name = Debug;
+		};
+		BA7C67332F8CEAE1001B326B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 22;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Arca;
+			};
+			name = Release;
+		};
+		ECC672B4EE384B068B55E9A4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ArcaWidget/ArcaWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 22;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ArcaWidgetInfo.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.Arca.ArcaWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6FA0281850864DC3800D0690 /* Build configuration list for PBXNativeTarget "ArcaWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				349479FB0C0D47A998055E60 /* Debug */,
+				ECC672B4EE384B068B55E9A4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA7C67052F8CEAE0001B326B /* Build configuration list for PBXProject "Arca" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7C67292F8CEAE1001B326B /* Debug */,
+				BA7C672A2F8CEAE1001B326B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA7C672B2F8CEAE1001B326B /* Build configuration list for PBXNativeTarget "Arca" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7C672C2F8CEAE1001B326B /* Debug */,
+				BA7C672D2F8CEAE1001B326B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA7C672E2F8CEAE1001B326B /* Build configuration list for PBXNativeTarget "ArcaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7C672F2F8CEAE1001B326B /* Debug */,
+				BA7C67302F8CEAE1001B326B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA7C67312F8CEAE1001B326B /* Build configuration list for PBXNativeTarget "ArcaUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7C67322F8CEAE1001B326B /* Debug */,
+				BA7C67332F8CEAE1001B326B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BA9694F22F8D6CB300FEB0F9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jamesrochabrun/SwiftAnthropic";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA9694F22F8D6CB300FEB0F9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */;
+			productName = SwiftAnthropic;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = BA7C67022F8CEAE0001B326B /* Project object */;
+}
