@@ -1,6 +1,6 @@
 //
 //
-//  ARCA 2.2
+//  ARCA 2.2.1
 //  Autor: Hans Zen Ruffinen
 //  Ein lokaler Mini-Tresor für Passwörter, Dokumente und Notizen.
 //  Erstellt mit SwiftUI.
