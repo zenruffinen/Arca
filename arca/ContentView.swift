@@ -2821,6 +2821,12 @@ struct DocumentsView: View {
     private func handleSharedURL(_ url: URL) {
         let ext = url.pathExtension.lowercased()
 
+        // Arca Backup → Passwort-Sheet im Settings-View öffnen
+        if ext == "arcabackup" {
+            store.pendingBackupURL = url
+            return
+        }
+
         // Arca Ordner Import
         if ext == "arcafolder" {
             if let importedName = store.importFolder(from: url) {
@@ -4596,6 +4602,7 @@ struct SettingsView: View {
     @State private var showExportPassword = false
     @State private var showImportPasswordReveal = false
     @State private var importMerge = true
+    @State private var pendingImportURLLocal: URL? = nil  // aus "Öffnen mit" via AppStore
     @State private var showExportFailure = false
     @State private var showExportShare = false
     @State private var exportURL: URL? = nil
@@ -4775,6 +4782,15 @@ struct SettingsView: View {
                     importPassword = ""
                     showImportPasswordSheet = true
                 }
+            }
+
+            // "Öffnen mit .arcabackup" von aussen → Passwort-Sheet öffnen
+            .onChange(of: store.pendingBackupURL) { _, url in
+                guard let url else { return }
+                pendingImportURL = url
+                importPassword = ""
+                store.pendingBackupURL = nil
+                showImportPasswordSheet = true
             }
 
             // --- Import: password input sheet ---

@@ -69,6 +69,7 @@ final class AppStore: ObservableObject {
     /// Wenn eine Datei von außen (z. B. Mail) geöffnet wird, landet die URL hier.
     /// DocumentsView beobachtet diesen Wert und zeigt dann den Save-Dialog.
     @Published var pendingSharedURL: URL? = nil
+    @Published var pendingBackupURL: URL? = nil   // .arcabackup via "Öffnen mit"
     @Published var pendingScrollCategory: String? = nil
     /// Von Siri-Shortcuts oder Widget-Deep-Links gesetzter Navigations-Tab
     @Published var pendingSection: ArcaSection? = nil
