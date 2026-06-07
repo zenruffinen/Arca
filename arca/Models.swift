@@ -114,6 +114,23 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
     var filename: String
     var dateAdded: Date
     var category: String = "Sonstiges"
+    var subcategory: String = ""
+
+    init(id: UUID = UUID(), title: String, type: DocumentType, filename: String, dateAdded: Date, category: String = "Sonstiges", subcategory: String = "") {
+        self.id = id; self.title = title; self.type = type; self.filename = filename
+        self.dateAdded = dateAdded; self.category = category; self.subcategory = subcategory
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id          = try c.decodeIfPresent(UUID.self,         forKey: .id)          ?? UUID()
+        title       = try c.decode(String.self,                forKey: .title)
+        type        = try c.decode(DocumentType.self,          forKey: .type)
+        filename    = try c.decode(String.self,                forKey: .filename)
+        dateAdded   = try c.decodeIfPresent(Date.self,         forKey: .dateAdded)   ?? Date()
+        category    = try c.decodeIfPresent(String.self,       forKey: .category)    ?? "Sonstiges"
+        subcategory = try c.decodeIfPresent(String.self,       forKey: .subcategory) ?? ""
+    }
 }
 
 // Geteilter Ordner (für Familien-Teilen)
@@ -122,6 +139,7 @@ struct ArcaFolder: Codable {
     var documents: [DocumentEntry]
     var fileData: [String: Data] // filename → Dateiinhalt
     var exportDate: Date
+    var subcategories: [String]?
 }
 
 struct ChecklistItem: Identifiable, Codable, Hashable {

@@ -13,9 +13,10 @@ struct ArcaBackup: Codable {
     /// Tatsächliche Dokument-Dateien (filename → bytes). Optional für Rückwärtskompatibilität
     /// mit alten Backups, die nur die Metadaten enthielten.
     var fileData: [String: Data]?
+    var documentSubcategories: [String: [String]]?
 
     enum CodingKeys: String, CodingKey {
-        case vaultItems, documents, notes, lists, documentCategories, exportDate, fileData
+        case vaultItems, documents, notes, lists, documentCategories, exportDate, fileData, documentSubcategories
     }
 
     init(vaultItems: [VaultEntry],
@@ -24,7 +25,8 @@ struct ArcaBackup: Codable {
          lists: [ListEntry],
          documentCategories: [String],
          exportDate: Date,
-         fileData: [String: Data]? = nil) {
+         fileData: [String: Data]? = nil,
+         documentSubcategories: [String: [String]]? = nil) {
         self.vaultItems = vaultItems
         self.documents = documents
         self.notes = notes
@@ -32,18 +34,20 @@ struct ArcaBackup: Codable {
         self.documentCategories = documentCategories
         self.exportDate = exportDate
         self.fileData = fileData
+        self.documentSubcategories = documentSubcategories
     }
 
     // Safe Decoder — alte Backups ohne fileData / lists bleiben kompatibel
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        vaultItems         = try c.decode([VaultEntry].self,            forKey: .vaultItems)
-        documents          = try c.decode([DocumentEntry].self,         forKey: .documents)
-        notes              = try c.decode([NoteEntry].self,             forKey: .notes)
-        lists              = try c.decodeIfPresent([ListEntry].self,    forKey: .lists)              ?? []
-        documentCategories = try c.decode([String].self,                forKey: .documentCategories)
-        exportDate         = try c.decode(Date.self,                    forKey: .exportDate)
-        fileData           = try c.decodeIfPresent([String: Data].self, forKey: .fileData)
+        vaultItems              = try c.decode([VaultEntry].self,                   forKey: .vaultItems)
+        documents               = try c.decode([DocumentEntry].self,                forKey: .documents)
+        notes                   = try c.decode([NoteEntry].self,                    forKey: .notes)
+        lists                   = try c.decodeIfPresent([ListEntry].self,           forKey: .lists)                   ?? []
+        documentCategories      = try c.decode([String].self,                       forKey: .documentCategories)
+        exportDate              = try c.decode(Date.self,                           forKey: .exportDate)
+        fileData                = try c.decodeIfPresent([String: Data].self,        forKey: .fileData)
+        documentSubcategories   = try c.decodeIfPresent([String: [String]].self,   forKey: .documentSubcategories)
     }
 }
 
@@ -66,15 +70,16 @@ final class AppStore: ObservableObject {
     @Published var lists: [ListEntry] = [] {
         didSet { saveLists() }
     }
+    @Published var documentSubcategories: [String: [String]] = [:] {
+        didSet { saveDocumentSubcategories() }
+    }
     /// Wenn eine Datei von außen (z. B. Mail) geöffnet wird, landet die URL hier.
-    /// DocumentsView beobachtet diesen Wert und zeigt dann den Save-Dialog.
     @Published var pendingSharedURL: URL? = nil
-    @Published var pendingBackupURL: URL? = nil   // .arcabackup via "Öffnen mit"
+    @Published var pendingBackupURL: URL? = nil
     @Published var pendingScrollCategory: String? = nil
-    /// Von Siri-Shortcuts oder Widget-Deep-Links gesetzter Navigations-Tab
     @Published var pendingSection: ArcaSection? = nil
-    /// Blitzidee-Aufnahme soll sofort starten (via Action Button Intent)
     @Published var pendingQuickCapture: Bool = false
+
     var importCategoryName: String {
         get { UserDefaults.standard.string(forKey: "importCategoryName") ?? "Import" }
         set { UserDefaults.standard.set(newValue, forKey: "importCategoryName") }
@@ -82,14 +87,122 @@ final class AppStore: ObservableObject {
 
     static let defaultCategories = ["Reise", "Papiere", "Rechnungen", "Verträge", "Gesundheit", "Sonstiges"]
 
+    // MARK: - iCloud Storage
+
+    private let cloudContainerID = "iCloud.com.hansruffin.Arca"
+
+    /// Liefert die iCloud-Container-URL oder nil wenn iCloud nicht verfügbar.
+    /// iOS cached den Wert intern, wiederholte Aufrufe sind schnell.
+    private var cloudContainer: URL? {
+        FileManager.default.url(forUbiquityContainerIdentifier: cloudContainerID)
+    }
+
+    /// Verzeichnis für JSON-Datendateien (iCloud oder lokaler Fallback).
+    private var dataDirectory: URL {
+        if let c = cloudContainer {
+            let dir = c.appendingPathComponent("Documents/arcadata")
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir
+        }
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("arcadata")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// Verzeichnis für Dokument-Binärdateien (PDFs, Bilder, …).
+    var filesDirectory: URL {
+        if let c = cloudContainer {
+            let dir = c.appendingPathComponent("Documents/files")
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir
+        }
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+
+    private func dataURL(_ key: String) -> URL {
+        dataDirectory.appendingPathComponent("\(key).json")
+    }
+
+    // MARK: - Generische JSON I/O mit NSFileCoordinator
+
+    private func saveJSON<T: Encodable>(_ value: T, key: String) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        let url = dataURL(key)
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var err: NSError?
+        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &err) { u in
+            try? data.write(to: u, options: .atomic)
+        }
+    }
+
+    private func loadJSON<T: Decodable>(_ type: T.Type, key: String) -> T? {
+        let url = dataURL(key)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        var result: T? = nil
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var err: NSError?
+        coordinator.coordinate(readingItemAt: url, options: .withoutChanges, error: &err) { u in
+            guard let data = try? Data(contentsOf: u) else { return }
+            result = try? JSONDecoder().decode(type, from: data)
+        }
+        return result
+    }
+
+    // MARK: - Init
+
     init() {
+        migrateFromUserDefaultsIfNeeded()
+        load()
+    }
+
+    // MARK: - Migration: UserDefaults → iCloud/lokale Dateien (einmalig)
+
+    private func migrateFromUserDefaultsIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: "arcaStorageMigrated_v1") else { return }
+
+        func migrate(udKey: String, fileKey: String) {
+            guard let data = UserDefaults.standard.data(forKey: udKey) else { return }
+            let target = dataURL(fileKey)
+            // Nicht überschreiben wenn Datei schon existiert (z. B. vom anderen Gerät)
+            guard !FileManager.default.fileExists(atPath: target.path) else { return }
+            try? data.write(to: target)
+        }
+
+        migrate(udKey: "notes",                 fileKey: "notes")
+        migrate(udKey: "documents",             fileKey: "documents")
+        migrate(udKey: "lists",                 fileKey: "lists")
+        migrate(udKey: "vaultItems",            fileKey: "vaultItems")
+        migrate(udKey: "documentCategories",    fileKey: "documentCategories")
+        migrate(udKey: "categoryColors",        fileKey: "categoryColors")
+        migrate(udKey: "documentSubcategories", fileKey: "documentSubcategories")
+
+        // Dokument-Dateien in neues Verzeichnis kopieren (nur wenn Ziel != Quelle)
+        let oldDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let newDir = filesDirectory
+        if oldDir.standardizedFileURL != newDir.standardizedFileURL {
+            if let files = try? FileManager.default.contentsOfDirectory(
+                at: oldDir, includingPropertiesForKeys: nil) {
+                for file in files where !file.hasDirectoryPath {
+                    let dest = newDir.appendingPathComponent(file.lastPathComponent)
+                    guard !FileManager.default.fileExists(atPath: dest.path) else { continue }
+                    try? FileManager.default.copyItem(at: file, to: dest)
+                }
+            }
+        }
+
+        UserDefaults.standard.set(true, forKey: "arcaStorageMigrated_v1")
+    }
+
+    // MARK: - Reload (aufgerufen wenn App in den Vordergrund kommt)
+
+    func reloadFromCloud() {
         load()
     }
 
     // MARK: - Export / Import
 
     func exportData(password: String) -> URL? {
-        // Alle Dokument-Dateien mit ins Backup packen
         var fileData: [String: Data] = [:]
         for doc in documents {
             let fileURL = documentURL(for: doc.filename)
@@ -105,7 +218,8 @@ final class AppStore: ObservableObject {
             lists: lists,
             documentCategories: documentCategories,
             exportDate: Date(),
-            fileData: fileData
+            fileData: fileData,
+            documentSubcategories: documentSubcategories
         )
         guard let plaintext = try? JSONEncoder().encode(backup) else { return nil }
         guard let encrypted = try? encryptData(plaintext, password: password) else { return nil }
@@ -131,7 +245,6 @@ final class AppStore: ObservableObject {
             return false
         }
 
-        // Dokument-Dateien wiederherstellen (falls im Backup enthalten)
         if let fileData = backup.fileData {
             for (filename, data) in fileData {
                 let dest = documentURL(for: filename)
@@ -140,22 +253,27 @@ final class AppStore: ObservableObject {
         }
 
         if merge {
-            // Merge: nur neue Einträge (per ID) hinzufügen, bestehende behalten
-            let existingNoteIDs      = Set(notes.map(\.id))
-            let existingDocIDs       = Set(documents.map(\.id))
-            let existingListIDs      = Set(lists.map(\.id))
-            let existingVaultIDs     = Set(vaultItems.map(\.id))
+            let existingNoteIDs  = Set(notes.map(\.id))
+            let existingDocIDs   = Set(documents.map(\.id))
+            let existingListIDs  = Set(lists.map(\.id))
+            let existingVaultIDs = Set(vaultItems.map(\.id))
 
             notes      += backup.notes.filter      { !existingNoteIDs.contains($0.id) }
             documents  += backup.documents.filter  { !existingDocIDs.contains($0.id) }
             lists      += backup.lists.filter      { !existingListIDs.contains($0.id) }
             vaultItems += backup.vaultItems.filter { !existingVaultIDs.contains($0.id) }
 
-            // Kategorien zusammenführen
             let newCategories = backup.documentCategories.filter { !documentCategories.contains($0) }
             if !newCategories.isEmpty { documentCategories += newCategories }
+
+            if let backupSubs = backup.documentSubcategories {
+                for (cat, subs) in backupSubs {
+                    var existing = documentSubcategories[cat] ?? []
+                    for s in subs where !existing.contains(s) { existing.append(s) }
+                    documentSubcategories[cat] = existing
+                }
+            }
         } else {
-            // Ersetzen: alles überschreiben (bisheriges Verhalten)
             vaultItems = backup.vaultItems
             documents  = backup.documents
             notes      = backup.notes
@@ -163,11 +281,12 @@ final class AppStore: ObservableObject {
             documentCategories = backup.documentCategories.isEmpty
                 ? AppStore.defaultCategories
                 : backup.documentCategories
+            documentSubcategories = backup.documentSubcategories ?? [:]
         }
         return true
     }
 
-    // MARK: - Ordner Teilen (Familien-Funktion)
+    // MARK: - Ordner Teilen
 
     func exportFolder(category: String) -> URL? {
         let docsInCategory = documents.filter { $0.category == category }
@@ -182,25 +301,44 @@ final class AppStore: ObservableObject {
             categoryName: category,
             documents: docsInCategory,
             fileData: fileData,
-            exportDate: Date()
+            exportDate: Date(),
+            subcategories: documentSubcategories[category]
         )
         guard let data = try? JSONEncoder().encode(folder) else { return nil }
         let safeName = category.replacingOccurrences(of: " ", with: "_")
         let filename = "Arca_\(safeName).arcafolder"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        // Vorhandene Datei vorher löschen, sonst kann iOS bei manchen FS-Zuständen fehlschlagen
         try? FileManager.default.removeItem(at: url)
-        do {
-            try data.write(to: url)
-        } catch {
-            return nil
-        }
-        // Verifizieren dass die Datei existiert und nicht leer ist
+        do { try data.write(to: url) } catch { return nil }
         guard FileManager.default.fileExists(atPath: url.path),
               let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
-              size > 0 else {
-            return nil
+              size > 0 else { return nil }
+        return url
+    }
+
+    func exportDocument(_ doc: DocumentEntry) -> URL? {
+        var fileData: [String: Data] = [:]
+        let fileURL = documentURL(for: doc.filename)
+        if let data = try? Data(contentsOf: fileURL) {
+            fileData[doc.filename] = data
         }
+        let folder = ArcaFolder(
+            categoryName: doc.category,
+            documents: [doc],
+            fileData: fileData,
+            exportDate: Date(),
+            subcategories: documentSubcategories[doc.category]
+        )
+        guard let data = try? JSONEncoder().encode(folder) else { return nil }
+        let safeName = doc.title.replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "/", with: "-")
+        let filename = "Arca_\(safeName).arcafolder"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? FileManager.default.removeItem(at: url)
+        do { try data.write(to: url) } catch { return nil }
+        guard FileManager.default.fileExists(atPath: url.path),
+              let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
+              size > 0 else { return nil }
         return url
     }
 
@@ -211,12 +349,10 @@ final class AppStore: ObservableObject {
               let folder = try? JSONDecoder().decode(ArcaFolder.self, from: data) else {
             return nil
         }
-        // Dokument-Dateien speichern
         for (filename, fileData) in folder.fileData {
             let dest = documentURL(for: filename)
             try? fileData.write(to: dest)
         }
-        // Kategorie hinzufügen falls nicht vorhanden
         var newCategoryName = folder.categoryName
         var counter = 2
         while documentCategories.contains(newCategoryName) {
@@ -224,18 +360,20 @@ final class AppStore: ObservableObject {
             counter += 1
         }
         documentCategories.append(newCategoryName)
-        // Dokumente mit neuer Kategorie hinzufügen
         let importedDocs = folder.documents.map { doc -> DocumentEntry in
-            var d = doc
-            d.id = UUID() // neue ID
-            d.category = newCategoryName
-            return d
+            var d = doc; d.id = UUID(); d.category = newCategoryName; return d
         }
         documents.append(contentsOf: importedDocs)
+        if let subs = folder.subcategories, !subs.isEmpty {
+            var existing = documentSubcategories[newCategoryName] ?? []
+            for s in subs where !existing.contains(s) { existing.append(s) }
+            documentSubcategories[newCategoryName] = existing
+        }
         return newCategoryName
     }
 
     // MARK: - Notiz Teilen
+
     func exportNote(_ note: NoteEntry) -> URL? {
         let arcaNote = ArcaNote(note: note, exportDate: Date())
         guard let data = try? JSONEncoder().encode(arcaNote) else { return nil }
@@ -259,6 +397,7 @@ final class AppStore: ObservableObject {
     }
 
     // MARK: - Aufgabenliste Teilen
+
     func exportList(_ list: ListEntry) -> URL? {
         let arcaList = ArcaList(list: list, exportDate: Date())
         guard let data = try? JSONEncoder().encode(arcaList) else { return nil }
@@ -283,8 +422,6 @@ final class AppStore: ObservableObject {
 
     // MARK: - Encryption (AES-GCM, password-derived key via HKDF)
 
-    // Format v2: [4 magic "ARCA"] + [16 random salt] + [AES-GCM combined]
-    // Format v1 (legacy): raw AES-GCM combined with fixed salt
     private static let backupMagic = Data("ARCA".utf8)
 
     private func encryptData(_ data: Data, password: String) throws -> Data {
@@ -305,7 +442,6 @@ final class AppStore: ObservableObject {
             let box = try AES.GCM.SealedBox(combined: Data(ciphertext))
             return try AES.GCM.open(box, using: key)
         } else {
-            // Legacy format mit festem Salt
             guard let fixedSalt = "ArcaBackupSalt_v1".data(using: .utf8),
                   let passwordData = password.data(using: .utf8) else { throw CryptoError.encryptionFailed }
             let inputKey = SymmetricKey(data: passwordData)
@@ -331,8 +467,8 @@ final class AppStore: ObservableObject {
 
     // MARK: - Dokumente
 
-    func addDocument(title: String, type: DocumentType, filename: String, category: String = "Sonstiges") {
-        let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category)
+    func addDocument(title: String, type: DocumentType, filename: String, category: String = "Sonstiges", subcategory: String = "") {
+        let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category, subcategory: subcategory)
         documents.append(entry)
     }
 
@@ -346,6 +482,10 @@ final class AppStore: ObservableObject {
             var d = doc; if d.category == old { d.category = trimmed }; return d
         }
         if old == importCategoryName { importCategoryName = trimmed }
+        if let subs = documentSubcategories[old] {
+            documentSubcategories[trimmed] = subs
+            documentSubcategories.removeValue(forKey: old)
+        }
     }
 
     func deleteCategory(_ name: String) {
@@ -354,6 +494,41 @@ final class AppStore: ObservableObject {
             var d = doc; if d.category == name { d.category = fallback }; return d
         }
         documentCategories.removeAll { $0 == name }
+        documentSubcategories.removeValue(forKey: name)
+    }
+
+    func addSubcategory(to category: String, name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var subs = documentSubcategories[category] ?? []
+        guard !subs.contains(trimmed) else { return }
+        subs.append(trimmed)
+        documentSubcategories[category] = subs
+    }
+
+    func deleteSubcategory(category: String, name: String) {
+        documents = documents.map { doc in
+            var d = doc
+            if d.category == category && d.subcategory == name { d.subcategory = "" }
+            return d
+        }
+        var subs = documentSubcategories[category] ?? []
+        subs.removeAll { $0 == name }
+        if subs.isEmpty { documentSubcategories.removeValue(forKey: category) }
+        else { documentSubcategories[category] = subs }
+    }
+
+    func renameSubcategory(category: String, old: String, new: String) {
+        let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != old else { return }
+        documents = documents.map { doc in
+            var d = doc
+            if d.category == category && d.subcategory == old { d.subcategory = trimmed }
+            return d
+        }
+        var subs = documentSubcategories[category] ?? []
+        if let idx = subs.firstIndex(of: old) { subs[idx] = trimmed }
+        documentSubcategories[category] = subs
     }
 
     func deleteDocument(_ entry: DocumentEntry) {
@@ -362,12 +537,10 @@ final class AppStore: ObservableObject {
         documents.removeAll { $0.id == entry.id }
     }
 
+    /// Gibt die URL einer Dokument-Datei zurück (iCloud oder lokaler Fallback).
     func documentURL(for filename: String) -> URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(filename)
+        filesDirectory.appendingPathComponent(filename)
     }
-
-    // MARK: - Speichern
 
     // MARK: - Widget-Daten
 
@@ -383,97 +556,84 @@ final class AppStore: ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    // MARK: - Speichern
+
     private func saveVault() {
-        let itemsWithoutPasswords = vaultItems.map {
-            VaultEntry(
-                id: $0.id,
-                title: $0.title,
-                username: $0.username,
-                password: "",
-                url: $0.url,
-                isFavorite: $0.isFavorite,
-                dateCreated: $0.dateCreated,
-                colorTag: $0.colorTag
-            )
+        let withoutPasswords = vaultItems.map {
+            VaultEntry(id: $0.id, title: $0.title, username: $0.username,
+                       password: "", url: $0.url, isFavorite: $0.isFavorite,
+                       dateCreated: $0.dateCreated, colorTag: $0.colorTag)
         }
-        if let encoded = try? JSONEncoder().encode(itemsWithoutPasswords) {
-            UserDefaults.standard.set(encoded, forKey: "vaultItems")
-        }
+        saveJSON(withoutPasswords, key: "vaultItems")
+        // Passwörter im iCloud Keychain (synchronizable: true → geräteübergreifend)
         for item in vaultItems {
-            KeychainManager.shared.save(key: "vault_\(item.id)", value: item.password)
+            KeychainManager.shared.save(key: "vault_\(item.id)", value: item.password, synchronizable: true)
         }
         updateWidgetData()
     }
 
     private func saveDocuments() {
-        if let encoded = try? JSONEncoder().encode(documents) {
-            UserDefaults.standard.set(encoded, forKey: "documents")
-        }
+        saveJSON(documents, key: "documents")
         updateWidgetData()
     }
 
     private func saveNotes() {
-        if let encoded = try? JSONEncoder().encode(notes) {
-            UserDefaults.standard.set(encoded, forKey: "notes")
-        }
+        saveJSON(notes, key: "notes")
         updateWidgetData()
     }
 
     private func saveDocumentCategories() {
-        if let encoded = try? JSONEncoder().encode(documentCategories) {
-            UserDefaults.standard.set(encoded, forKey: "documentCategories")
-        }
+        saveJSON(documentCategories, key: "documentCategories")
     }
 
     private func saveCategoryColors() {
-        if let encoded = try? JSONEncoder().encode(categoryColors) {
-            UserDefaults.standard.set(encoded, forKey: "categoryColors")
-        }
+        saveJSON(categoryColors, key: "categoryColors")
     }
 
     private func saveLists() {
-        if let encoded = try? JSONEncoder().encode(lists) {
-            UserDefaults.standard.set(encoded, forKey: "lists")
-        }
+        saveJSON(lists, key: "lists")
         updateWidgetData()
+    }
+
+    private func saveDocumentSubcategories() {
+        saveJSON(documentSubcategories, key: "documentSubcategories")
     }
 
     // MARK: - Laden
 
     private func load() {
-        if let data = UserDefaults.standard.data(forKey: "vaultItems"),
-           var decoded = try? JSONDecoder().decode([VaultEntry].self, from: data) {
+        if var decoded = loadJSON([VaultEntry].self, key: "vaultItems") {
             for i in decoded.indices {
-                decoded[i].password = KeychainManager.shared.load(key: "vault_\(decoded[i].id)") ?? ""
+                // Passwort: zuerst sync Keychain, Fallback auf nicht-sync (alte Geräte)
+                decoded[i].password =
+                    KeychainManager.shared.load(key: "vault_\(decoded[i].id)", synchronizable: true)
+                    ?? KeychainManager.shared.load(key: "vault_\(decoded[i].id)", synchronizable: false)
+                    ?? ""
             }
             vaultItems = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: "documents"),
-           let decoded = try? JSONDecoder().decode([DocumentEntry].self, from: data) {
+        if let decoded = loadJSON([DocumentEntry].self, key: "documents") {
             documents = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: "notes"),
-           let decoded = try? JSONDecoder().decode([NoteEntry].self, from: data) {
+        if let decoded = loadJSON([NoteEntry].self, key: "notes") {
             notes = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: "lists"),
-           let decoded = try? JSONDecoder().decode([ListEntry].self, from: data) {
+        if let decoded = loadJSON([ListEntry].self, key: "lists") {
             lists = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: "documentCategories"),
-           let decoded = try? JSONDecoder().decode([String].self, from: data) {
+        if let decoded = loadJSON([String].self, key: "documentCategories") {
             documentCategories = decoded
-        } else {
+        } else if documentCategories.isEmpty {
             documentCategories = AppStore.defaultCategories
         }
-        if let data = UserDefaults.standard.data(forKey: "categoryColors"),
-           let decoded = try? JSONDecoder().decode([String: Int].self, from: data) {
+        if let decoded = loadJSON([String: Int].self, key: "categoryColors") {
             categoryColors = decoded
+        }
+        if let decoded = loadJSON([String: [String]].self, key: "documentSubcategories") {
+            documentSubcategories = decoded
         }
         updateWidgetData()
     }
-
-    // MARK: - Funktionen
 
     // MARK: - Listen
 
@@ -515,26 +675,26 @@ final class AppStore: ObservableObject {
         }
     }
 
-    // MARK: - Schnellzugriff (Quick Access auf Home-Screen)
+    // MARK: - Schnellzugriff
 
     func pinDocumentForQuickAccess(_ doc: DocumentEntry) {
-        UserDefaults.standard.set("doc", forKey: "quickAccessKind")
+        UserDefaults.standard.set("doc",            forKey: "quickAccessKind")
         UserDefaults.standard.set(doc.id.uuidString, forKey: "quickAccessId")
-        UserDefaults.standard.set(doc.title, forKey: "quickAccessTitle")
+        UserDefaults.standard.set(doc.title,         forKey: "quickAccessTitle")
         updateWidgetData()
     }
 
     func pinCategoryForQuickAccess(_ category: String) {
         UserDefaults.standard.set("category", forKey: "quickAccessKind")
-        UserDefaults.standard.set(category, forKey: "quickAccessId")
-        UserDefaults.standard.set(category, forKey: "quickAccessTitle")
+        UserDefaults.standard.set(category,   forKey: "quickAccessId")
+        UserDefaults.standard.set(category,   forKey: "quickAccessTitle")
         updateWidgetData()
     }
 
     func pinNoteForQuickAccess(_ note: NoteEntry) {
-        UserDefaults.standard.set("note", forKey: "quickAccessKind")
-        UserDefaults.standard.set(note.id.uuidString, forKey: "quickAccessId")
-        UserDefaults.standard.set(note.title.isEmpty ? "Notiz" : note.title, forKey: "quickAccessTitle")
+        UserDefaults.standard.set("note",                                           forKey: "quickAccessKind")
+        UserDefaults.standard.set(note.id.uuidString,                              forKey: "quickAccessId")
+        UserDefaults.standard.set(note.title.isEmpty ? "Notiz" : note.title,       forKey: "quickAccessTitle")
         updateWidgetData()
     }
 
@@ -546,11 +706,12 @@ final class AppStore: ObservableObject {
     }
 
     func addVaultEntry(title: String, username: String, password: String, url: String = "", colorTag: Int = 0) {
-        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanTitle    = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanURL      = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanTitle.isEmpty, !cleanPassword.isEmpty else { return }
-        vaultItems.append(VaultEntry(title: cleanTitle, username: cleanUsername, password: cleanPassword, url: cleanURL, colorTag: colorTag))
+        vaultItems.append(VaultEntry(title: cleanTitle, username: cleanUsername,
+                                     password: cleanPassword, url: cleanURL, colorTag: colorTag))
     }
 }

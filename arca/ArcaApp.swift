@@ -82,6 +82,8 @@ struct ArcaApp: App {
                     }
                 }
                 backgroundedAt = nil
+                // Neueste Daten aus iCloud laden (andere Geräte können Änderungen gemacht haben)
+                store.reloadFromCloud()
                 // Kurznotiz-Queue aus Siri verarbeiten
                 processPendingQuickNotes()
                 // Siri-Intent-Navigation auswerten (gesetzt von ArcaIntents.perform())

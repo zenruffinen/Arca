@@ -1,6 +1,6 @@
 //
 //
-//  ARCA 2.2.1
+//  ARCA 2.2.4
 //  Autor: Hans Zen Ruffinen
 //  Ein lokaler Mini-Tresor für Passwörter, Dokumente und Notizen.
 //  Erstellt mit SwiftUI.
@@ -16,34 +16,19 @@ struct ContentView: View {
     var isUnlocked: Bool = true
     @State private var selectedSection: ArcaSection = .home
     @State private var screenHeight: CGFloat = 852   // vernünftiger Fallback, wird sofort überschrieben
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // Reihenfolge der wischbaren Tabs (settings bleibt ausgenommen — öffnet sich per Icon)
     private let swipeSections: [ArcaSection] = [.home, .vault, .documents, .notes, .lists, .settings]
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Group {
-                switch selectedSection {
-                case .home:      HomeView(selectedSection: $selectedSection)
-                case .vault:     VaultView()
-                case .documents: DocumentsView(isUnlocked: isUnlocked)
-                case .notes:     NotesView()
-                case .lists:     ListsView()
-                case .settings:  SettingsView()
-                }
+        Group {
+            if horizontalSizeClass == .regular {
+                iPadLayout
+            } else {
+                iPhoneLayout
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 80) }
-
-            ArcaTabBar(selected: $selectedSection)
         }
-        .ignoresSafeArea(edges: .bottom)
-        .background(
-            GeometryReader { geo in
-                Color.clear.onAppear { screenHeight = geo.size.height }
-                    .onChange(of: geo.size.height) { _, newHeight in screenHeight = newHeight }
-            }
-        )
         .onChange(of: store.pendingSharedURL) { _, url in
             if url != nil { selectedSection = .documents }
         }
@@ -74,6 +59,34 @@ struct ContentView: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
         }
+    }
+
+    // MARK: - iPhone Layout (unverändert)
+
+    private var iPhoneLayout: some View {
+        ZStack(alignment: .bottom) {
+            Group {
+                switch selectedSection {
+                case .home:      HomeView(selectedSection: $selectedSection)
+                case .vault:     VaultView()
+                case .documents: DocumentsView(isUnlocked: isUnlocked)
+                case .notes:     NotesView()
+                case .lists:     ListsView()
+                case .settings:  SettingsView()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 80) }
+
+            ArcaTabBar(selected: $selectedSection)
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .background(
+            GeometryReader { geo in
+                Color.clear.onAppear { screenHeight = geo.size.height }
+                    .onChange(of: geo.size.height) { _, newHeight in screenHeight = newHeight }
+            }
+        )
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .global)
                 .onEnded { value in
@@ -91,6 +104,25 @@ struct ContentView: View {
                     }
                 }
         )
+    }
+
+    // MARK: - iPad Layout
+
+    private var iPadLayout: some View {
+        NavigationSplitView {
+            ArcaIPadSidebar(selectedSection: $selectedSection)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 310)
+        } detail: {
+            switch selectedSection {
+            case .home:      HomeView(selectedSection: $selectedSection)
+            case .vault:     VaultView()
+            case .documents: DocumentsView(isUnlocked: isUnlocked)
+            case .notes:     NotesView()
+            case .lists:     ListsView()
+            case .settings:  SettingsView()
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
     }
 }
 
@@ -165,6 +197,76 @@ struct ArcaTabBar: View {
                 .fill(Color.primary.opacity(0.06))
                 .frame(height: 0.5)
         }
+    }
+}
+
+// MARK: - iPad Sidebar
+
+struct ArcaIPadSidebar: View {
+    @Binding var selectedSection: ArcaSection
+    @EnvironmentObject var store: AppStore
+
+    private struct NavItem {
+        let section: ArcaSection
+        let icon: String
+        let color: Color
+    }
+
+    private var navItems: [NavItem] {
+        [
+            NavItem(section: .home,      icon: "house",     color: .primary),
+            NavItem(section: .vault,     icon: "key",       color: NoteColor.for_(2).accent),
+            NavItem(section: .documents, icon: "doc.text",  color: NoteColor.for_(5).accent),
+            NavItem(section: .notes,     icon: "note.text", color: NoteColor.for_(4).accent),
+            NavItem(section: .lists,     icon: "checklist", color: NoteColor.for_(3).accent),
+            NavItem(section: .settings,  icon: "gearshape", color: .secondary),
+        ]
+    }
+
+    private func count(for section: ArcaSection) -> Int? {
+        switch section {
+        case .vault:     return store.vaultItems.isEmpty ? nil : store.vaultItems.count
+        case .documents: return store.documents.isEmpty  ? nil : store.documents.count
+        case .notes:     return store.notes.isEmpty      ? nil : store.notes.count
+        case .lists:     return store.lists.isEmpty      ? nil : store.lists.count
+        default:         return nil
+        }
+    }
+
+    var body: some View {
+        List {
+            ForEach(navItems, id: \.section) { item in
+                let isSelected = selectedSection == item.section
+                Button {
+                    selectedSection = item.section
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: item.icon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(isSelected ? .white : item.color)
+                            .frame(width: 30, height: 30)
+                            .background(
+                                isSelected ? item.color : item.color.opacity(0.12),
+                                in: RoundedRectangle(cornerRadius: 8)
+                            )
+                        Text(item.section.rawValue)
+                            .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(Color.primary)
+                        Spacer()
+                        if let n = count(for: item.section) {
+                            Text(n > 99 ? "99+" : "\(n)")
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(isSelected ? Color.primary.opacity(0.07) : Color.clear)
+            }
+        }
+        .listStyle(.sidebar)
+        .navigationTitle("Arca")
     }
 }
 
@@ -257,11 +359,12 @@ struct HomeView: View {
     @State private var searchText = ""
     @State private var showSettings = false
     @FocusState private var isSearchFocused: Bool
-
     // Schnellzugriff (Quick Access)
     @AppStorage("quickAccessKind") private var quickAccessKind: String = ""
     @AppStorage("quickAccessId") private var quickAccessId: String = ""
     @AppStorage("quickAccessTitle") private var quickAccessTitle: String = ""
+
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // Einblend-Animation — nur beim allerersten Erscheinen
     private static var hasAppeared = false
@@ -334,13 +437,11 @@ struct HomeView: View {
         for l in store.lists {
             all.append(HomeActivityItem(id: l.id, title: l.title, kind: .task, date: l.dateCreated))
         }
-        return Array(all.sorted(by: { $0.date > $1.date }).prefix(2))
+        return Array(all.sorted(by: { $0.date > $1.date }).prefix(1))
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+        VStack(spacing: 0) {
 
                     // Header
                     HStack(alignment: .center, spacing: 12) {
@@ -392,15 +493,8 @@ struct HomeView: View {
                     .offset(y: appeared ? 0 : -16)
                     .animation(enterAnimation(delay: 0.0), value: appeared)
 
-                    // Globale Suchleiste
-                    HomeSearchBar(text: $searchText, focused: $isSearchFocused)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
-                        .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : 12)
-                        .animation(enterAnimation(delay: 0.07), value: appeared)
-
-                    if isSearching {
+                if isSearching {
+                    ScrollView {
                         SearchResultsView(
                             query: searchText,
                             store: store,
@@ -414,7 +508,22 @@ struct HomeView: View {
                             }
                         )
                         .padding(.horizontal, 20)
-                    } else {
+                        .padding(.bottom, 16)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                } else {
+                    ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+
+                    // Ende-zu-Ende Hinweis — rechtsbündig über dem Inhalt
+                    HStack {
+                        Spacer()
+                        Label("Ende-zu-Ende verschlüsselt", systemImage: "checkmark.shield")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color.primary.opacity(0.3))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
 
                     // Schnellzugriff (nur wenn etwas angepinnt ist)
                     if hasQuickAccess {
@@ -431,7 +540,8 @@ struct HomeView: View {
 
                     // 2x2 Grid der Hauptkacheln
                     LazyVGrid(
-                        columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 12),
+                                       count: horizontalSizeClass == .regular ? 4 : 2),
                         spacing: 12
                     ) {
                         ForEach(Array(tiles.enumerated()), id: \.element.id) { idx, tile in
@@ -477,44 +587,45 @@ struct HomeView: View {
                         .animation(enterAnimation(delay: 0.48), value: appeared)
                     }
 
-                    // Status-Banner: Daten sicher
-                    StatusBanner()
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : 24)
-                        .animation(enterAnimation(delay: 0.54), value: appeared)
+                    Spacer().frame(height: 12)
+                    }
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                }
 
-                    } // Ende des isSearching else-Blocks
-                }
-                .padding(.bottom, 16)
+                // Suchleiste unten (immer sichtbar)
+                HomeSearchBar(text: $searchText, focused: $isSearchFocused)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 10)
+                    .background(.ultraThinMaterial)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(enterAnimation(delay: 0.07), value: appeared)
+        }
+        .onAppear {
+            guard !appeared else { return }
+            Self.hasAppeared = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                appeared = true
             }
-            .navigationBarHidden(true)
-            .onAppear {
-                guard !appeared else { return }
-                Self.hasAppeared = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    appeared = true
-                }
-            }
-            .sheet(isPresented: $showQRScanner) {
-                QRScannerSheet()
-                    .environmentObject(store)
-            }
-            .fullScreenCover(isPresented: $showSpiderGame) {
-                SpiderGameView()
-            }
-            .sheet(item: $quickAccessNote) { note in
-                NoteDetailView(note: note)
-                    .environmentObject(store)
-            }
-            .quickLookPreview($quickAccessPreviewURL)
-            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: hasQuickAccess)
-            .animation(.easeInOut(duration: 0.2), value: isSearching)
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-                    .environmentObject(store)
-            }
+        }
+        .sheet(isPresented: $showQRScanner) {
+            QRScannerSheet()
+                .environmentObject(store)
+        }
+        .fullScreenCover(isPresented: $showSpiderGame) {
+            SpiderGameView()
+        }
+        .sheet(item: $quickAccessNote) { note in
+            NoteDetailView(note: note)
+                .environmentObject(store)
+        }
+        .quickLookPreview($quickAccessPreviewURL)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: hasQuickAccess)
+        .animation(.easeInOut(duration: 0.2), value: isSearching)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(store)
         }
     }
 }
@@ -1414,6 +1525,7 @@ struct VaultView: View {
     @State private var renameItemText = ""
     @AppStorage("vaultSortOption") private var sortOption: String = "newest"
     @AppStorage("vaultFilterColor") private var filterColor: Int = -1
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var filteredItems: [VaultEntry] {
         var items = searchText.isEmpty ? store.vaultItems : store.vaultItems.filter {
@@ -1435,97 +1547,117 @@ struct VaultView: View {
     }
 
     var body: some View {
+        if horizontalSizeClass == .regular { iPadVaultBody } else { iPhoneVaultBody }
+    }
+
+    private var iPhoneVaultBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
-
-                // "Neues Passwort" Trigger — immer sichtbar, kompakt
-                Button {
-                    showNewEntry = true
-                } label: {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 9)
-                                .fill(Color.blue.opacity(0.12))
-                                .frame(width: 34, height: 34)
-                            Image(systemName: "plus")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.blue)
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Neues Passwort")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            Text("Kategorie · Zugangsdaten · Passwort")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.secondary.opacity(0.6))
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(.plain)
+                AddTriggerButton(
+                    label: "Neues Passwort",
+                    subtitle: "Kategorie · Zugangsdaten · Passwort",
+                    icon: "plus"
+                ) { showNewEntry = true }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-
-                // Liste — voller Raum
+                .padding(.top, 8)
+                .padding(.bottom, 4)
                 vaultList
             }
-            .navigationTitle("Passwörter")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) { vaultTrailingToolbar }
+            }
+            .sheet(isPresented: $showNewEntry) { vaultNewEntrySheet }
+            .sheet(item: $selectedItem) { item in VaultDetailView(item: item) }
+        }
+    }
+
+    private var iPadVaultBody: some View {
+        HStack(spacing: 0) {
+            NavigationStack {
+                VStack(spacing: 0) {
+                    AddTriggerButton(
+                        label: "Neues Passwort",
+                        subtitle: "Kategorie · Zugangsdaten · Passwort",
+                        icon: "plus"
+                    ) { showNewEntry = true }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    vaultList
+                }
+                .navigationTitle("Passwörter")
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) { vaultTrailingToolbar }
+                }
+                .sheet(isPresented: $showNewEntry) { vaultNewEntrySheet }
+            }
+            .frame(width: 360)
+            Divider()
+            if let item = selectedItem {
+                VaultDetailView(item: item)
+                    .id(item.id)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(NoteColor.for_(2).accent.opacity(0.35))
+                    Text("Eintrag auswählen")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.secondarySystemBackground))
+            }
+        }
+    }
+
+    private var vaultTrailingToolbar: some View {
+        HStack(spacing: 6) {
+            let weakCount = store.vaultItems.filter { $0.password.count < 8 }.count
+            let passwords = store.vaultItems.map { $0.password }
+            let dupeCount = passwords.count - Set(passwords).count
+            let total = weakCount + dupeCount
+            if total > 0 {
+                Button { showSecurityAlert = true } label: {
+                    Label("\(total)", systemImage: "exclamationmark.shield.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.red)
+                        .clipShape(Capsule())
+                }
+                .alert("Sicherheitshinweis", isPresented: $showSecurityAlert) {
+                    Button("OK") {}
+                } message: {
                     let weakCount = store.vaultItems.filter { $0.password.count < 8 }.count
                     let passwords = store.vaultItems.map { $0.password }
                     let dupeCount = passwords.count - Set(passwords).count
-                    let total = weakCount + dupeCount
-                    if total > 0 {
-                        Button {
-                            showSecurityAlert = true
-                        } label: {
-                            Label("\(total)", systemImage: "exclamationmark.shield.fill")
-                                .font(.caption.bold())
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.red)
-                                .clipShape(Capsule())
-                        }
-                        .alert("Sicherheitshinweis", isPresented: $showSecurityAlert) {
-                            Button("OK") {}
-                        } message: {
-                            let weakCount = store.vaultItems.filter { $0.password.count < 8 }.count
-                            let passwords = store.vaultItems.map { $0.password }
-                            let dupeCount = passwords.count - Set(passwords).count
-                            let lines = [
-                                weakCount > 0 ? "• \(weakCount) schwache\(weakCount == 1 ? "s" : "") Passwort\(weakCount == 1 ? "" : "wörter") (kürzer als 8 Zeichen)" : nil,
-                                dupeCount > 0 ? "• \(dupeCount) mehrfach verwendete\(dupeCount == 1 ? "s" : "") Passwort\(dupeCount == 1 ? "" : "wörter")" : nil
-                            ].compactMap { $0 }
-                            Text(lines.joined(separator: "\n"))
-                        }
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    sortFilterMenu
+                    let lines = [
+                        weakCount > 0 ? "• \(weakCount) schwache\(weakCount == 1 ? "s" : "") Passwort\(weakCount == 1 ? "" : "wörter") (kürzer als 8 Zeichen)" : nil,
+                        dupeCount > 0 ? "• \(dupeCount) mehrfach verwendete\(dupeCount == 1 ? "s" : "") Passwort\(dupeCount == 1 ? "" : "wörter")" : nil
+                    ].compactMap { $0 }
+                    Text(lines.joined(separator: "\n"))
                 }
             }
-            .sheet(isPresented: $showNewEntry) {
-                NewVaultEntrySheet { title, username, password, url, color in
-                    store.addVaultEntry(title: title, username: username,
-                                       password: password, url: url, colorTag: color)
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    showNewEntry = false
-                }
-            }
-            .sheet(item: $selectedItem) { item in
-                VaultDetailView(item: item)
-            }
+            sortFilterMenu
+        }
+    }
+
+    @ViewBuilder
+    private var vaultNewEntrySheet: some View {
+        NewVaultEntrySheet { title, username, password, url, color in
+            store.addVaultEntry(title: title, username: username,
+                               password: password, url: url, colorTag: color)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            showNewEntry = false
         }
     }
 
@@ -1547,6 +1679,45 @@ struct VaultView: View {
                         .listRowSeparator(.visible)
                         .listRowSeparatorTint(Color.primary.opacity(0.06))
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
+                        .contextMenu {
+                            Button {
+                                renameItemText = item.title
+                                renamingItem = item
+                            } label: {
+                                Label("Umbenennen", systemImage: "pencil")
+                            }
+                            Menu {
+                                ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
+                                    Button {
+                                        if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
+                                            store.vaultItems[i].colorTag = idx
+                                        }
+                                    } label: {
+                                        Label(NoteColor.palette[idx].name,
+                                              systemImage: item.colorTag == idx ? "checkmark.circle.fill" : "circle.fill")
+                                    }
+                                }
+                            } label: {
+                                Label("Farbe ändern", systemImage: "paintpalette")
+                            }
+                            Divider()
+                            Button {
+                                if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
+                                    store.vaultItems[idx].isFavorite.toggle()
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                }
+                            } label: {
+                                Label(item.isFavorite ? "Lösen" : "Anpinnen",
+                                      systemImage: item.isFavorite ? "pin.slash" : "pin.fill")
+                            }
+                            Divider()
+                            Button(role: .destructive) {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                store.vaultItems.removeAll { $0.id == item.id }
+                            } label: {
+                                Label("Löschen", systemImage: "trash")
+                            }
+                        }
                         .swipeActions(edge: .leading) {
                             Button {
                                 if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
@@ -2267,6 +2438,12 @@ func categoryColor(_ name: String, overrides: [String: Int] = [:]) -> NoteColor 
     return NoteColor.for_(hash % NoteColor.palette.count)
 }
 
+// Helper-Struct für Untergruppen-Operationen (Tuples können nicht direkt als @State verwendet werden)
+struct SubcatTarget {
+    var category: String
+    var name: String
+}
+
 // Quick-Action-Quellen für Dokument-Import
 struct DocSource: Identifiable {
     let id: String
@@ -2288,6 +2465,8 @@ struct DocSource: Identifiable {
 struct DocumentsView: View {
     @EnvironmentObject var store: AppStore
     var isUnlocked: Bool = true
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedDoc: DocumentEntry? = nil
     @State private var showAddMenu = false
     @State private var pendingSource: DocSource.Action? = nil
     @State private var showFilePicker = false
@@ -2321,6 +2500,14 @@ struct DocumentsView: View {
     @State private var renamingCategory: String? = nil
     @State private var categoryRenameText = ""
     @State private var showCategoryRename = false
+
+    // Untergruppen-Zustand
+    @State private var collapsedSubcategories: Set<String> = []
+    @State private var addingSubcategoryTo: String? = nil
+    @State private var newSubcategoryName = ""
+    @State private var renamingSubcat: SubcatTarget? = nil
+    @State private var subcatRenameText = ""
+    @State private var deletingSubcat: SubcatTarget? = nil
 
     // Aufgeklappt/Zugeklappt-Zustand pro Kategorie (persistent)
     @State private var collapsedCategories: Set<String> = DocumentsView.loadCollapsed()
@@ -2366,22 +2553,47 @@ struct DocumentsView: View {
         }
     }
 
+    private func printDocument(_ doc: DocumentEntry) {
+        let url = store.documentURL(for: doc.filename)
+        let printInfo = UIPrintInfo(dictionary: nil)
+        printInfo.jobName = doc.title
+        printInfo.outputType = doc.type == .image ? .photo : .general
+        let controller = UIPrintInteractionController.shared
+        controller.printInfo = printInfo
+        if doc.type == .image, let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+            controller.printingItem = image
+        } else {
+            controller.printingItem = url
+        }
+        controller.present(animated: true)
+    }
+
     var body: some View {
+        if horizontalSizeClass == .regular { iPadDocumentsBody } else { iPhoneDocumentsBody }
+    }
+
+    // MARK: - iPhone Layout (unverändert)
+
+    private var iPhoneDocumentsBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Trigger
-                AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Foto · Text", icon: "doc.badge.plus") {
+                AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Foto · Text", icon: "plus") {
                     showAddMenu = true
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
 
                 documentsList
             }
-            .navigationTitle("Dokumente")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Image(systemName: "doc.text.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showCategoryManager = true
@@ -2504,6 +2716,239 @@ struct DocumentsView: View {
         }
     }
 
+    // MARK: - iPad Layout (Master-Detail)
+
+    private var iPadDocumentsBody: some View {
+        HStack(spacing: 0) {
+            NavigationStack {
+                VStack(spacing: 0) {
+                    AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Foto · Text", icon: "plus") {
+                        showAddMenu = true
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+
+                    documentsList
+                }
+                .navigationTitle("Dokumente")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Image(systemName: "doc.text.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button { showCategoryManager = true } label: {
+                            Image(systemName: "folder.badge.gearshape")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .sheet(isPresented: $showAddMenu, onDismiss: {
+                    if let src = pendingSource {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { handleImport(src) }
+                        pendingSource = nil
+                    }
+                }) { NewDocumentSourceSheet { action in pendingSource = action; showAddMenu = false } }
+                .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf]) { handleFileImport(result: $0, type: .pdf) }
+                .sheet(isPresented: $showImagePicker) { ImagePickerView { prepareImage($0) } }
+                .sheet(isPresented: $showScanner) {
+                    DocumentScannerView { pdfURL in
+                        let filename = "\(UUID().uuidString).pdf"
+                        let dest = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
+                        try? FileManager.default.copyItem(at: pdfURL, to: dest)
+                        pendingTitle = "Scan \(Date().formatted(date: .abbreviated, time: .omitted))"
+                        pendingFilename = filename; pendingType = .pdf
+                        pendingCategory = store.documentCategories.last ?? "Sonstiges"
+                        showScanner = false; showCategoryPicker = true
+                    }
+                }
+                .sheet(isPresented: $showTextInput) {
+                    TextDocumentInputView(title: $textTitle, content: $textContent, category: $textCategory) {
+                        saveTextDocument(); showTextInput = false
+                    }
+                }
+                .sheet(isPresented: $showCategoryPicker) {
+                    DocumentSaveSheet(title: $pendingTitle, category: $pendingCategory) {
+                        store.addDocument(title: pendingTitle, type: pendingType, filename: pendingFilename, category: pendingCategory)
+                        showCategoryPicker = false
+                    } onCancel: {
+                        let dest = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(pendingFilename)
+                        try? FileManager.default.removeItem(at: dest)
+                        showCategoryPicker = false
+                    }
+                }
+                .sheet(isPresented: $showCategoryManager) { DocumentCategoryManagerView() }
+                .sheet(isPresented: Binding(get: { colorPickerCategory != nil }, set: { if !$0 { colorPickerCategory = nil } })) {
+                    if let cat = colorPickerCategory {
+                        CategoryColorPickerSheet(categoryName: cat, current: store.categoryColors[cat]) { idx in
+                            if let idx { store.categoryColors[cat] = idx } else { store.categoryColors.removeValue(forKey: cat) }
+                            colorPickerCategory = nil
+                        }
+                    }
+                }
+                .alert("Gruppe löschen", isPresented: Binding(get: { deletingCategory != nil }, set: { if !$0 { deletingCategory = nil } })) {
+                    Button("Dokumente behalten") { if let c = deletingCategory { store.deleteCategory(c) }; deletingCategory = nil }
+                    Button("Dokumente mitlöschen", role: .destructive) {
+                        if let c = deletingCategory {
+                            store.documents.filter { $0.category == c }.forEach { store.deleteDocument($0) }
+                            store.documentCategories.removeAll { $0 == c }
+                        }
+                        deletingCategory = nil
+                    }
+                    Button("Abbrechen", role: .cancel) { deletingCategory = nil }
+                } message: {
+                    if let c = deletingCategory {
+                        let n = store.documents.filter { $0.category == c }.count
+                        Text("\(c) enthält \(n) \(n == 1 ? "Dokument" : "Dokumente").")
+                    }
+                }
+                .alert("Import fehlgeschlagen", isPresented: $showImportError) {
+                    Button("OK", role: .cancel) {}
+                } message: { Text("Die Datei konnte nicht importiert werden.") }
+            }
+            .frame(width: 380)
+
+            Divider()
+
+            if let doc = selectedDoc {
+                DocumentDetailPanel(doc: doc)
+                    .id(doc.id)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 44))
+                        .foregroundStyle(Color.orange.opacity(0.35))
+                    Text("Dokument auswählen")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.secondarySystemBackground))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func documentRow(_ doc: DocumentEntry, indented: Bool = false) -> some View {
+        Button {
+            if horizontalSizeClass == .regular {
+                selectedDoc = doc
+            } else if doc.type == .image {
+                previewImageURL = store.documentURL(for: doc.filename)
+            } else {
+                previewURL = store.documentURL(for: doc.filename)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(docTypeColor(doc.type))
+                    .frame(width: 8, height: 8)
+                if doc.type == .image {
+                    DocThumbnail(url: store.documentURL(for: doc.filename))
+                } else {
+                    Image(systemName: doc.type == .pdf ? "doc.fill" : "doc.text.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(docTypeColor(doc.type))
+                }
+                Text(doc.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.vertical, 4)
+        }
+        .foregroundStyle(.primary)
+        .listRowBackground(Color(.secondarySystemBackground))
+        .listRowSeparator(.visible)
+        .listRowSeparatorTint(Color.primary.opacity(0.06))
+        .listRowInsets(EdgeInsets(top: 0, leading: indented ? 36 : 16, bottom: 0, trailing: 12))
+        .contextMenu {
+            Button {
+                renameText = doc.title
+                renamingDoc = doc
+            } label: {
+                Label("Umbenennen", systemImage: "pencil")
+            }
+            Menu {
+                ForEach(store.documentCategories, id: \.self) { targetCategory in
+                    let subcats = store.documentSubcategories[targetCategory] ?? []
+                    if subcats.isEmpty {
+                        Button {
+                            if let idx = store.documents.firstIndex(where: { $0.id == doc.id }) {
+                                store.documents[idx].category = targetCategory
+                                store.documents[idx].subcategory = ""
+                            }
+                        } label: {
+                            Label(targetCategory, systemImage: categoryIcon(targetCategory))
+                        }
+                    } else {
+                        Menu {
+                            Button {
+                                if let idx = store.documents.firstIndex(where: { $0.id == doc.id }) {
+                                    store.documents[idx].category = targetCategory
+                                    store.documents[idx].subcategory = ""
+                                }
+                            } label: {
+                                Label("Direkt in \(targetCategory)", systemImage: "folder")
+                            }
+                            Divider()
+                            ForEach(subcats, id: \.self) { subcat in
+                                Button {
+                                    if let idx = store.documents.firstIndex(where: { $0.id == doc.id }) {
+                                        store.documents[idx].category = targetCategory
+                                        store.documents[idx].subcategory = subcat
+                                    }
+                                } label: {
+                                    Label(subcat, systemImage: "folder.fill")
+                                }
+                            }
+                        } label: {
+                            Label(targetCategory, systemImage: categoryIcon(targetCategory))
+                        }
+                    }
+                }
+            } label: {
+                Label("Verschieben nach…", systemImage: "folder.fill")
+            }
+            Divider()
+            Button {
+                if let url = store.exportDocument(doc) {
+                    shareItem = ShareURLItem(url: url)
+                }
+            } label: {
+                Label("An Arca-Nutzer senden", systemImage: "person.2.fill")
+            }
+            Button {
+                shareItem = ShareURLItem(url: store.documentURL(for: doc.filename))
+            } label: {
+                Label("Als Datei teilen", systemImage: "square.and.arrow.up")
+            }
+            Button {
+                printDocument(doc)
+            } label: {
+                Label("Drucken", systemImage: "printer")
+            }
+            Divider()
+            Button {
+                store.pinDocumentForQuickAccess(doc)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } label: {
+                Label("Auf Start anpinnen", systemImage: "pin.fill")
+            }
+            Divider()
+            Button(role: .destructive) {
+                store.deleteDocument(doc)
+            } label: {
+                Label("Löschen", systemImage: "trash")
+            }
+        }
+    }
+
     private var documentsList: some View {
         ScrollViewReader { proxy in
         List {
@@ -2551,16 +2996,31 @@ struct DocumentsView: View {
                                 .buttonStyle(.plain)
                                 .contextMenu {
                                     Button {
-                                        store.pinCategoryForQuickAccess(category)
-                                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                        categoryRenameText = category
+                                        renamingCategory = category
+                                        showCategoryRename = true
                                     } label: {
-                                        Label("Auf Start anpinnen", systemImage: "pin.fill")
+                                        Label("Umbenennen", systemImage: "pencil")
                                     }
-
                                     Button {
                                         colorPickerCategory = category
                                     } label: {
                                         Label("Farbe ändern", systemImage: "paintpalette")
+                                    }
+                                    Button {
+                                        newSubcategoryName = ""
+                                        addingSubcategoryTo = category
+                                    } label: {
+                                        Label("Untergruppe hinzufügen", systemImage: "folder.badge.plus")
+                                    }
+
+                                    Divider()
+
+                                    Button {
+                                        store.pinCategoryForQuickAccess(category)
+                                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                    } label: {
+                                        Label("Auf Start anpinnen", systemImage: "pin.fill")
                                     }
 
                                     Divider()
@@ -2587,6 +3047,16 @@ struct DocumentsView: View {
                                         } label: {
                                             Label("Nach unten", systemImage: "arrow.down")
                                         }
+                                    }
+
+                                    Divider()
+
+                                    Button {
+                                        if let url = store.exportFolder(category: category) {
+                                            shareItem = ShareURLItem(url: url)
+                                        }
+                                    } label: {
+                                        Label("Gruppe teilen", systemImage: "person.2.fill")
                                     }
 
                                     Divider()
@@ -2631,78 +3101,86 @@ struct DocumentsView: View {
 
                             // ── Dokument-Zeilen (nur wenn aufgeklappt) ──
                             if !isCollapsed {
-                                ForEach(docs) { doc in
-                                    Button {
-                                        if doc.type == .image {
-                                            previewImageURL = store.documentURL(for: doc.filename)
-                                        } else {
-                                            previewURL = store.documentURL(for: doc.filename)
-                                        }
-                                    } label: {
-                                        HStack(spacing: 12) {
-                                            Circle()
-                                                .fill(docTypeColor(doc.type))
-                                                .frame(width: 8, height: 8)
-                                            if doc.type == .image {
-                                                DocThumbnail(url: store.documentURL(for: doc.filename))
-                                            } else {
-                                                Image(systemName: doc.type == .pdf ? "doc.fill" : "doc.text.fill")
-                                                    .font(.system(size: 12, weight: .semibold))
-                                                    .foregroundStyle(docTypeColor(doc.type))
-                                            }
-                                            Text(doc.title)
-                                                .font(.system(size: 15, weight: .medium))
-                                                .foregroundStyle(.primary)
-                                                .lineLimit(1)
-                                            Spacer()
-                                        }
-                                        .padding(.vertical, 4)
-                                    }
-                                    .foregroundStyle(.primary)
-                                    .listRowBackground(Color(.secondarySystemBackground))
-                                    .listRowSeparator(.visible)
-                                    .listRowSeparatorTint(Color.primary.opacity(0.06))
-                                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
-                                    .contextMenu {
-                                        Button {
-                                            renameText = doc.title
-                                            renamingDoc = doc
-                                        } label: {
-                                            Label("Umbenennen", systemImage: "pencil")
-                                        }
-                                        Menu {
-                                            ForEach(store.documentCategories.filter { $0 != doc.category }, id: \.self) { targetCategory in
-                                                Button {
-                                                    var updated = doc
-                                                    updated.category = targetCategory
-                                                    if let idx = store.documents.firstIndex(where: { $0.id == doc.id }) {
-                                                        store.documents[idx] = updated
-                                                    }
-                                                } label: {
-                                                    Label(targetCategory, systemImage: categoryIcon(targetCategory))
-                                                }
-                                            }
-                                        } label: {
-                                            Label("Verschieben nach…", systemImage: "folder.fill")
-                                        }
-                                        Divider()
-                                        Button {
-                                            store.pinDocumentForQuickAccess(doc)
-                                            UINotificationFeedbackGenerator().notificationOccurred(.success)
-                                        } label: {
-                                            Label("Auf Start anpinnen", systemImage: "pin.fill")
-                                        }
-                                        Divider()
-                                        Button(role: .destructive) {
-                                            store.deleteDocument(doc)
-                                        } label: {
-                                            Label("Löschen", systemImage: "trash")
-                                        }
-                                    }
+                                let subcats = store.documentSubcategories[category] ?? []
+                                let rootDocs = docs.filter { $0.subcategory.isEmpty }
+
+                                // Dokumente direkt in der Kategorie (ohne Untergruppe)
+                                ForEach(rootDocs) { doc in
+                                    documentRow(doc)
                                 }
                                 .onDelete { indexSet in
-                                    let toDelete = indexSet.map { docs[$0] }
+                                    let toDelete = indexSet.map { rootDocs[$0] }
                                     toDelete.forEach { store.deleteDocument($0) }
+                                }
+
+                                // Untergruppen-Header + ihre Dokumente
+                                ForEach(subcats, id: \.self) { subcat in
+                                    let subcatKey = "\(category)/\(subcat)"
+                                    let isSubcollapsed = collapsedSubcategories.contains(subcatKey)
+                                    let subcatDocs = docs.filter { $0.subcategory == subcat }
+
+                                    // Untergruppen-Header-Zeile
+                                    HStack(spacing: 0) {
+                                        // Farbiger linker Streifen
+                                        Rectangle()
+                                            .fill(catColor.accent)
+                                            .frame(width: 3)
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.22)) {
+                                                if isSubcollapsed { collapsedSubcategories.remove(subcatKey) }
+                                                else { collapsedSubcategories.insert(subcatKey) }
+                                            }
+                                        } label: {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "chevron.right")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundStyle(catColor.accent)
+                                                    .rotationEffect(.degrees(isSubcollapsed ? 0 : 90))
+                                                    .animation(.easeInOut(duration: 0.22), value: isSubcollapsed)
+                                                Image(systemName: "folder.fill")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .foregroundStyle(catColor.accent)
+                                                Text(subcat)
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundStyle(.primary)
+                                                Spacer()
+                                                Text("\(subcatDocs.count)")
+                                                    .font(.caption.weight(.bold))
+                                                    .foregroundStyle(catColor.accent)
+                                                    .padding(.horizontal, 7)
+                                                    .padding(.vertical, 2)
+                                                    .background(catColor.bg.opacity(0.9), in: Capsule())
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .contextMenu {
+                                            Button {
+                                                subcatRenameText = subcat
+                                                renamingSubcat = SubcatTarget(category: category, name: subcat)
+                                            } label: { Label("Umbenennen", systemImage: "pencil") }
+                                            Divider()
+                                            Button(role: .destructive) {
+                                                deletingSubcat = SubcatTarget(category: category, name: subcat)
+                                            } label: { Label("Untergruppe löschen", systemImage: "trash") }
+                                        }
+                                    }
+                                    .padding(.vertical, 7)
+                                    .listRowBackground(catColor.bg.opacity(0.18))
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 0))
+
+                                    // Dokumente in dieser Untergruppe
+                                    if !isSubcollapsed {
+                                        ForEach(subcatDocs) { doc in
+                                            documentRow(doc, indented: true)
+                                        }
+                                        .onDelete { indexSet in
+                                            let toDelete = indexSet.map { subcatDocs[$0] }
+                                            toDelete.forEach { store.deleteDocument($0) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2774,6 +3252,55 @@ struct DocumentsView: View {
                     renamingCategory = nil
                 }
                 Button("Abbrechen", role: .cancel) { renamingCategory = nil }
+            }
+            // Untergruppe hinzufügen Alert
+            .alert("Untergruppe hinzufügen", isPresented: Binding(
+                get: { addingSubcategoryTo != nil },
+                set: { if !$0 { addingSubcategoryTo = nil } }
+            )) {
+                TextField("Name der Untergruppe", text: $newSubcategoryName)
+                Button("Hinzufügen") {
+                    if let cat = addingSubcategoryTo {
+                        store.addSubcategory(to: cat, name: newSubcategoryName)
+                    }
+                    addingSubcategoryTo = nil
+                    newSubcategoryName = ""
+                }
+                Button("Abbrechen", role: .cancel) { addingSubcategoryTo = nil }
+            }
+            // Untergruppe umbenennen Alert
+            .alert("Untergruppe umbenennen", isPresented: Binding(
+                get: { renamingSubcat != nil },
+                set: { if !$0 { renamingSubcat = nil } }
+            )) {
+                TextField("Neuer Name", text: $subcatRenameText)
+                Button("Speichern") {
+                    if let r = renamingSubcat {
+                        store.renameSubcategory(category: r.category, old: r.name, new: subcatRenameText)
+                    }
+                    renamingSubcat = nil
+                }
+                Button("Abbrechen", role: .cancel) { renamingSubcat = nil }
+            }
+            // Untergruppe löschen Alert
+            .alert("Untergruppe löschen", isPresented: Binding(
+                get: { deletingSubcat != nil },
+                set: { if !$0 { deletingSubcat = nil } }
+            )) {
+                Button("Dokumente behalten") {
+                    if let d = deletingSubcat { store.deleteSubcategory(category: d.category, name: d.name) }
+                    deletingSubcat = nil
+                }
+                Button("Löschen", role: .destructive) {
+                    if let d = deletingSubcat { store.deleteSubcategory(category: d.category, name: d.name) }
+                    deletingSubcat = nil
+                }
+                Button("Abbrechen", role: .cancel) { deletingSubcat = nil }
+            } message: {
+                if let d = deletingSubcat {
+                    let count = store.documents.filter { $0.category == d.category && $0.subcategory == d.name }.count
+                    Text("Die Untergruppe \"\(d.name)\" enthält \(count) Dokument(e). Dokumente werden in die Hauptgruppe verschoben.")
+                }
             }
             // Eingehende Datei aus Mail / Dateien-App verarbeiten
             .onAppear {
@@ -3056,6 +3583,75 @@ struct ImagePreviewView: View {
     }
 }
 
+// MARK: - DocumentDetailPanel (iPad inline preview)
+
+struct DocumentDetailPanel: View {
+    let doc: DocumentEntry
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        let url = store.documentURL(for: doc.filename)
+        Group {
+            if doc.type == .image {
+                InlineImageView(url: url)
+            } else {
+                QuickLookInlineView(url: url)
+            }
+        }
+        .navigationTitle(doc.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct InlineImageView: View {
+    let url: URL
+    @State private var image: UIImage? = nil
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding()
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
+        .onAppear {
+            DispatchQueue.global(qos: .userInitiated).async {
+                let img = UIImage(contentsOfFile: url.path)
+                DispatchQueue.main.async { image = img }
+            }
+        }
+    }
+}
+
+struct QuickLookInlineView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let vc = QLPreviewController()
+        vc.dataSource = context.coordinator
+        return vc
+    }
+
+    func updateUIViewController(_ vc: QLPreviewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
+
+    class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let url: URL
+        init(url: URL) { self.url = url }
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> any QLPreviewItem {
+            url as NSURL
+        }
+    }
+}
+
 // MARK: - NewDocumentSourceSheet
 
 struct NewDocumentSourceSheet: View {
@@ -3334,8 +3930,10 @@ struct NotesView: View {
     @State private var searchText = ""
     @AppStorage("notesSortOption") private var sortOption: String = "newest"
     @AppStorage("notesFilterColor") private var filterColor: Int = -1
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var renamingNote: NoteEntry? = nil
     @State private var renameNoteText = ""
+    @State private var shareItem: ShareURLItem? = nil
 
     private var filteredNotes: [NoteEntry] {
         var notes = searchText.isEmpty ? store.notes : store.notes.filter {
@@ -3354,21 +3952,28 @@ struct NotesView: View {
     }
 
     var body: some View {
+        if horizontalSizeClass == .regular { iPadNotesBody } else { iPhoneNotesBody }
+    }
+
+    private var iPhoneNotesBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Trigger
-                AddTriggerButton(label: "Neue Notiz", subtitle: "Titel · Text · Farbe", icon: "square.and.pencil") {
+                AddTriggerButton(label: "Neue Notiz", subtitle: "Titel · Text · Farbe", icon: "plus") {
                     showNewNote = true
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-
+                .padding(.top, 8)
+                .padding(.bottom, 4)
                 notesList
             }
-            .navigationTitle("Notizen")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) { sortFilterMenu }
             }
             .sheet(isPresented: $showNewNote) {
@@ -3379,6 +3984,52 @@ struct NotesView: View {
                 }
             }
             .sheet(item: $selectedNote) { note in NoteDetailView(note: note) }
+            .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
+        }
+    }
+
+    private var iPadNotesBody: some View {
+        HStack(spacing: 0) {
+            NavigationStack {
+                VStack(spacing: 0) {
+                    AddTriggerButton(label: "Neue Notiz", subtitle: "Titel · Text · Farbe", icon: "plus") {
+                        showNewNote = true
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    notesList
+                }
+                .navigationTitle("Notizen")
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) { sortFilterMenu }
+                }
+                .sheet(isPresented: $showNewNote) {
+                    NewNoteSheet { title, text, color in
+                        store.addNote(title: title, text: text, colorTag: color)
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        showNewNote = false
+                    }
+                }
+                .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
+            }
+            .frame(width: 340)
+            Divider()
+            if let note = selectedNote {
+                NoteDetailView(note: note)
+                    .id(note.id)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 44))
+                        .foregroundStyle(NoteColor.for_(4).accent.opacity(0.35))
+                    Text("Notiz auswählen")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.secondarySystemBackground))
+            }
         }
     }
 
@@ -3430,10 +4081,45 @@ struct NotesView: View {
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
                         .contextMenu {
                             Button {
+                                renameNoteText = note.title
+                                renamingNote = note
+                            } label: {
+                                Label("Umbenennen", systemImage: "pencil")
+                            }
+                            Menu {
+                                ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
+                                    Button {
+                                        if let i = store.notes.firstIndex(where: { $0.id == note.id }) {
+                                            store.notes[i].colorTag = idx
+                                        }
+                                    } label: {
+                                        Label(NoteColor.palette[idx].name,
+                                              systemImage: note.colorTag == idx ? "checkmark.circle.fill" : "circle.fill")
+                                    }
+                                }
+                            } label: {
+                                Label("Farbe ändern", systemImage: "paintpalette")
+                            }
+                            Button {
+                                if let url = store.exportNote(note) {
+                                    shareItem = ShareURLItem(url: url)
+                                }
+                            } label: {
+                                Label("Teilen", systemImage: "square.and.arrow.up")
+                            }
+                            Divider()
+                            Button {
                                 store.pinNoteForQuickAccess(note)
                                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                             } label: {
                                 Label("Auf Start anpinnen", systemImage: "pin.fill")
+                            }
+                            Divider()
+                            Button(role: .destructive) {
+                                store.notes.removeAll { $0.id == note.id }
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            } label: {
+                                Label("Löschen", systemImage: "trash")
                             }
                         }
                         .swipeActions(edge: .leading) {
@@ -3950,6 +4636,7 @@ struct ListTemplate: Identifiable {
 
 struct ListsView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedList: ListEntry? = nil
     @State private var showNewList = false
     @State private var renamingList: ListEntry? = nil
@@ -3987,24 +4674,32 @@ struct ListsView: View {
     }
 
     var body: some View {
+        if horizontalSizeClass == .regular { iPadListsBody } else { iPhoneListsBody }
+    }
+
+    // MARK: - iPhone Layout (unverändert)
+
+    private var iPhoneListsBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Trigger
-                AddTriggerButton(label: "Neue Taskliste", subtitle: "Name · Vorlage · Farbe", icon: "checklist") {
+                AddTriggerButton(label: "Neue Taskliste", subtitle: "Name · Vorlage · Farbe", icon: "plus") {
                     showNewList = true
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
 
                 listsList
             }
-            .navigationTitle("Tasks")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    sortFilterMenu
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
+                ToolbarItem(placement: .navigationBarTrailing) { sortFilterMenu }
             }
             .sheet(isPresented: $showNewList) {
                 NewListSheet { title, color in
@@ -4013,8 +4708,60 @@ struct ListsView: View {
                     showNewList = false
                 }
             }
-            .sheet(item: $selectedList) { list in
-                ListDetailView(list: list)
+            .sheet(item: $selectedList) { list in ListDetailView(list: list) }
+        }
+    }
+
+    // MARK: - iPad Layout (Master-Detail)
+
+    private var iPadListsBody: some View {
+        HStack(spacing: 0) {
+            NavigationStack {
+                VStack(spacing: 0) {
+                    AddTriggerButton(label: "Neue Taskliste", subtitle: "Name · Vorlage · Farbe", icon: "plus") {
+                        showNewList = true
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+
+                    listsList
+                }
+                .navigationTitle("Tasks")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) { sortFilterMenu }
+                }
+                .sheet(isPresented: $showNewList) {
+                    NewListSheet { title, color in
+                        store.addList(title: title, colorTag: color)
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        showNewList = false
+                    }
+                }
+            }
+            .frame(width: 340)
+
+            Divider()
+
+            if let list = selectedList {
+                ListDetailView(list: list).id(list.id)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 44))
+                        .foregroundStyle(NoteColor.for_(3).accent.opacity(0.35))
+                    Text("Liste auswählen")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.secondarySystemBackground))
             }
         }
     }
@@ -4105,6 +4852,46 @@ struct ListsView: View {
                             .listRowSeparator(.visible)
                             .listRowSeparatorTint(Color.primary.opacity(0.06))
                             .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
+                            .contextMenu {
+                                Button {
+                                    renameText = list.title
+                                    renamingList = list
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isRenameFocused = true }
+                                } label: {
+                                    Label("Umbenennen", systemImage: "pencil")
+                                }
+                                Menu {
+                                    ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
+                                        Button {
+                                            if let i = store.lists.firstIndex(where: { $0.id == list.id }) {
+                                                store.lists[i].colorTag = idx
+                                            }
+                                        } label: {
+                                            Label(NoteColor.palette[idx].name,
+                                                  systemImage: list.colorTag == idx ? "checkmark.circle.fill" : "circle.fill")
+                                        }
+                                    }
+                                } label: {
+                                    Label("Farbe ändern", systemImage: "paintpalette")
+                                }
+                                Divider()
+                                Button {
+                                    if let idx = store.lists.firstIndex(where: { $0.id == list.id }) {
+                                        store.lists[idx].isFavorite.toggle()
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    }
+                                } label: {
+                                    Label(list.isFavorite ? "Lösen" : "Anpinnen",
+                                          systemImage: list.isFavorite ? "pin.slash" : "pin.fill")
+                                }
+                                Divider()
+                                Button(role: .destructive) {
+                                    store.lists.removeAll { $0.id == list.id }
+                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                } label: {
+                                    Label("Löschen", systemImage: "trash")
+                                }
+                            }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     store.lists.removeAll { $0.id == list.id }
@@ -4615,6 +5402,7 @@ struct SettingsView: View {
     @State private var showImportSuccess = false
     @State private var showImportError = false
     @State private var importErrorMessage = ""
+    @State private var showReleaseNotes = false
 
     private var totalTasks: Int { store.lists.reduce(0) { $0 + $1.items.count } }
     private var doneTasks: Int { store.lists.reduce(0) { $0 + $1.items.filter(\.isDone).count } }
@@ -4623,7 +5411,18 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section("Über ARCA") {
-                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.2.1")", systemImage: "app.badge")
+                    Button {
+                        showReleaseNotes = true
+                    } label: {
+                        HStack {
+                            Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.2.4")", systemImage: "app.badge")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .foregroundStyle(.primary)
                     Label("© 2026 Hans Zen Ruffinen", systemImage: "c.circle")
                 }
 
@@ -4662,25 +5461,74 @@ struct SettingsView: View {
                     Text("Deine Daten in Zahlen")
                 }
 
-                // Was ist neu — ganz unten, wer's lesen will scrollt hin
-                Section {
-                    Label("Öffnen mit – Arca-Dateien erscheinen zuverlässig in der Auswahl", systemImage: "square.and.arrow.down.fill")
-                        .font(.footnote)
-                    Label("Backup importieren – Zusammenführen oder Ersetzen wählbar", systemImage: "arrow.triangle.merge")
-                        .font(.footnote)
-                    Label("Siri: Kurznotiz in Arca speichert ohne App zu öffnen", systemImage: "mic.fill")
-                        .font(.footnote)
-                    Label("Siri: Ich habe eine Idee für Arca als neuer Befehl", systemImage: "lightbulb.fill")
-                        .font(.footnote)
-                    Label("Bestätigung beim Speichern per Vibration und Benachrichtigung", systemImage: "checkmark.circle.fill")
-                        .font(.footnote)
-                    Label("Versionsnummer in den Einstellungen wird korrekt angezeigt", systemImage: "app.badge")
-                        .font(.footnote)
-                } header: {
-                    Text("Neu in Version 2.2.1")
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Einstellungen")
+
+            // --- Release Notes Sheet ---
+            .sheet(isPresented: $showReleaseNotes) {
+                NavigationStack {
+                    List {
+                        Section {
+                            Label("iCloud Sync – alle Daten automatisch zwischen iPhone und iPad", systemImage: "icloud.fill")
+                            Label("Passwörter, Notizen, Tasks und Dokumente auf allen Geräten synchron", systemImage: "arrow.triangle.2.circlepath")
+                            Label("Offline voll nutzbar – Sync im Hintergrund sobald Verbindung besteht", systemImage: "wifi.slash")
+                            Label("Bestehende Daten werden automatisch migriert – kein Datenverlust", systemImage: "checkmark.shield.fill")
+                        } header: {
+                            Text("Neu in Version 2.2.4")
+                        }
+
+                        Section {
+                            Label("iPad: Dokumente – Master-Detail-Ansicht mit direkter Vorschau", systemImage: "doc.text.magnifyingglass")
+                            Label("iPad: Tasks – Master-Detail-Ansicht, Liste und Detail nebeneinander", systemImage: "checklist")
+                            Label("iPad: Alle vier Bereiche (Passwörter, Notizen, Dokumente, Tasks) als Master-Detail", systemImage: "rectangle.split.2x1")
+                        } header: {
+                            Text("Version 2.2.3")
+                        }
+
+                        Section {
+                            Label("Einzelne Dokumente teilen, drucken & an Arca-Nutzer senden", systemImage: "square.and.arrow.up.fill")
+                            Label("Untergruppen für Dokumente – volle Hierarchie (Gruppe → Untergruppe → Dokument)", systemImage: "folder.fill.badge.plus")
+                            Label("Kontextmenüs auf allen Seiten komplett modernisiert", systemImage: "contextualmenu.and.cursorarrow")
+                            Label("Farben für Passwörter, Notizen und Listen einzeln änderbar", systemImage: "paintpalette.fill")
+                            Label("Startseite: Header mit Logo und Statistiken fixiert", systemImage: "pin.fill")
+                            Label("Suchleiste ergonomisch unten auf der Startseite", systemImage: "magnifyingglass")
+                            Label("Ende-zu-Ende verschlüsselt – Hinweis über Schnellzugriff", systemImage: "checkmark.shield.fill")
+                            Label("Sicherheitshinweis-Badge auf Passwörter-Seite rechts neben Sortierung", systemImage: "exclamationmark.shield.fill")
+                            Label("Einheitlicher + Button auf allen Seiten", systemImage: "plus.circle.fill")
+                            Label("Seiten-Icons in der Navigationsleiste", systemImage: "rectangle.grid.1x2.fill")
+                            Label("Release Notes hinter dem Versions-Eintrag versteckt", systemImage: "doc.text.magnifyingglass")
+                            Label("Abstände kompakter – mehr Platz für Inhalte", systemImage: "arrow.up.and.down.square")
+                        } header: {
+                            Text("Version 2.2.2")
+                        }
+
+                        Section {
+                            Label("Öffnen mit – Arca-Dateien erscheinen zuverlässig in der Auswahl", systemImage: "square.and.arrow.down.fill")
+                            Label("Backup importieren – Zusammenführen oder Ersetzen wählbar", systemImage: "arrow.triangle.merge")
+                            Label("Siri: Kurznotiz in Arca speichert ohne App zu öffnen", systemImage: "mic.fill")
+                            Label("Siri: Ich habe eine Idee für Arca – neuer Befehl", systemImage: "lightbulb.fill")
+                            Label("Bestätigung beim Speichern per Vibration & Meldung", systemImage: "checkmark.circle.fill")
+                        } header: {
+                            Text("Version 2.2.1")
+                        }
+                    }
+                    .navigationTitle("Release Notes")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Fertig") { showReleaseNotes = false }
+                        }
+                    }
+                }
+            }
 
             // --- Export: password input sheet ---
             .sheet(isPresented: $showExportPasswordSheet, onDismiss: {
