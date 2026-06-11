@@ -105,6 +105,7 @@ enum DocumentType: String, Codable {
     case pdf = "PDF"
     case image = "Bild"
     case text = "Text"
+    case video = "Video"
 }
 
 struct DocumentEntry: Identifiable, Codable, Hashable {

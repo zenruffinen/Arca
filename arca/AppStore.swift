@@ -2,6 +2,8 @@ import SwiftUI
 import Combine
 import CryptoKit
 import WidgetKit
+import AppleArchive
+import System
 
 struct ArcaBackup: Codable {
     var vaultItems: [VaultEntry]
@@ -85,6 +87,16 @@ final class AppStore: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "importCategoryName") }
     }
 
+    /// Stellt sicher, dass die Import-Gruppe existiert, und gibt ihren Namen zurück.
+    @discardableResult
+    func ensureImportCategoryExists() -> String {
+        let name = importCategoryName
+        if !documentCategories.contains(name) {
+            documentCategories.insert(name, at: 0)
+        }
+        return name
+    }
+
     static let defaultCategories = ["Reise", "Papiere", "Rechnungen", "Verträge", "Gesundheit", "Sonstiges"]
 
     // MARK: - iCloud Storage
@@ -124,6 +136,43 @@ final class AppStore: ObservableObject {
         dataDirectory.appendingPathComponent("\(key).json")
     }
 
+    // MARK: - iCloud Download (Platzhalter-Dateien)
+
+    /// Prüft ob eine Dokument-Datei lokal vorliegt. Falls sie nur als iCloud-
+    /// Platzhalter existiert, wird der Download angestossen.
+    /// - Returns: true wenn die Datei sofort verfügbar ist.
+    @discardableResult
+    func ensureFileDownloaded(_ filename: String) -> Bool {
+        let url = filesDirectory.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: url.path) { return true }
+        let placeholder = filesDirectory.appendingPathComponent(".\(filename).icloud")
+        if FileManager.default.fileExists(atPath: placeholder.path) {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        }
+        return false
+    }
+
+    /// Stößt den Download aller noch nicht geladenen iCloud-Dateien an,
+    /// damit Arca komplett offline nutzbar bleibt (z. B. nach Installation auf dem iPad).
+    func downloadAllCloudFiles() {
+        guard cloudContainer != nil else { return }
+        let dirs = [filesDirectory, dataDirectory]
+        DispatchQueue.global(qos: .utility).async {
+            for dir in dirs {
+                guard let files = try? FileManager.default.contentsOfDirectory(
+                    at: dir, includingPropertiesForKeys: nil) else { continue }
+                for f in files where f.lastPathComponent.hasSuffix(".icloud") {
+                    // ".Name.ext.icloud" → "Name.ext"
+                    var name = f.lastPathComponent
+                    name.removeFirst()
+                    name.removeLast(".icloud".count)
+                    let target = dir.appendingPathComponent(name)
+                    try? FileManager.default.startDownloadingUbiquitousItem(at: target)
+                }
+            }
+        }
+    }
+
     // MARK: - Generische JSON I/O mit NSFileCoordinator
 
     private func saveJSON<T: Encodable>(_ value: T, key: String) {
@@ -154,6 +203,28 @@ final class AppStore: ObservableObject {
     init() {
         migrateFromUserDefaultsIfNeeded()
         load()
+        downloadAllCloudFiles()
+        createDefaultListIfNeeded()
+    }
+
+    /// Legt beim ersten Start eine Beispiel-Taskliste an, damit die Funktion
+    /// sofort sichtbar und verständlich ist.
+    private func createDefaultListIfNeeded() {
+        let key = "arcaDefaultListCreated_v1"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        if lists.isEmpty {
+            let demo = ListEntry(
+                title: "Einkaufen",
+                items: [
+                    ChecklistItem(text: "Butter"),
+                    ChecklistItem(text: "Käse"),
+                    ChecklistItem(text: "Milch")
+                ],
+                colorTag: 3
+            )
+            lists.append(demo)
+        }
+        UserDefaults.standard.set(true, forKey: key)
     }
 
     // MARK: - Migration: UserDefaults → iCloud/lokale Dateien (einmalig)
@@ -198,47 +269,80 @@ final class AppStore: ObservableObject {
 
     func reloadFromCloud() {
         load()
+        downloadAllCloudFiles()
     }
 
     // MARK: - Export / Import
 
+    /// Backup-Export, Format v2: verschlüsseltes Apple-Archiv (AEA).
+    /// Speicherschonend — die Dateien werden gestreamt statt in den RAM geladen.
     func exportData(password: String) -> URL? {
-        var fileData: [String: Data] = [:]
-        for doc in documents {
-            let fileURL = documentURL(for: doc.filename)
-            if let data = try? Data(contentsOf: fileURL) {
-                fileData[doc.filename] = data
+        // 1. Staging-Ordner: manifest.json (Metadaten) + files/ (Hardlinks/Kopien)
+        let stage = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ArcaExport_\(UUID().uuidString)")
+        let stageFiles = stage.appendingPathComponent("files")
+        defer { try? FileManager.default.removeItem(at: stage) }
+        do {
+            try FileManager.default.createDirectory(at: stageFiles, withIntermediateDirectories: true)
+            let backup = ArcaBackup(
+                vaultItems: vaultItems,
+                documents: documents,
+                notes: notes,
+                lists: lists,
+                documentCategories: documentCategories,
+                exportDate: Date(),
+                fileData: nil,
+                documentSubcategories: documentSubcategories
+            )
+            let manifest = try JSONEncoder().encode(backup)
+            try manifest.write(to: stage.appendingPathComponent("manifest.json"))
+            for doc in documents {
+                // Falls nur iCloud-Platzhalter: Download anstossen
+                ensureFileDownloaded(doc.filename)
+                let src = documentURL(for: doc.filename)
+                guard FileManager.default.fileExists(atPath: src.path) else { continue }
+                let dst = stageFiles.appendingPathComponent(doc.filename)
+                // Hardlink (kein Platzverbrauch); falls nicht möglich: kopieren
+                if (try? FileManager.default.linkItem(at: src, to: dst)) == nil {
+                    try? FileManager.default.copyItem(at: src, to: dst)
+                }
             }
-        }
+        } catch { return nil }
 
-        let backup = ArcaBackup(
-            vaultItems: vaultItems,
-            documents: documents,
-            notes: notes,
-            lists: lists,
-            documentCategories: documentCategories,
-            exportDate: Date(),
-            fileData: fileData,
-            documentSubcategories: documentSubcategories
-        )
-        guard let plaintext = try? JSONEncoder().encode(backup) else { return nil }
-        guard let encrypted = try? encryptData(plaintext, password: password) else { return nil }
+        // 2. Verschlüsselt archivieren
         let filename = "ArcaBackup_\(Date().formatted(date: .abbreviated, time: .omitted)).arcabackup"
             .replacingOccurrences(of: " ", with: "_")
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? FileManager.default.removeItem(at: url)
-        do { try encrypted.write(to: url) } catch { return nil }
-        guard FileManager.default.fileExists(atPath: url.path),
+        guard archiveDirectory(stage, to: url, password: password),
               let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
-              size > 0 else {
-            return nil
-        }
+              size > 0 else { return nil }
         return url
     }
 
     func importData(from url: URL, password: String, merge: Bool = false) -> Bool {
         guard url.startAccessingSecurityScopedResource() else { return false }
         defer { url.stopAccessingSecurityScopedResource() }
+
+        // Neues Format (v2): verschlüsseltes Apple-Archiv
+        if isAppleEncryptedArchive(url) {
+            guard let extracted = extractArchive(url, password: password) else { return false }
+            defer { try? FileManager.default.removeItem(at: extracted) }
+            guard let manifestData = try? Data(contentsOf: extracted.appendingPathComponent("manifest.json")),
+                  let backup = try? JSONDecoder().decode(ArcaBackup.self, from: manifestData) else { return false }
+            let extractedFiles = extracted.appendingPathComponent("files")
+            if let files = try? FileManager.default.contentsOfDirectory(
+                at: extractedFiles, includingPropertiesForKeys: nil) {
+                for f in files {
+                    let dest = documentURL(for: f.lastPathComponent)
+                    try? FileManager.default.removeItem(at: dest)
+                    try? FileManager.default.copyItem(at: f, to: dest)
+                }
+            }
+            applyBackup(backup, merge: merge)
+            return true
+        }
+
+        // Altes Format (v1): AES-GCM-verschlüsseltes JSON
         guard let encryptedData = try? Data(contentsOf: url),
               let plaintext = try? decryptData(encryptedData, password: password),
               let backup = try? JSONDecoder().decode(ArcaBackup.self, from: plaintext) else {
@@ -252,6 +356,12 @@ final class AppStore: ObservableObject {
             }
         }
 
+        applyBackup(backup, merge: merge)
+        return true
+    }
+
+    /// Übernimmt die Metadaten eines Backups (ersetzen oder zusammenführen).
+    private func applyBackup(_ backup: ArcaBackup, merge: Bool) {
         if merge {
             let existingNoteIDs  = Set(notes.map(\.id))
             let existingDocIDs   = Set(documents.map(\.id))
@@ -283,60 +393,64 @@ final class AppStore: ObservableObject {
                 : backup.documentCategories
             documentSubcategories = backup.documentSubcategories ?? [:]
         }
-        return true
     }
 
     // MARK: - Ordner Teilen
 
     func exportFolder(category: String) -> URL? {
         let docsInCategory = documents.filter { $0.category == category }
-        var fileData: [String: Data] = [:]
-        for doc in docsInCategory {
-            let fileURL = documentURL(for: doc.filename)
-            if let data = try? Data(contentsOf: fileURL) {
-                fileData[doc.filename] = data
-            }
-        }
-        let folder = ArcaFolder(
+        let safeName = category.replacingOccurrences(of: " ", with: "_")
+        return exportFolderArchive(
+            filename: "Arca_\(safeName).arcafolder",
+            docs: docsInCategory,
             categoryName: category,
-            documents: docsInCategory,
-            fileData: fileData,
-            exportDate: Date(),
             subcategories: documentSubcategories[category]
         )
-        guard let data = try? JSONEncoder().encode(folder) else { return nil }
-        let safeName = category.replacingOccurrences(of: " ", with: "_")
-        let filename = "Arca_\(safeName).arcafolder"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? FileManager.default.removeItem(at: url)
-        do { try data.write(to: url) } catch { return nil }
-        guard FileManager.default.fileExists(atPath: url.path),
-              let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
-              size > 0 else { return nil }
-        return url
     }
 
     func exportDocument(_ doc: DocumentEntry) -> URL? {
-        var fileData: [String: Data] = [:]
-        let fileURL = documentURL(for: doc.filename)
-        if let data = try? Data(contentsOf: fileURL) {
-            fileData[doc.filename] = data
-        }
-        let folder = ArcaFolder(
-            categoryName: doc.category,
-            documents: [doc],
-            fileData: fileData,
-            exportDate: Date(),
-            subcategories: documentSubcategories[doc.category]
-        )
-        guard let data = try? JSONEncoder().encode(folder) else { return nil }
         let safeName = doc.title.replacingOccurrences(of: " ", with: "_")
             .replacingOccurrences(of: "/", with: "-")
-        let filename = "Arca_\(safeName).arcafolder"
+        return exportFolderArchive(
+            filename: "Arca_\(safeName).arcafolder",
+            docs: [doc],
+            categoryName: doc.category,
+            subcategories: documentSubcategories[doc.category]
+        )
+    }
+
+    /// Ordner-Export, Format v2: unverschlüsseltes Apple-Archiv mit manifest.json + files/.
+    private func exportFolderArchive(filename: String, docs: [DocumentEntry],
+                                     categoryName: String, subcategories: [String]?) -> URL? {
+        let stage = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ArcaFolderExport_\(UUID().uuidString)")
+        let stageFiles = stage.appendingPathComponent("files")
+        defer { try? FileManager.default.removeItem(at: stage) }
+        do {
+            try FileManager.default.createDirectory(at: stageFiles, withIntermediateDirectories: true)
+            let folder = ArcaFolder(
+                categoryName: categoryName,
+                documents: docs,
+                fileData: [:],          // Dateien liegen im Archiv unter files/
+                exportDate: Date(),
+                subcategories: subcategories
+            )
+            let manifest = try JSONEncoder().encode(folder)
+            try manifest.write(to: stage.appendingPathComponent("manifest.json"))
+            for doc in docs {
+                // Falls nur iCloud-Platzhalter: Download anstossen
+                ensureFileDownloaded(doc.filename)
+                let src = documentURL(for: doc.filename)
+                guard FileManager.default.fileExists(atPath: src.path) else { continue }
+                let dst = stageFiles.appendingPathComponent(doc.filename)
+                if (try? FileManager.default.linkItem(at: src, to: dst)) == nil {
+                    try? FileManager.default.copyItem(at: src, to: dst)
+                }
+            }
+        } catch { return nil }
+
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? FileManager.default.removeItem(at: url)
-        do { try data.write(to: url) } catch { return nil }
-        guard FileManager.default.fileExists(atPath: url.path),
+        guard archiveDirectory(stage, to: url, password: nil),
               let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
               size > 0 else { return nil }
         return url
@@ -345,14 +459,35 @@ final class AppStore: ObservableObject {
     func importFolder(from url: URL) -> String? {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        guard let data = try? Data(contentsOf: url),
-              let folder = try? JSONDecoder().decode(ArcaFolder.self, from: data) else {
-            return nil
+
+        let folder: ArcaFolder
+        if isJSONFile(url) {
+            // Altes Format (v1): JSON mit eingebetteten Dateidaten
+            guard let data = try? Data(contentsOf: url),
+                  let f = try? JSONDecoder().decode(ArcaFolder.self, from: data) else { return nil }
+            folder = f
+            for (filename, fileData) in folder.fileData {
+                let dest = documentURL(for: filename)
+                try? fileData.write(to: dest)
+            }
+        } else {
+            // Neues Format (v2): Apple-Archiv
+            guard let extracted = extractArchive(url, password: nil) else { return nil }
+            defer { try? FileManager.default.removeItem(at: extracted) }
+            guard let manifestData = try? Data(contentsOf: extracted.appendingPathComponent("manifest.json")),
+                  let f = try? JSONDecoder().decode(ArcaFolder.self, from: manifestData) else { return nil }
+            folder = f
+            let extractedFiles = extracted.appendingPathComponent("files")
+            if let files = try? FileManager.default.contentsOfDirectory(
+                at: extractedFiles, includingPropertiesForKeys: nil) {
+                for f in files {
+                    let dest = documentURL(for: f.lastPathComponent)
+                    try? FileManager.default.removeItem(at: dest)
+                    try? FileManager.default.copyItem(at: f, to: dest)
+                }
+            }
         }
-        for (filename, fileData) in folder.fileData {
-            let dest = documentURL(for: filename)
-            try? fileData.write(to: dest)
-        }
+
         var newCategoryName = folder.categoryName
         var counter = 2
         while documentCategories.contains(newCategoryName) {
@@ -418,6 +553,102 @@ final class AppStore: ObservableObject {
         newList.id = UUID()
         lists.append(newList)
         return true
+    }
+
+    // MARK: - Apple-Archiv-Helfer (speicherschonend, gestreamt)
+
+    /// Archiviert einen Ordner in eine Datei — optional passwortverschlüsselt (AEA).
+    private func archiveDirectory(_ dir: URL, to dest: URL, password: String?) -> Bool {
+        try? FileManager.default.removeItem(at: dest)
+        do {
+            guard let fileStream = ArchiveByteStream.fileStream(
+                path: FilePath(dest.path), mode: .writeOnly,
+                options: [.create, .truncate],
+                permissions: FilePermissions(rawValue: 0o644)) else { return false }
+            defer { try? fileStream.close() }
+
+            var targetStream = fileStream
+            var encryptionStream: ArchiveByteStream? = nil
+            if let password {
+                let ctx = ArchiveEncryptionContext(
+                    profile: .hkdf_sha256_aesctr_hmac__scrypt__none,
+                    compressionAlgorithm: .lzfse)
+                try ctx.setPassword(password)
+                guard let es = ArchiveByteStream.encryptionStream(
+                    writingTo: fileStream, encryptionContext: ctx) else { return false }
+                encryptionStream = es
+                targetStream = es
+            }
+            defer { if let s = encryptionStream { try? s.close() } }
+
+            guard let encoder = ArchiveStream.encodeStream(writingTo: targetStream) else { return false }
+            defer { try? encoder.close() }
+
+            try encoder.writeDirectoryContents(
+                archiveFrom: FilePath(dir.path), keySet: .defaultForArchive)
+
+            try encoder.close()
+            if let s = encryptionStream { try? s.close() }
+            try fileStream.close()
+            return true
+        } catch {
+            try? FileManager.default.removeItem(at: dest)
+            return false
+        }
+    }
+
+    /// Entpackt ein Apple-Archiv (optional verschlüsselt) in einen temporären Ordner.
+    private func extractArchive(_ url: URL, password: String?) -> URL? {
+        let outDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ArcaExtract_\(UUID().uuidString)")
+        do {
+            try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+            guard let fileStream = ArchiveByteStream.fileStream(
+                path: FilePath(url.path), mode: .readOnly,
+                options: [], permissions: FilePermissions(rawValue: 0o644)) else { return nil }
+            defer { try? fileStream.close() }
+
+            var sourceStream = fileStream
+            var decryptionStream: ArchiveByteStream? = nil
+            if let password {
+                guard let ctx = ArchiveEncryptionContext(from: fileStream) else { return nil }
+                try ctx.setPassword(password)
+                guard let ds = ArchiveByteStream.decryptionStream(
+                    readingFrom: fileStream, encryptionContext: ctx) else { return nil }
+                decryptionStream = ds
+                sourceStream = ds
+            }
+            defer { if let s = decryptionStream { try? s.close() } }
+
+            guard let decoder = ArchiveStream.decodeStream(readingFrom: sourceStream) else { return nil }
+            defer { try? decoder.close() }
+            guard let extractor = ArchiveStream.extractStream(
+                extractingTo: FilePath(outDir.path),
+                flags: [.ignoreOperationNotPermitted]) else { return nil }
+            defer { try? extractor.close() }
+
+            _ = try ArchiveStream.process(readingFrom: decoder, writingTo: extractor)
+            return outDir
+        } catch {
+            try? FileManager.default.removeItem(at: outDir)
+            return nil
+        }
+    }
+
+    /// Erkennt das neue Backup-Format am AEA-Magic-Header.
+    private func isAppleEncryptedArchive(_ url: URL) -> Bool {
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? fh.close() }
+        guard let magic = try? fh.read(upToCount: 4) else { return false }
+        return magic == Data("AEA1".utf8)
+    }
+
+    /// Erkennt das alte JSON-Format am ersten Zeichen "{".
+    private func isJSONFile(_ url: URL) -> Bool {
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? fh.close() }
+        guard let first = try? fh.read(upToCount: 1) else { return false }
+        return first == Data("{".utf8)
     }
 
     // MARK: - Encryption (AES-GCM, password-derived key via HKDF)
@@ -539,7 +770,18 @@ final class AppStore: ObservableObject {
 
     /// Gibt die URL einer Dokument-Datei zurück (iCloud oder lokaler Fallback).
     func documentURL(for filename: String) -> URL {
-        filesDirectory.appendingPathComponent(filename)
+        let url = filesDirectory.appendingPathComponent(filename)
+        // Selbstheilung: Datei wurde früher fälschlich lokal gespeichert → in den
+        // richtigen Ordner kopieren, damit sie wieder auffindbar ist
+        if !FileManager.default.fileExists(atPath: url.path) {
+            let local = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent(filename)
+            if local.standardizedFileURL != url.standardizedFileURL,
+               FileManager.default.fileExists(atPath: local.path) {
+                try? FileManager.default.copyItem(at: local, to: url)
+            }
+        }
+        return url
     }
 
     // MARK: - Widget-Daten

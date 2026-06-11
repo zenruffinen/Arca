@@ -48,6 +48,7 @@ final class SpeechManager: ObservableObject {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let request = recognitionRequest else { return }
         request.shouldReportPartialResults = true
+        request.addsPunctuation = true   // Kommas bei Sprechpausen (hilft z.B. bei Tasklisten)
 
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)

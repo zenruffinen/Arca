@@ -9,7 +9,9 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import QuickLook
+import QuickLookThumbnailing
 import VisionKit
+import PhotosUI
 
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
@@ -76,7 +78,7 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 80) }
+            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 104) }
 
             ArcaTabBar(selected: $selectedSection)
         }
@@ -90,8 +92,9 @@ struct ContentView: View {
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .global)
                 .onEnded { value in
-                    // Nur reagieren wenn Wisch im unteren Bereich startete
-                    guard value.startLocation.y > screenHeight - 140 else { return }
+                    // Nur reagieren wenn Wisch auf der Tab-Leiste selbst startete —
+                    // sonst frisst die Geste das Wischen auf den untersten Listenzeilen
+                    guard value.startLocation.y > screenHeight - 90 else { return }
                     // Klar horizontale Bewegung
                     guard abs(value.translation.width) > abs(value.translation.height) * 1.2 else { return }
                     guard let idx = swipeSections.firstIndex(of: selectedSection) else { return }
@@ -1752,7 +1755,7 @@ struct VaultView: View {
             get: { renamingItem != nil },
             set: { if !$0 { renamingItem = nil } }
         )) {
-            TextField("Neuer Titel", text: $renameItemText)
+            TextField("Neuer Name", text: $renameItemText)
             Button("Speichern") {
                 if let item = renamingItem {
                     let trimmed = renameItemText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2428,6 +2431,7 @@ func docTypeColor(_ type: DocumentType) -> Color {
     case .pdf:   return .red
     case .image: return .blue
     case .text:  return .green
+    case .video: return .orange
     }
 }
 
@@ -2455,10 +2459,10 @@ struct DocSource: Identifiable {
     enum Action { case scan, pdf, image, text }
 
     static let all: [DocSource] = [
-        DocSource(id: "scan",  icon: "doc.viewfinder", label: "Scannen", colorTag: 4, action: .scan),  // Lila
-        DocSource(id: "pdf",   icon: "doc.fill",       label: "PDF",     colorTag: 1, action: .pdf),   // Rosa
-        DocSource(id: "image", icon: "photo.fill",     label: "Bild",    colorTag: 2, action: .image), // Blau
-        DocSource(id: "text",  icon: "doc.text.fill",  label: "Text",    colorTag: 3, action: .text),  // Grün
+        DocSource(id: "scan",  icon: "doc.viewfinder",            label: "Scannen",        colorTag: 4, action: .scan),  // Lila
+        DocSource(id: "pdf",   icon: "doc.fill",                  label: "PDF",            colorTag: 1, action: .pdf),   // Rosa
+        DocSource(id: "image", icon: "photo.fill.on.rectangle.fill", label: "Fotos / Videos", colorTag: 2, action: .image), // Blau
+        DocSource(id: "text",  icon: "doc.text.fill",             label: "Text",           colorTag: 3, action: .text),  // Grün
     ]
 }
 
@@ -2486,6 +2490,11 @@ struct DocumentsView: View {
     @State private var pendingType: DocumentType = .pdf
     @State private var pendingCategory: String = "Sonstiges"
     @State private var showCategoryPicker = false
+    @State private var scanReady = false
+    @State private var downloadingDoc: DocumentEntry? = nil
+    @State private var showDownloadError = false
+    @State private var filePickerTypes: [UTType] = [.pdf]
+    @State private var filePickerDocType: DocumentType = .pdf
     @State private var showCategoryManager = false
     @State private var renamingDoc: DocumentEntry? = nil
     @State private var renameText = ""
@@ -2547,9 +2556,9 @@ struct DocumentsView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         switch action {
         case .scan:  showScanner = true
-        case .pdf:   showFilePicker = true
+        case .pdf:   filePickerTypes = [.pdf]; filePickerDocType = .pdf; showFilePicker = true
         case .image: showImagePicker = true
-        case .text:  showTextInput = true
+        case .text:  textCategory = store.ensureImportCategoryExists(); showTextInput = true
         }
     }
 
@@ -2569,7 +2578,15 @@ struct DocumentsView: View {
     }
 
     var body: some View {
-        if horizontalSizeClass == .regular { iPadDocumentsBody } else { iPhoneDocumentsBody }
+        Group {
+            if horizontalSizeClass == .regular { iPadDocumentsBody } else { iPhoneDocumentsBody }
+        }
+        .overlay { downloadHUD }
+        .alert("Download fehlgeschlagen", isPresented: $showDownloadError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Das Dokument konnte nicht aus iCloud geladen werden. Prüfe deine Internetverbindung und versuche es erneut.")
+        }
     }
 
     // MARK: - iPhone Layout (unverändert)
@@ -2577,7 +2594,7 @@ struct DocumentsView: View {
     private var iPhoneDocumentsBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Foto · Text", icon: "plus") {
+                AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Fotos/Videos · Text", icon: "plus") {
                     showAddMenu = true
                 }
                 .padding(.horizontal, 20)
@@ -2618,23 +2635,30 @@ struct DocumentsView: View {
                     showAddMenu = false
                 }
             }
-            .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf]) { result in
-                handleFileImport(result: result, type: .pdf)
+            .fileImporter(isPresented: $showFilePicker, allowedContentTypes: filePickerTypes) { result in
+                handleFileImport(result: result, type: filePickerDocType)
             }
             .sheet(isPresented: $showImagePicker) {
-                ImagePickerView { image in prepareImage(image) }
+                MediaPickerView { images, videos in
+                    importPickedMedia(imageURLs: images, videoURLs: videos)
+                }
             }
-            .sheet(isPresented: $showScanner) {
+            .sheet(isPresented: $showScanner, onDismiss: {
+                if scanReady {
+                    scanReady = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { showCategoryPicker = true }
+                }
+            }) {
                 DocumentScannerView { pdfURL in
                     let filename = "\(UUID().uuidString).pdf"
-                    let destination = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
+                    let destination = store.documentURL(for:filename)
                     try? FileManager.default.copyItem(at: pdfURL, to: destination)
                     pendingTitle = "Scan \(Date().formatted(date: .abbreviated, time: .omitted))"
                     pendingFilename = filename
                     pendingType = .pdf
-                    pendingCategory = store.documentCategories.last ?? "Sonstiges"
+                    pendingCategory = store.ensureImportCategoryExists()
+                    scanReady = true
                     showScanner = false
-                    showCategoryPicker = true
                 }
             }
             .sheet(isPresented: $showTextInput) {
@@ -2651,7 +2675,7 @@ struct DocumentsView: View {
                     store.addDocument(title: pendingTitle, type: pendingType, filename: pendingFilename, category: pendingCategory)
                     showCategoryPicker = false
                 } onCancel: {
-                    let dest = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(pendingFilename)
+                    let dest = store.documentURL(for:pendingFilename)
                     try? FileManager.default.removeItem(at: dest)
                     showCategoryPicker = false
                 }
@@ -2722,7 +2746,7 @@ struct DocumentsView: View {
         HStack(spacing: 0) {
             NavigationStack {
                 VStack(spacing: 0) {
-                    AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Foto · Text", icon: "plus") {
+                    AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Fotos/Videos · Text", icon: "plus") {
                         showAddMenu = true
                     }
                     .padding(.horizontal, 20)
@@ -2753,17 +2777,27 @@ struct DocumentsView: View {
                         pendingSource = nil
                     }
                 }) { NewDocumentSourceSheet { action in pendingSource = action; showAddMenu = false } }
-                .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf]) { handleFileImport(result: $0, type: .pdf) }
-                .sheet(isPresented: $showImagePicker) { ImagePickerView { prepareImage($0) } }
-                .sheet(isPresented: $showScanner) {
+                .fileImporter(isPresented: $showFilePicker, allowedContentTypes: filePickerTypes) { handleFileImport(result: $0, type: filePickerDocType) }
+                .sheet(isPresented: $showImagePicker) {
+                    MediaPickerView { images, videos in
+                        importPickedMedia(imageURLs: images, videoURLs: videos)
+                    }
+                }
+                .sheet(isPresented: $showScanner, onDismiss: {
+                    if scanReady {
+                        scanReady = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { showCategoryPicker = true }
+                    }
+                }) {
                     DocumentScannerView { pdfURL in
                         let filename = "\(UUID().uuidString).pdf"
-                        let dest = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
+                        let dest = store.documentURL(for:filename)
                         try? FileManager.default.copyItem(at: pdfURL, to: dest)
                         pendingTitle = "Scan \(Date().formatted(date: .abbreviated, time: .omitted))"
                         pendingFilename = filename; pendingType = .pdf
-                        pendingCategory = store.documentCategories.last ?? "Sonstiges"
-                        showScanner = false; showCategoryPicker = true
+                        pendingCategory = store.ensureImportCategoryExists()
+                        scanReady = true
+                        showScanner = false
                     }
                 }
                 .sheet(isPresented: $showTextInput) {
@@ -2776,7 +2810,7 @@ struct DocumentsView: View {
                         store.addDocument(title: pendingTitle, type: pendingType, filename: pendingFilename, category: pendingCategory)
                         showCategoryPicker = false
                     } onCancel: {
-                        let dest = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(pendingFilename)
+                        let dest = store.documentURL(for:pendingFilename)
                         try? FileManager.default.removeItem(at: dest)
                         showCategoryPicker = false
                     }
@@ -2832,28 +2866,69 @@ struct DocumentsView: View {
         }
     }
 
+    // MARK: - Dokument öffnen (mit iCloud-Download falls nötig)
+
+    private func openDocument(_ doc: DocumentEntry) {
+        if store.ensureFileDownloaded(doc.filename) {
+            presentPreview(doc)
+        } else {
+            downloadingDoc = doc
+            waitForDownload(doc, attempts: 0)
+        }
+    }
+
+    private func waitForDownload(_ doc: DocumentEntry, attempts: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            guard downloadingDoc?.id == doc.id else { return }   // abgebrochen
+            if store.ensureFileDownloaded(doc.filename) {
+                downloadingDoc = nil
+                presentPreview(doc)
+            } else if attempts < 300 {   // max. ~2 Minuten
+                waitForDownload(doc, attempts: attempts + 1)
+            } else {
+                downloadingDoc = nil
+                showDownloadError = true
+            }
+        }
+    }
+
+    private func presentPreview(_ doc: DocumentEntry) {
+        if horizontalSizeClass == .regular {
+            selectedDoc = doc
+        } else if doc.type == .image {
+            previewImageURL = store.documentURL(for: doc.filename)
+        } else {
+            previewURL = store.documentURL(for: doc.filename)
+        }
+    }
+
+    @ViewBuilder
+    private var downloadHUD: some View {
+        if let doc = downloadingDoc {
+            VStack(spacing: 14) {
+                ProgressView()
+                Text("\u{201E}\(doc.title)\u{201C} wird aus iCloud geladen …")
+                    .font(.system(size: 14, weight: .medium))
+                    .multilineTextAlignment(.center)
+                Button("Abbrechen") { downloadingDoc = nil }
+                    .font(.system(size: 14))
+            }
+            .padding(24)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .padding(40)
+        }
+    }
+
     @ViewBuilder
     private func documentRow(_ doc: DocumentEntry, indented: Bool = false) -> some View {
         Button {
-            if horizontalSizeClass == .regular {
-                selectedDoc = doc
-            } else if doc.type == .image {
-                previewImageURL = store.documentURL(for: doc.filename)
-            } else {
-                previewURL = store.documentURL(for: doc.filename)
-            }
+            openDocument(doc)
         } label: {
             HStack(spacing: 12) {
                 Circle()
                     .fill(docTypeColor(doc.type))
                     .frame(width: 8, height: 8)
-                if doc.type == .image {
-                    DocThumbnail(url: store.documentURL(for: doc.filename))
-                } else {
-                    Image(systemName: doc.type == .pdf ? "doc.fill" : "doc.text.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(docTypeColor(doc.type))
-                }
+                DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
                 Text(doc.title)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.primary)
@@ -2867,6 +2942,24 @@ struct DocumentsView: View {
         .listRowSeparator(.visible)
         .listRowSeparatorTint(Color.primary.opacity(0.06))
         .listRowInsets(EdgeInsets(top: 0, leading: indented ? 36 : 16, bottom: 0, trailing: 12))
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                store.deleteDocument(doc)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } label: { Label("Löschen", systemImage: "trash") }
+        }
+        .swipeActions(edge: .leading) {
+            Button {
+                store.pinDocumentForQuickAccess(doc)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } label: { Label("Anpinnen", systemImage: "pin.fill") }
+            .tint(.orange)
+            Button {
+                renameText = doc.title
+                renamingDoc = doc
+            } label: { Label("Umbenennen", systemImage: "pencil") }
+            .tint(.blue)
+        }
         .contextMenu {
             Button {
                 renameText = doc.title
@@ -2928,10 +3021,12 @@ struct DocumentsView: View {
             } label: {
                 Label("Als Datei teilen", systemImage: "square.and.arrow.up")
             }
-            Button {
-                printDocument(doc)
-            } label: {
-                Label("Drucken", systemImage: "printer")
+            if doc.type != .video {
+                Button {
+                    printDocument(doc)
+                } label: {
+                    Label("Drucken", systemImage: "printer")
+                }
             }
             Divider()
             Button {
@@ -3192,7 +3287,7 @@ struct DocumentsView: View {
         .listSectionSpacing(8)
         .scrollContentBackground(.hidden)
         .searchable(text: $searchText, prompt: "Suchen…")
-            .alert("Umbenennen", isPresented: Binding(
+            .alert("Dokument umbenennen", isPresented: Binding(
                 get: { renamingDoc != nil },
                 set: { if !$0 { renamingDoc = nil } }
             )) {
@@ -3243,7 +3338,7 @@ struct DocumentsView: View {
                 Text("Der Ordner \"\(importedFolderName ?? "")\" wurde hinzugefügt.")
             }
             // Ordner Umbenennen Alert
-            .alert("Ordner umbenennen", isPresented: $showCategoryRename) {
+            .alert("Gruppe umbenennen", isPresented: $showCategoryRename) {
                 TextField("Neuer Name", text: $categoryRenameText)
                 Button("Speichern") {
                     if let old = renamingCategory {
@@ -3366,6 +3461,7 @@ struct DocumentsView: View {
         if ext == "arcanote" {
             if store.importNote(from: url) {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                store.pendingSection = .notes   // direkt zu den Notizen springen
             }
             return
         }
@@ -3373,6 +3469,7 @@ struct DocumentsView: View {
         if ext == "arcalist" {
             if store.importList(from: url) {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                store.pendingSection = .lists   // direkt zu den Tasks springen
             }
             return
         }
@@ -3381,10 +3478,11 @@ struct DocumentsView: View {
         switch ext {
         case "pdf":        type = .pdf
         case "jpg", "jpeg", "png", "heic", "tiff": type = .image
+        case "mov", "mp4", "m4v": type = .video
         default:           type = .pdf   // Fallback
         }
         let filename = "\(UUID().uuidString).\(ext.isEmpty ? "pdf" : ext)"
-        let destination = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
+        let destination = store.documentURL(for:filename)
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         let importCategory = store.importCategoryName
@@ -3407,31 +3505,42 @@ struct DocumentsView: View {
         guard url.startAccessingSecurityScopedResource() else { return }
         defer { url.stopAccessingSecurityScopedResource() }
         let filename = "\(UUID().uuidString).\(url.pathExtension)"
-        let destination = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
+        let destination = store.documentURL(for:filename)
         try? FileManager.default.copyItem(at: url, to: destination)
         pendingTitle = url.deletingPathExtension().lastPathComponent
         pendingFilename = filename
         pendingType = type
-        pendingCategory = store.documentCategories.last ?? "Sonstiges"
+        pendingCategory = store.ensureImportCategoryExists()
         showCategoryPicker = true
     }
 
-    private func prepareImage(_ image: UIImage) {
-        let filename = "\(UUID().uuidString).jpg"
-        let destination = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
-        if let data = image.jpegData(compressionQuality: 0.8) {
-            try? data.write(to: destination)
-            pendingTitle = "Bild \(Date().formatted(date: .abbreviated, time: .omitted))"
-            pendingFilename = filename
-            pendingType = .image
-            pendingCategory = store.documentCategories.last ?? "Sonstiges"
-            showCategoryPicker = true
+    /// Importiert ausgewählte Fotos/Videos direkt in die Import-Gruppe (ohne Einzeldialog).
+    private func importPickedMedia(imageURLs: [URL], videoURLs: [URL]) {
+        guard !imageURLs.isEmpty || !videoURLs.isEmpty else { return }
+        let category = store.ensureImportCategoryExists()
+        let dateStr = Date().formatted(date: .abbreviated, time: .omitted)
+
+        func importFiles(_ urls: [URL], titlePrefix: String, type: DocumentType) {
+            for (i, src) in urls.enumerated() {
+                let ext = src.pathExtension.isEmpty ? "dat" : src.pathExtension
+                let filename = "\(UUID().uuidString).\(ext)"
+                let dest = store.documentURL(for: filename)
+                guard (try? FileManager.default.copyItem(at: src, to: dest)) != nil else { continue }
+                try? FileManager.default.removeItem(at: src)
+                let suffix = urls.count > 1 ? " (\(i + 1))" : ""
+                store.addDocument(title: "\(titlePrefix) \(dateStr)\(suffix)",
+                                  type: type, filename: filename, category: category)
+            }
         }
+
+        importFiles(imageURLs, titlePrefix: "Bild",  type: .image)
+        importFiles(videoURLs, titlePrefix: "Video", type: .video)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private func saveTextDocument() {
         let filename = "\(UUID().uuidString).txt"
-        let destination = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(filename)
+        let destination = store.documentURL(for:filename)
         try? textContent.write(to: destination, atomically: true, encoding: .utf8)
         store.addDocument(title: textTitle.isEmpty ? "Textdokument" : textTitle, type: .text, filename: filename, category: textCategory)
         textTitle = ""
@@ -3455,39 +3564,68 @@ private final class ThumbnailCache {
     }
 }
 
+/// Universelle Datei-Vorschau: PDF-Erstseite, Video-Standbild, Foto, Textinhalt.
 struct DocThumbnail: View {
     let url: URL
+    var type: DocumentType = .image
+
     @State private var image: UIImage? = nil
+    @Environment(\.displayScale) private var displayScale
+
+    private var fallbackIcon: String {
+        switch type {
+        case .pdf:   return "doc.fill"
+        case .image: return "photo"
+        case .text:  return "doc.text.fill"
+        case .video: return "video.fill"
+        }
+    }
 
     var body: some View {
-        Group {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(.tertiarySystemFill))
             if let image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 36, height: 36)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(.tertiarySystemFill))
-                    .frame(width: 36, height: 36)
-                    .overlay {
-                        Image(systemName: "photo")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                    }
+                Image(systemName: fallbackIcon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(docTypeColor(type).opacity(0.7))
+            }
+            if type == .video, image != nil {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white)
+                    .shadow(radius: 2)
             }
         }
-        .onAppear {
-            if let cached = ThumbnailCache.shared.image(for: url) {
-                image = cached
-                return
-            }
-            DispatchQueue.global(qos: .utility).async {
-                guard let img = UIImage(contentsOfFile: url.path) else { return }
-                ThumbnailCache.shared.store(img, for: url)
-                DispatchQueue.main.async { image = img }
-            }
+        .frame(width: 42, height: 50)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+        }
+        .onAppear { loadThumbnail() }
+    }
+
+    private func loadThumbnail() {
+        if let cached = ThumbnailCache.shared.image(for: url) {
+            image = cached
+            return
+        }
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: CGSize(width: 42, height: 50),
+            scale: displayScale,
+            representationTypes: .thumbnail
+        )
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
+            guard let img = rep?.uiImage else { return }
+            ThumbnailCache.shared.store(img, for: url)
+            DispatchQueue.main.async { image = img }
         }
     }
 }
@@ -3758,22 +3896,60 @@ struct DocumentSaveSheet: View {
     }
 }
 
-struct ImagePickerView: UIViewControllerRepresentable {
-    let onImageSelected: (UIImage) -> Void
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
+/// Gemeinsamer Picker für Fotos und Videos aus der Fotobibliothek (Mehrfachauswahl).
+/// Liefert die ausgewählten Medien als temporäre Datei-URLs zurück —
+/// speicherschonend, da nichts in den RAM dekodiert wird.
+struct MediaPickerView: UIViewControllerRepresentable {
+    /// (Bild-URLs, Video-URLs) — wird einmal nach Abschluss aller Ladevorgänge aufgerufen.
+    let onPicked: (_ images: [URL], _ videos: [URL]) -> Void
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .any(of: [.images, .videos])
+        config.selectionLimit = 0   // 0 = unbegrenzte Mehrfachauswahl
+        let picker = PHPickerViewController(configuration: config)
         picker.delegate = context.coordinator
-        picker.sourceType = .photoLibrary
         return picker
     }
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-    func makeCoordinator() -> Coordinator { Coordinator(onImageSelected: onImageSelected) }
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let onImageSelected: (UIImage) -> Void
-        init(onImageSelected: @escaping (UIImage) -> Void) { self.onImageSelected = onImageSelected }
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let image = info[.originalImage] as? UIImage { onImageSelected(image) }
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(onPicked: onPicked) }
+
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onPicked: ([URL], [URL]) -> Void
+        init(onPicked: @escaping ([URL], [URL]) -> Void) { self.onPicked = onPicked }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             picker.dismiss(animated: true)
+            guard !results.isEmpty else { return }
+
+            let group = DispatchGroup()
+            let lock = NSLock()
+            var images: [URL] = []
+            var videos: [URL] = []
+
+            for result in results {
+                let provider = result.itemProvider
+                let isVideo = provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier)
+                let typeID = isVideo ? UTType.movie.identifier : UTType.image.identifier
+                guard provider.hasItemConformingToTypeIdentifier(typeID) else { continue }
+                group.enter()
+                // Datei sofort wegkopieren – die gelieferte URL ist nur kurz gültig
+                provider.loadFileRepresentation(forTypeIdentifier: typeID) { url, _ in
+                    defer { group.leave() }
+                    guard let url else { return }
+                    let ext = url.pathExtension.isEmpty ? (isVideo ? "mov" : "jpg") : url.pathExtension
+                    let tmp = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("\(UUID().uuidString).\(ext)")
+                    guard (try? FileManager.default.copyItem(at: url, to: tmp)) != nil else { return }
+                    lock.lock()
+                    if isVideo { videos.append(tmp) } else { images.append(tmp) }
+                    lock.unlock()
+                }
+            }
+
+            group.notify(queue: .main) {
+                self.onPicked(images, videos)
+            }
         }
     }
 }
@@ -4105,7 +4281,7 @@ struct NotesView: View {
                                     shareItem = ShareURLItem(url: url)
                                 }
                             } label: {
-                                Label("Teilen", systemImage: "square.and.arrow.up")
+                                Label("An Arca-Nutzer senden", systemImage: "person.2.fill")
                             }
                             Divider()
                             Button {
@@ -4154,7 +4330,7 @@ struct NotesView: View {
             get: { renamingNote != nil },
             set: { if !$0 { renamingNote = nil } }
         )) {
-            TextField("Neuer Titel", text: $renameNoteText)
+            TextField("Neuer Name", text: $renameNoteText)
             Button("Speichern") {
                 if let note = renamingNote {
                     let trimmed = renameNoteText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -4645,7 +4821,10 @@ struct ListsView: View {
     @AppStorage("listsSortOption") private var sortOption: String = "newest"
     @AppStorage("listsFilterColor") private var filterColor: Int = -1
     @AppStorage("listsHideCompleted") private var hideCompleted: Bool = false
-    @FocusState private var isRenameFocused: Bool
+
+    // Schnell-Eintrag über Kontextmenü
+    @State private var quickAddList: ListEntry? = nil
+    @State private var shareItem: ShareURLItem? = nil
 
     private var filteredLists: [ListEntry] {
         var lists = searchText.isEmpty ? store.lists : store.lists.filter {
@@ -4820,32 +4999,7 @@ struct ListsView: View {
                     .listRowSeparator(.hidden)
             } else {
                 ForEach(filteredLists) { list in
-                    if renamingList?.id == list.id {
-                        HStack(spacing: 12) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(NoteColor.for_(list.colorTag).accent)
-                                .frame(width: 4, height: 44)
-                            TextField("Name", text: $renameText)
-                                .focused($isRenameFocused)
-                                .font(.headline)
-                                .onSubmit { commitRename() }
-                            Spacer()
-                            Button { commitRename() } label: {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(NoteColor.for_(list.colorTag).accent).font(.title3)
-                            }
-                            .buttonStyle(.plain)
-                            Button { renamingList = nil } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary).font(.title3)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.vertical, 6)
-                        .listRowBackground(NoteColor.for_(list.colorTag).bg.opacity(0.45))
-                        .listRowSeparator(.hidden)
-                    } else {
-                        ListRow(list: list)
+                    ListRow(list: list)
                             .contentShape(Rectangle())
                             .onTapGesture { selectedList = list }
                             .listRowBackground(Color(.secondarySystemBackground))
@@ -4854,9 +5008,14 @@ struct ListsView: View {
                             .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
                             .contextMenu {
                                 Button {
+                                    quickAddList = list
+                                } label: {
+                                    Label("Neuer Eintrag", systemImage: "plus.circle")
+                                }
+                                Divider()
+                                Button {
                                     renameText = list.title
                                     renamingList = list
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isRenameFocused = true }
                                 } label: {
                                     Label("Umbenennen", systemImage: "pencil")
                                 }
@@ -4873,6 +5032,13 @@ struct ListsView: View {
                                     }
                                 } label: {
                                     Label("Farbe ändern", systemImage: "paintpalette")
+                                }
+                                Button {
+                                    if let url = store.exportList(list) {
+                                        shareItem = ShareURLItem(url: url)
+                                    }
+                                } label: {
+                                    Label("An Arca-Nutzer senden", systemImage: "person.2.fill")
                                 }
                                 Divider()
                                 Button {
@@ -4900,6 +5066,10 @@ struct ListsView: View {
                             }
                             .swipeActions(edge: .leading) {
                                 Button {
+                                    quickAddList = list
+                                } label: { Label("Eintrag", systemImage: "plus") }
+                                .tint(.green)
+                                Button {
                                     if let idx = store.lists.firstIndex(where: { $0.id == list.id }) {
                                         store.lists[idx].isFavorite.toggle()
                                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -4912,17 +5082,34 @@ struct ListsView: View {
                                 Button {
                                     renameText = list.title
                                     renamingList = list
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isRenameFocused = true }
                                 } label: { Label("Umbenennen", systemImage: "pencil") }
                                 .tint(.blue)
                             }
-                    }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .searchable(text: $searchText, prompt: "Suchen…")
+        .alert("Liste umbenennen", isPresented: Binding(
+            get: { renamingList != nil },
+            set: { if !$0 { renamingList = nil } }
+        )) {
+            TextField("Neuer Name", text: $renameText)
+            Button("Speichern") { commitRename() }
+            Button("Abbrechen", role: .cancel) { renamingList = nil }
+        }
+        .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
+        .sheet(item: $quickAddList) { list in
+            QuickAddEntrySheet(listTitle: list.title, color: NoteColor.for_(list.colorTag)) { items in
+                if let idx = store.lists.firstIndex(where: { $0.id == list.id }) {
+                    for t in items {
+                        store.lists[idx].items.append(ChecklistItem(text: t))
+                    }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+            }
+        }
     }
 
     // MARK: Actions
@@ -4934,6 +5121,110 @@ struct ListsView: View {
             store.lists[idx].title = trimmed
         }
         renamingList = nil
+    }
+}
+
+/// Zerlegt diktierten/eingegebenen Text in einzelne Listeneinträge:
+/// "Butter, Käse und Milch" → Butter / Käse / Milch
+func splitDictatedItems(_ raw: String) -> [String] {
+    raw.replacingOccurrences(of: " und ", with: ",")
+        .replacingOccurrences(of: " Und ", with: ",")
+        .components(separatedBy: CharacterSet(charactersIn: ",;\n"))
+        .map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+              .trimmingCharacters(in: CharacterSet(charactersIn: ".!?"))
+              .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        .filter { !$0.isEmpty }
+        .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+}
+
+// MARK: - QuickAddEntrySheet (Schnell-Eintrag mit Diktat)
+
+struct QuickAddEntrySheet: View {
+    let listTitle: String
+    let color: NoteColor
+    let onAdd: ([String]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var cancelled = false
+    @StateObject private var speech = SpeechManager()
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                HStack(spacing: 12) {
+                    TextField(speech.isRecording ? "Sprich jetzt …" : "Was ist zu tun?", text: $text)
+                        .focused($focused)
+                        .padding(12)
+                        .background(color.bg.opacity(speech.isRecording ? 0.8 : 0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .onSubmit { commit() }
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        speech.toggle(appendingTo: text) { text = $0 }
+                    } label: {
+                        Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                            .foregroundStyle(speech.isRecording ? Color.red : color.accent)
+                            .font(.system(size: 32))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button { commit() } label: {
+                    Text("Hinzufügen")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(color.accent.opacity(
+                            text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.3 : 1))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Text("Mehrere Einträge mit Komma oder \u{201E}und\u{201C} trennen — auch beim Sprechen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Spacer()
+            }
+            .padding(20)
+            .navigationTitle("Neuer Eintrag – \(listTitle)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") {
+                        cancelled = true
+                        speech.stopRecording()
+                        dismiss()
+                    }
+                }
+            }
+            .onChange(of: speech.isRecording) { _, recording in
+                // Nach dem Diktat (manuell oder per Stille-Timeout) direkt übernehmen
+                if !recording, !cancelled,
+                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    commit()
+                }
+            }
+            .onAppear { focused = true }
+            .onDisappear { speech.stopRecording() }
+        }
+        .presentationDetents([.fraction(0.38)])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func commit() {
+        guard !cancelled else { return }
+        let items = splitDictatedItems(text)
+        guard !items.isEmpty else { return }
+        onAdd(items)
+        dismiss()
     }
 }
 
@@ -5154,6 +5445,7 @@ struct ListDetailView: View {
     @State private var isEditingTitle = false
     @State private var editTitle = ""
     @State private var shareItem: ShareURLItem? = nil
+    @StateObject private var speech = SpeechManager()
 
     init(list: ListEntry) {
         self.list = list
@@ -5169,21 +5461,45 @@ struct ListDetailView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    /// Zerlegt diktierten Text in einzelne Einträge:
+    /// "Butter, Käse und Milch" → Butter / Käse / Milch
+    private func processDictation() {
+        let parts = splitDictatedItems(newItemText)
+        guard !parts.isEmpty else { return }
+        for p in parts {
+            currentList.items.append(ChecklistItem(text: p))
+        }
+        store.updateList(currentList)
+        newItemText = ""
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
     private var listColor: NoteColor { NoteColor.for_(currentList.colorTag) }
 
     private var itemInputBar: some View {
         HStack(spacing: 12) {
-            TextField("Neuer Eintrag", text: $newItemText)
+            TextField(speech.isRecording ? "Sprich jetzt …" : "Neuer Eintrag", text: $newItemText)
                 .padding(12)
-                .background(listColor.bg.opacity(0.5))
+                .background(listColor.bg.opacity(speech.isRecording ? 0.8 : 0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .onSubmit { addItem() }
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                speech.toggle(appendingTo: newItemText) { updated in newItemText = updated }
+            } label: {
+                Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                    .foregroundStyle(speech.isRecording ? Color.red : listColor.accent)
+                    .font(.system(size: 32))
+            }
             Button { addItem() } label: {
                 Image(systemName: "plus.circle.fill")
                     .foregroundStyle(newItemText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.secondary : listColor.accent)
                     .font(.system(size: 32))
             }
             .disabled(newItemText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .onChange(of: speech.isRecording) { _, recording in
+            if !recording { processDictation() }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -5311,7 +5627,7 @@ struct ListDetailView: View {
                 }
             }
             .alert("Liste umbenennen", isPresented: $isEditingTitle) {
-                TextField("Titel", text: $editTitle)
+                TextField("Neuer Name", text: $editTitle)
                 Button("Speichern") {
                     let trimmed = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmed.isEmpty {
@@ -5778,24 +6094,35 @@ struct DocumentScannerView: UIViewControllerRepresentable {
         }
 
         func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan) {
-            let pdfData = NSMutableData()
-            let pdfConsumer = CGDataConsumer(data: pdfData)!
-            var mediaBox = CGRect(origin: .zero, size: CGSize(width: 595, height: 842))
-            guard let pdfContext = CGContext(consumer: pdfConsumer, mediaBox: &mediaBox, nil) else { return }
-
-            for i in 0..<scan.pageCount {
-                let image = scan.imageOfPage(at: i)
-                guard let cgImage = image.cgImage else { continue }
-                let imgRect = CGRect(origin: .zero, size: CGSize(width: 595, height: 842))
-                pdfContext.beginPage(mediaBox: &mediaBox)
-                pdfContext.draw(cgImage, in: imgRect)
-                pdfContext.endPage()
+            guard scan.pageCount > 0 else {
+                controller.dismiss(animated: true)
+                return
             }
-            pdfContext.closePDF()
+
+            // A4-Seiten, Bild proportional eingepasst (UIGraphicsPDFRenderer
+            // berücksichtigt die Bildausrichtung korrekt)
+            let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)
+            let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+            let pdfData = renderer.pdfData { ctx in
+                for i in 0..<scan.pageCount {
+                    let image = scan.imageOfPage(at: i)
+                    guard image.size.width > 0, image.size.height > 0 else { continue }
+                    ctx.beginPage()
+                    let scale = min(pageRect.width / image.size.width, pageRect.height / image.size.height)
+                    let drawSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+                    let origin = CGPoint(x: (pageRect.width - drawSize.width) / 2,
+                                         y: (pageRect.height - drawSize.height) / 2)
+                    image.draw(in: CGRect(origin: origin, size: drawSize))
+                }
+            }
 
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
-            pdfData.write(to: url, atomically: true)
-            onScan(url)
+            do {
+                try pdfData.write(to: url, options: .atomic)
+                onScan(url)
+            } catch {
+                controller.dismiss(animated: true)
+            }
         }
 
         func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
