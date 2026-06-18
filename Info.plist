@@ -20,6 +20,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Arca benötigt Kamerazugriff zum Scannen von Dokumenten</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

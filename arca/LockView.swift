@@ -12,10 +12,18 @@ struct LockView: View {
     }
 
     var body: some View {
-        if hasPIN {
-            PINEntryView(isUnlocked: $isUnlocked)
-        } else {
-            PINSetupView(isUnlocked: $isUnlocked)
+        ZStack {
+            // Undurchsichtiger Hintergrund: verdeckt die ContentView dahinter vollständig.
+            // Ohne ihn scheint – besonders auf dem iPad (großer Schirm, kein sofortiges
+            // Face ID) – der gesamte App-Inhalt durch den Sperrbildschirm. Das sieht
+            // überladen/kaputt aus und gibt geschützte Daten preis.
+            Color(.systemBackground)
+                .ignoresSafeArea()
+            if hasPIN {
+                PINEntryView(isUnlocked: $isUnlocked)
+            } else {
+                PINSetupView(isUnlocked: $isUnlocked)
+            }
         }
     }
 }
