@@ -360,7 +360,6 @@ struct HomeView: View {
     @State private var quickAccessPreviewURL: URL? = nil
     @State private var quickAccessNote: NoteEntry? = nil
     @State private var searchText = ""
-    @State private var showSettings = false
     @FocusState private var isSearchFocused: Bool
     // Schnellzugriff (Quick Access)
     @AppStorage("quickAccessKind") private var quickAccessKind: String = ""
@@ -480,14 +479,6 @@ struct HomeView: View {
                             .buttonStyle(.plain)
                             .transition(.scale.combined(with: .opacity))
                         }
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 17, weight: .light))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
@@ -626,10 +617,6 @@ struct HomeView: View {
         .quickLookPreview($quickAccessPreviewURL)
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: hasQuickAccess)
         .animation(.easeInOut(duration: 0.2), value: isSearching)
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(store)
-        }
     }
 }
 
@@ -1528,7 +1515,6 @@ struct VaultView: View {
     @State private var renameItemText = ""
     @AppStorage("vaultSortOption") private var sortOption: String = "newest"
     @AppStorage("vaultFilterColor") private var filterColor: Int = -1
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var filteredItems: [VaultEntry] {
         var items = searchText.isEmpty ? store.vaultItems : store.vaultItems.filter {
@@ -1550,10 +1536,13 @@ struct VaultView: View {
     }
 
     var body: some View {
-        if horizontalSizeClass == .regular { iPadVaultBody } else { iPhoneVaultBody }
+        vaultBody
     }
 
-    private var iPhoneVaultBody: some View {
+    // Einspaltiges Layout — auf iPhone wie iPad (in der Detailspalte der Sidebar-SplitView).
+    // Bewusst keine eigene Master-Detail-HStack mehr: die führte auf dem iPad zu einer
+    // dritten, zu engen Spalte (Guideline 4 "crowded interface").
+    private var vaultBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 AddTriggerButton(
@@ -1578,46 +1567,6 @@ struct VaultView: View {
             }
             .sheet(isPresented: $showNewEntry) { vaultNewEntrySheet }
             .sheet(item: $selectedItem) { item in VaultDetailView(item: item) }
-        }
-    }
-
-    private var iPadVaultBody: some View {
-        HStack(spacing: 0) {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    AddTriggerButton(
-                        label: "Neues Passwort",
-                        subtitle: "Kategorie · Zugangsdaten · Passwort",
-                        icon: "plus"
-                    ) { showNewEntry = true }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-                    vaultList
-                }
-                .navigationTitle("Passwörter")
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) { vaultTrailingToolbar }
-                }
-                .sheet(isPresented: $showNewEntry) { vaultNewEntrySheet }
-            }
-            .frame(width: 360)
-            Divider()
-            if let item = selectedItem {
-                VaultDetailView(item: item)
-                    .id(item.id)
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "key.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(NoteColor.for_(2).accent.opacity(0.35))
-                    Text("Eintrag auswählen")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.secondarySystemBackground))
-            }
         }
     }
 
@@ -2469,8 +2418,6 @@ struct DocSource: Identifiable {
 struct DocumentsView: View {
     @EnvironmentObject var store: AppStore
     var isUnlocked: Bool = true
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var selectedDoc: DocumentEntry? = nil
     @State private var showAddMenu = false
     @State private var pendingSource: DocSource.Action? = nil
     @State private var showFilePicker = false
@@ -2579,7 +2526,7 @@ struct DocumentsView: View {
 
     var body: some View {
         Group {
-            if horizontalSizeClass == .regular { iPadDocumentsBody } else { iPhoneDocumentsBody }
+            iPhoneDocumentsBody
         }
         .overlay { downloadHUD }
         .alert("Download fehlgeschlagen", isPresented: $showDownloadError) {
@@ -2740,132 +2687,6 @@ struct DocumentsView: View {
         }
     }
 
-    // MARK: - iPad Layout (Master-Detail)
-
-    private var iPadDocumentsBody: some View {
-        HStack(spacing: 0) {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Fotos/Videos · Text", icon: "plus") {
-                        showAddMenu = true
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-
-                    documentsList
-                }
-                .navigationTitle("Dokumente")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Image(systemName: "doc.text.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button { showCategoryManager = true } label: {
-                            Image(systemName: "folder.badge.gearshape")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .sheet(isPresented: $showAddMenu, onDismiss: {
-                    if let src = pendingSource {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { handleImport(src) }
-                        pendingSource = nil
-                    }
-                }) { NewDocumentSourceSheet { action in pendingSource = action; showAddMenu = false } }
-                .fileImporter(isPresented: $showFilePicker, allowedContentTypes: filePickerTypes) { handleFileImport(result: $0, type: filePickerDocType) }
-                .sheet(isPresented: $showImagePicker) {
-                    MediaPickerView { images, videos in
-                        importPickedMedia(imageURLs: images, videoURLs: videos)
-                    }
-                }
-                .sheet(isPresented: $showScanner, onDismiss: {
-                    if scanReady {
-                        scanReady = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { showCategoryPicker = true }
-                    }
-                }) {
-                    DocumentScannerView { pdfURL in
-                        let filename = "\(UUID().uuidString).pdf"
-                        let dest = store.documentURL(for:filename)
-                        try? FileManager.default.copyItem(at: pdfURL, to: dest)
-                        pendingTitle = "Scan \(Date().formatted(date: .abbreviated, time: .omitted))"
-                        pendingFilename = filename; pendingType = .pdf
-                        pendingCategory = store.ensureImportCategoryExists()
-                        scanReady = true
-                        showScanner = false
-                    }
-                }
-                .sheet(isPresented: $showTextInput) {
-                    TextDocumentInputView(title: $textTitle, content: $textContent, category: $textCategory) {
-                        saveTextDocument(); showTextInput = false
-                    }
-                }
-                .sheet(isPresented: $showCategoryPicker) {
-                    DocumentSaveSheet(title: $pendingTitle, category: $pendingCategory) {
-                        store.addDocument(title: pendingTitle, type: pendingType, filename: pendingFilename, category: pendingCategory)
-                        showCategoryPicker = false
-                    } onCancel: {
-                        let dest = store.documentURL(for:pendingFilename)
-                        try? FileManager.default.removeItem(at: dest)
-                        showCategoryPicker = false
-                    }
-                }
-                .sheet(isPresented: $showCategoryManager) { DocumentCategoryManagerView() }
-                .sheet(isPresented: Binding(get: { colorPickerCategory != nil }, set: { if !$0 { colorPickerCategory = nil } })) {
-                    if let cat = colorPickerCategory {
-                        CategoryColorPickerSheet(categoryName: cat, current: store.categoryColors[cat]) { idx in
-                            if let idx { store.categoryColors[cat] = idx } else { store.categoryColors.removeValue(forKey: cat) }
-                            colorPickerCategory = nil
-                        }
-                    }
-                }
-                .alert("Gruppe löschen", isPresented: Binding(get: { deletingCategory != nil }, set: { if !$0 { deletingCategory = nil } })) {
-                    Button("Dokumente behalten") { if let c = deletingCategory { store.deleteCategory(c) }; deletingCategory = nil }
-                    Button("Dokumente mitlöschen", role: .destructive) {
-                        if let c = deletingCategory {
-                            store.documents.filter { $0.category == c }.forEach { store.deleteDocument($0) }
-                            store.documentCategories.removeAll { $0 == c }
-                        }
-                        deletingCategory = nil
-                    }
-                    Button("Abbrechen", role: .cancel) { deletingCategory = nil }
-                } message: {
-                    if let c = deletingCategory {
-                        let n = store.documents.filter { $0.category == c }.count
-                        Text("\(c) enthält \(n) \(n == 1 ? "Dokument" : "Dokumente").")
-                    }
-                }
-                .alert("Import fehlgeschlagen", isPresented: $showImportError) {
-                    Button("OK", role: .cancel) {}
-                } message: { Text("Die Datei konnte nicht importiert werden.") }
-            }
-            .frame(width: 380)
-
-            Divider()
-
-            if let doc = selectedDoc {
-                DocumentDetailPanel(doc: doc)
-                    .id(doc.id)
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "doc.text")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Color.orange.opacity(0.35))
-                    Text("Dokument auswählen")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.secondarySystemBackground))
-            }
-        }
-    }
-
     // MARK: - Dokument öffnen (mit iCloud-Download falls nötig)
 
     private func openDocument(_ doc: DocumentEntry) {
@@ -2893,9 +2714,8 @@ struct DocumentsView: View {
     }
 
     private func presentPreview(_ doc: DocumentEntry) {
-        if horizontalSizeClass == .regular {
-            selectedDoc = doc
-        } else if doc.type == .image {
+        // Einspaltig auf iPhone wie iPad: Vorschau als QuickLook bzw. Bild-Cover.
+        if doc.type == .image {
             previewImageURL = store.documentURL(for: doc.filename)
         } else {
             previewURL = store.documentURL(for: doc.filename)
@@ -4106,7 +3926,6 @@ struct NotesView: View {
     @State private var searchText = ""
     @AppStorage("notesSortOption") private var sortOption: String = "newest"
     @AppStorage("notesFilterColor") private var filterColor: Int = -1
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var renamingNote: NoteEntry? = nil
     @State private var renameNoteText = ""
     @State private var shareItem: ShareURLItem? = nil
@@ -4128,7 +3947,7 @@ struct NotesView: View {
     }
 
     var body: some View {
-        if horizontalSizeClass == .regular { iPadNotesBody } else { iPhoneNotesBody }
+        iPhoneNotesBody
     }
 
     private var iPhoneNotesBody: some View {
@@ -4161,51 +3980,6 @@ struct NotesView: View {
             }
             .sheet(item: $selectedNote) { note in NoteDetailView(note: note) }
             .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
-        }
-    }
-
-    private var iPadNotesBody: some View {
-        HStack(spacing: 0) {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    AddTriggerButton(label: "Neue Notiz", subtitle: "Titel · Text · Farbe", icon: "plus") {
-                        showNewNote = true
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-                    notesList
-                }
-                .navigationTitle("Notizen")
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) { sortFilterMenu }
-                }
-                .sheet(isPresented: $showNewNote) {
-                    NewNoteSheet { title, text, color in
-                        store.addNote(title: title, text: text, colorTag: color)
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        showNewNote = false
-                    }
-                }
-                .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
-            }
-            .frame(width: 340)
-            Divider()
-            if let note = selectedNote {
-                NoteDetailView(note: note)
-                    .id(note.id)
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "note.text")
-                        .font(.system(size: 44))
-                        .foregroundStyle(NoteColor.for_(4).accent.opacity(0.35))
-                    Text("Notiz auswählen")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.secondarySystemBackground))
-            }
         }
     }
 
@@ -4812,7 +4586,6 @@ struct ListTemplate: Identifiable {
 
 struct ListsView: View {
     @EnvironmentObject var store: AppStore
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedList: ListEntry? = nil
     @State private var showNewList = false
     @State private var renamingList: ListEntry? = nil
@@ -4853,7 +4626,7 @@ struct ListsView: View {
     }
 
     var body: some View {
-        if horizontalSizeClass == .regular { iPadListsBody } else { iPhoneListsBody }
+        iPhoneListsBody
     }
 
     // MARK: - iPhone Layout (unverändert)
@@ -4888,60 +4661,6 @@ struct ListsView: View {
                 }
             }
             .sheet(item: $selectedList) { list in ListDetailView(list: list) }
-        }
-    }
-
-    // MARK: - iPad Layout (Master-Detail)
-
-    private var iPadListsBody: some View {
-        HStack(spacing: 0) {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    AddTriggerButton(label: "Neue Taskliste", subtitle: "Name · Vorlage · Farbe", icon: "plus") {
-                        showNewList = true
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-
-                    listsList
-                }
-                .navigationTitle("Tasks")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) { sortFilterMenu }
-                }
-                .sheet(isPresented: $showNewList) {
-                    NewListSheet { title, color in
-                        store.addList(title: title, colorTag: color)
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        showNewList = false
-                    }
-                }
-            }
-            .frame(width: 340)
-
-            Divider()
-
-            if let list = selectedList {
-                ListDetailView(list: list).id(list.id)
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "checklist")
-                        .font(.system(size: 44))
-                        .foregroundStyle(NoteColor.for_(3).accent.opacity(0.35))
-                    Text("Liste auswählen")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.secondarySystemBackground))
-            }
         }
     }
 
