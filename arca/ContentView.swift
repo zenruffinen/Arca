@@ -384,6 +384,12 @@ struct HomeView: View {
 
     private var hasQuickAccess: Bool { !quickAccessKind.isEmpty }
 
+    /// Auf dem iPad (regular) wird der Startinhalt zentriert und in der Breite
+    /// begrenzt, damit er auf großen Bildschirmen nicht gestreckt/leer wirkt.
+    private var homeContentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 700 : .infinity
+    }
+
     private func handleQuickAccessTap() {
         if quickAccessKind == "doc" {
             if let uuid = UUID(uuidString: quickAccessId),
@@ -712,6 +718,8 @@ struct HomeView: View {
 
                     Spacer().frame(height: 24)
                     }
+                    .frame(maxWidth: homeContentMaxWidth)
+                    .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollDismissesKeyboard(.interactively)
