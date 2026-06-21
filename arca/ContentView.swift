@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  Arca
 //
-//  ARCA 2.3.0
+//  ARCA 2.4.0
 //  Entwickler: Hans zen Ruffinen
 //  Ein lokaler Mini-Tresor für Passwörter, Dokumente und Notizen.
 //  Erstellt mit SwiftUI.
@@ -5725,7 +5725,7 @@ struct SettingsView: View {
     @State private var showReleaseNotes = false
 
     private var feedbackURL: URL? {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.3.0"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.0"
         let subject = "Arca Feedback (Version \(version))"
         var components = URLComponents()
         components.scheme = "mailto"
@@ -5741,7 +5741,7 @@ struct SettingsView: View {
                 showReleaseNotes = true
             } label: {
                 HStack {
-                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.3.0")", systemImage: "app.badge")
+                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.0")", systemImage: "app.badge")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -5817,6 +5817,16 @@ struct SettingsView: View {
                 NavigationStack {
                     List {
                         Section {
+                            Label("Neues, modernes App-Icon im Liquid-Glass-Stil – hell und dunkel", systemImage: "app.gift.fill")
+                            Label("Frischer Startbildschirm mit wählbarer Ordner-Schnellansicht", systemImage: "square.grid.2x2.fill")
+                            Label("Ordner per Drag & Drop sortieren, leere Ordner werden ausgeblendet", systemImage: "arrow.up.arrow.down")
+                            Label("„Wusstest du?“-Tipps mit praktischen Anwendungen", systemImage: "lightbulb.fill")
+                            Label("Feedback senden und Arca im App Store bewerten", systemImage: "star.fill")
+                        } header: {
+                            Text("Neu in Version 2.4.0")
+                        }
+
+                        Section {
                             Label("Videos mit Mehrfachauswahl in Dokumente importieren", systemImage: "film.stack.fill")
                             Label("Diktat-Einträge direkt in Tasklisten", systemImage: "mic.fill")
                             Label("Datei-Vorschauen für Bilder und Dokumente", systemImage: "doc.text.viewfinder")
@@ -5827,7 +5837,7 @@ struct SettingsView: View {
                             Label("iPad-Layout optimiert, App-Store-Compliance (Guideline 4)", systemImage: "ipad")
                             Label("Undurchsichtiger Sperrbildschirm im Hintergrund", systemImage: "lock.shield.fill")
                         } header: {
-                            Text("Neu in Version 2.3.0")
+                            Text("Version 2.3.0")
                         }
 
                         Section {
