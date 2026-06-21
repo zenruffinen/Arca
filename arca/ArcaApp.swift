@@ -1,3 +1,10 @@
+//
+//  ArcaApp.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import SwiftUI
 import AppIntents
 import UserNotifications

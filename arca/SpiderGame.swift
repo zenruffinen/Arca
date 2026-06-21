@@ -1,3 +1,10 @@
+//
+//  SpiderGame.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import SwiftUI
 import SpriteKit
 import Combine

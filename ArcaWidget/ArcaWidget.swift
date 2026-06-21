@@ -1,3 +1,10 @@
+//
+//  ArcaWidget.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import WidgetKit
 import SwiftUI
 

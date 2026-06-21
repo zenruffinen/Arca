@@ -1,3 +1,10 @@
+//
+//  SpeechManager.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import Foundation
 import SwiftUI
 import Combine

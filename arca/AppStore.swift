@@ -1,3 +1,10 @@
+//
+//  AppStore.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import SwiftUI
 import Combine
 import CryptoKit
@@ -74,6 +81,10 @@ final class AppStore: ObservableObject {
     }
     @Published var documentSubcategories: [String: [String]] = [:] {
         didSet { saveDocumentSubcategories() }
+    }
+    /// Ordner, die auf dem Startbildschirm unter „Ordner“ erscheinen (Reihenfolge = Anzeige).
+    @Published var homeFolderQuickView: [String] = [] {
+        didSet { saveHomeFolderQuickView() }
     }
     /// Wenn eine Datei von außen (z. B. Mail) geöffnet wird, landet die URL hier.
     @Published var pendingSharedURL: URL? = nil
@@ -717,6 +728,13 @@ final class AppStore: ObservableObject {
             documentSubcategories[trimmed] = subs
             documentSubcategories.removeValue(forKey: old)
         }
+        if let idx = homeFolderQuickView.firstIndex(of: old) {
+            homeFolderQuickView[idx] = trimmed
+        }
+        if UserDefaults.standard.string(forKey: "quickAccessKind") == "category",
+           UserDefaults.standard.string(forKey: "quickAccessId") == old {
+            pinCategoryForQuickAccess(trimmed)
+        }
     }
 
     func deleteCategory(_ name: String) {
@@ -726,6 +744,7 @@ final class AppStore: ObservableObject {
         }
         documentCategories.removeAll { $0 == name }
         documentSubcategories.removeValue(forKey: name)
+        homeFolderQuickView.removeAll { $0 == name }
     }
 
     func addSubcategory(to category: String, name: String) {
@@ -841,6 +860,55 @@ final class AppStore: ObservableObject {
         saveJSON(documentSubcategories, key: "documentSubcategories")
     }
 
+    private func saveHomeFolderQuickView() {
+        saveJSON(homeFolderQuickView, key: "homeFolderQuickView")
+    }
+
+    // MARK: - Start-Schnellansicht (Ordner)
+
+    func documentCount(in category: String) -> Int {
+        documents.filter { $0.category == category }.count
+    }
+
+    func isInHomeFolderQuickView(_ category: String) -> Bool {
+        homeFolderQuickView.contains(category)
+    }
+
+    func setHomeFolderQuickView(_ category: String, enabled: Bool) {
+        if enabled {
+            guard !homeFolderQuickView.contains(category) else { return }
+            homeFolderQuickView.append(category)
+        } else {
+            homeFolderQuickView.removeAll { $0 == category }
+        }
+    }
+
+    func toggleHomeFolderQuickView(_ category: String) {
+        setHomeFolderQuickView(category, enabled: !isInHomeFolderQuickView(category))
+    }
+
+    /// Reihenfolge der sichtbaren Start-Ordner per Drag & Drop anpassen.
+    func moveHomeFolderQuickView(visibleFrom source: IndexSet, visibleTo destination: Int) {
+        var visible = visibleHomeQuickViewFolders()
+        guard visible.count > 1 else { return }
+        visible.move(fromOffsets: source, toOffset: destination)
+        let hidden = homeFolderQuickView.filter { !visible.contains($0) }
+        homeFolderQuickView = visible + hidden
+    }
+
+    /// Ordner für die Start-Schnellansicht: nur gewählte, nicht leere, in gespeicherter Reihenfolge.
+    func visibleHomeQuickViewFolders() -> [String] {
+        homeFolderQuickView.filter { cat in
+            documentCategories.contains(cat) && documentCount(in: cat) > 0
+        }
+    }
+
+    private func migrateHomeFolderQuickViewIfNeeded() {
+        let path = dataDirectory.appendingPathComponent("homeFolderQuickView.json")
+        guard !FileManager.default.fileExists(atPath: path.path) else { return }
+        homeFolderQuickView = documentCategories.filter { documentCount(in: $0) > 0 }
+    }
+
     // MARK: - Laden
 
     private func load() {
@@ -873,6 +941,11 @@ final class AppStore: ObservableObject {
         }
         if let decoded = loadJSON([String: [String]].self, key: "documentSubcategories") {
             documentSubcategories = decoded
+        }
+        if let decoded = loadJSON([String].self, key: "homeFolderQuickView") {
+            homeFolderQuickView = decoded
+        } else {
+            migrateHomeFolderQuickViewIfNeeded()
         }
         updateWidgetData()
     }

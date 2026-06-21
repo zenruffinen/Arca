@@ -1,6 +1,92 @@
+//
+//  LockView.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import SwiftUI
 import LocalAuthentication
 import CryptoKit
+
+// MARK: - ARCA Glas-Icon (zeigt das App-Icon in abgerundeter Kachel)
+
+struct ArcaGlassIcon: View {
+    var size: CGFloat = 96
+
+    private var corner: CGFloat { size * 0.2237 }
+
+    var body: some View {
+        Image("ArcaGlassMark")
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.6), lineWidth: 0.5)
+            )
+            .shadow(color: Color.blue.opacity(0.18), radius: size * 0.10, y: size * 0.05)
+    }
+}
+
+// MARK: - ARCA Logo (grafisch, im Stil des App-Icons)
+
+struct ArcaLogoMark: View {
+    var compact: Bool = false
+    private var aSize: CGFloat { compact ? 60 : 96 }
+    private var wordSize: CGFloat { compact ? 22 : 38 }
+
+    var body: some View {
+        VStack(spacing: compact ? 6 : 12) {
+            ZStack {
+                // weicher blauer Schein hinter dem A
+                Circle()
+                    .fill(Color(red: 0.30, green: 0.55, blue: 1.0).opacity(0.28))
+                    .frame(width: aSize * 1.5, height: aSize * 1.5)
+                    .blur(radius: aSize * 0.3)
+                // großes stilisiertes A
+                Text("A")
+                    .font(.system(size: aSize, weight: .black, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(colors: [Color(red: 0.66, green: 0.81, blue: 1.0),
+                                                Color(red: 0.22, green: 0.45, blue: 0.88),
+                                                Color(red: 0.10, green: 0.22, blue: 0.55)],
+                                       startPoint: .top, endPoint: .bottom))
+                    .shadow(color: Color(red: 0.30, green: 0.60, blue: 1.0).opacity(0.7), radius: aSize * 0.12)
+                // Leucht-Bogen, der über das A schwingt
+                ArcaSwoosh()
+                    .stroke(
+                        LinearGradient(colors: [.clear, .white, Color(red: 0.55, green: 0.82, blue: 1.0)],
+                                       startPoint: .leading, endPoint: .trailing),
+                        style: StrokeStyle(lineWidth: compact ? 4 : 7, lineCap: .round))
+                    .frame(width: aSize * 1.6, height: aSize * 0.92)
+                    .shadow(color: Color(red: 0.45, green: 0.78, blue: 1.0).opacity(0.9), radius: aSize * 0.13)
+                    .offset(y: -aSize * 0.12)
+            }
+            .frame(height: aSize * 1.3)
+            Text("ARCA")
+                .font(.system(size: wordSize, weight: .heavy, design: .rounded))
+                .tracking(wordSize * 0.26)
+                .foregroundStyle(
+                    LinearGradient(colors: [.white, Color(red: 0.76, green: 0.86, blue: 1.0)],
+                                   startPoint: .top, endPoint: .bottom))
+                .shadow(color: Color(red: 0.40, green: 0.70, blue: 1.0).opacity(0.55), radius: 7)
+        }
+    }
+}
+
+struct ArcaSwoosh: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        // schwingt von unten-links über die A-Spitze nach oben-rechts (Komet-Bogen)
+        p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        p.addCurve(to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.12),
+                   control1: CGPoint(x: rect.minX + rect.width * 0.28, y: rect.minY - rect.height * 0.04),
+                   control2: CGPoint(x: rect.maxX - rect.width * 0.32, y: rect.minY - rect.height * 0.08))
+        return p
+    }
+}
 
 // MARK: - LockView (Einstiegspunkt)
 
@@ -44,9 +130,7 @@ struct PINSetupView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.blue)
+            ArcaGlassIcon(size: 92)
 
             VStack(spacing: 8) {
                 Text("Arca schützen")
@@ -155,17 +239,15 @@ struct PINEntryView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.blue)
-
-            VStack(spacing: 8) {
+            VStack(spacing: 14) {
+                ArcaGlassIcon(size: 96)
                 Text("Arca")
-                    .font(.title.bold())
-                Text("PIN eingeben")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
             }
+
+            Text("PIN eingeben")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
 
             // PIN Punkte
             HStack(spacing: 20) {

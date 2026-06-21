@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "ArcaIcon.png",
+      "filename" : "ArcaIcon-glass-1024.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,19 +13,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "ArcaIcon 1.png",
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "tinted"
-        }
-      ],
-      "filename" : "ArcaIcon 2.png",
+      "filename" : "ArcaIcon-glass-dark-1024.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"

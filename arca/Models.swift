@@ -1,3 +1,10 @@
+//
+//  Models.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import Foundation
 
 enum ArcaSection: String, CaseIterable, Identifiable {

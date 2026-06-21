@@ -1,7 +1,9 @@
 //
+//  ContentView.swift
+//  Arca
 //
-//  ARCA 2.2.4
-//  Autor: Hans Zen Ruffinen
+//  ARCA 2.3.0
+//  Entwickler: Hans zen Ruffinen
 //  Ein lokaler Mini-Tresor für Passwörter, Dokumente und Notizen.
 //  Erstellt mit SwiftUI.
 //
@@ -12,6 +14,7 @@ import QuickLook
 import QuickLookThumbnailing
 import VisionKit
 import PhotosUI
+import StoreKit
 
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
@@ -168,21 +171,19 @@ struct ArcaTabBar: View {
                 } label: {
                     let isSelected = selected == item.section
                     VStack(spacing: 5) {
-                        // Icon mit dezenter Pill-Highlight
                         Image(systemName: filledIcon(item.icon, selected: isSelected))
-                            .font(.system(size: 19, weight: isSelected ? .semibold : .light))
-                            .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.35))
+                            .font(.system(size: 19, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? Color.accentColor : Color.primary.opacity(0.4))
+                            .symbolRenderingMode(.hierarchical)
                             .frame(width: 44, height: 28)
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.primary.opacity(isSelected ? 0.08 : 0))
+                                    .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
                             )
-                            .scaleEffect(isSelected ? 1.04 : 1.0)
-                            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
 
                         Text(item.label)
-                            .font(.system(size: 9, weight: isSelected ? .medium : .regular))
-                            .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.35))
+                            .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.4))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
@@ -194,10 +195,10 @@ struct ArcaTabBar: View {
             }
         }
         .padding(.bottom, 28)
-        .background(.regularMaterial)
+        .background(.bar)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Color.primary.opacity(0.06))
+                .fill(Color.primary.opacity(0.08))
                 .frame(height: 0.5)
         }
     }
@@ -365,12 +366,13 @@ struct HomeView: View {
     @AppStorage("quickAccessKind") private var quickAccessKind: String = ""
     @AppStorage("quickAccessId") private var quickAccessId: String = ""
     @AppStorage("quickAccessTitle") private var quickAccessTitle: String = ""
+    @AppStorage("homeRecentDocsCollapsed") private var recentDocsCollapsed = true
+    @State private var isReorderingHomeFolders = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    // Einblend-Animation — nur beim allerersten Erscheinen
-    private static var hasAppeared = false
-    @State private var appeared = Self.hasAppeared
+    // Einblend-Animation
+    @State private var appeared = true
 
     private func enterAnimation(delay: Double) -> Animation {
         .spring(response: 0.55, dampingFraction: 0.82).delay(delay)
@@ -442,84 +444,140 @@ struct HomeView: View {
         return Array(all.sorted(by: { $0.date > $1.date }).prefix(1))
     }
 
+    private var recentDocuments: [DocumentEntry] {
+        Array(store.documents.sorted { $0.dateAdded > $1.dateAdded }.prefix(4))
+    }
+
+    private func documentCount(in category: String) -> Int {
+        store.documentCount(in: category)
+    }
+
+    private var homeQuickViewFolders: [String] {
+        store.visibleHomeQuickViewFolders()
+    }
+
+    private func openDocuments(category: String) {
+        store.pendingScrollCategory = category
+        selectedSection = .documents
+    }
+
+    @ViewBuilder
+    private func homeFolderRow(_ category: String, tappable: Bool) -> some View {
+        let colors = categoryColor(category, overrides: store.categoryColors)
+        ArcaFolderQuickCard(
+            name: category,
+            icon: categoryIcon(category),
+            tint: colors.accent,
+            bg: colors.bg,
+            count: documentCount(in: category),
+            action: tappable ? { openDocuments(category: category) } : nil
+        )
+    }
+
+    private var openTaskCount: Int {
+        store.lists.reduce(0) { $0 + $1.items.filter { !$0.isDone }.count }
+    }
+
+    private var pillars: [ArcaPillarSpec] {
+        let blitzCount = store.notes.filter(\.isQuickIdea).count
+        return [
+            ArcaPillarSpec(
+                id: "documents", section: .documents,
+                title: "Dokumente", subtitle: "Pass, Tickets, Verträge",
+                icon: "doc.fill", tint: .orange,
+                count: store.documents.count,
+                detail: store.documents.isEmpty ? "Tippen zum Hinzufügen" : "\(store.documentCategories.count) Gruppen"
+            ),
+            ArcaPillarSpec(
+                id: "lists", section: .lists,
+                title: "Tasks", subtitle: "Einkauf & Projekte",
+                icon: "checklist", tint: .green,
+                count: store.lists.count,
+                detail: openTaskCount > 0 ? "\(openTaskCount) offen" : "Neue Liste"
+            ),
+            ArcaPillarSpec(
+                id: "vault", section: .vault,
+                title: "Passwörter", subtitle: "Wichtigste Zugangsdaten",
+                icon: "key.fill", tint: .blue,
+                count: store.vaultItems.count,
+                detail: store.vaultItems.isEmpty ? "Tresor leer" : "Gesichert"
+            ),
+            ArcaPillarSpec(
+                id: "notes", section: .notes,
+                title: "Notizen", subtitle: "Text & Sprache",
+                icon: "note.text", tint: .purple,
+                count: store.notes.count,
+                detail: blitzCount > 0 ? "\(blitzCount) Blitzidee\(blitzCount == 1 ? "" : "n")" : "Diktat möglich"
+            ),
+        ]
+    }
+
+    private let quickActions: [ArcaQuickAction] = [
+        ArcaQuickAction(id: "doc", title: "Dokument", icon: "doc.badge.plus", tint: .orange),
+        ArcaQuickAction(id: "task", title: "Task", icon: "plus.circle", tint: .green),
+        ArcaQuickAction(id: "note", title: "Notiz", icon: "square.and.pencil", tint: .purple),
+        ArcaQuickAction(id: "blitz", title: "Blitzidee", icon: "bolt.fill", tint: .yellow),
+        ArcaQuickAction(id: "qr", title: "QR-Scan", icon: "qrcode.viewfinder", tint: .teal),
+        ArcaQuickAction(id: "vault", title: "Passwort", icon: "key.fill", tint: .blue),
+    ]
+
+    private var quickActionsTopRow: [ArcaQuickAction] { Array(quickActions.prefix(3)) }
+    private var quickActionsBottomRow: [ArcaQuickAction] { Array(quickActions.suffix(3)) }
+
+    private func handleQuickAction(_ id: String) {
+        switch id {
+        case "doc":   selectedSection = .documents
+        case "task":  selectedSection = .lists
+        case "note":  selectedSection = .notes
+        case "blitz": store.pendingQuickCapture = true
+        case "qr":    showQRScanner = true
+        case "vault": selectedSection = .vault
+        default: break
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
+            ArcaHomeHeader(
+                vault: store.vaultItems.count,
+                documents: store.documents.count,
+                tasks: store.lists.count,
+                notes: store.notes.count
+            ) {
+                logoTapCount += 1
+                if logoTapCount >= 5 {
+                    logoTapCount = 0
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                    showSpiderGame = true
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
 
-                    // Header
-                    HStack(alignment: .center, spacing: 12) {
-                        PlayfulHomeMark()
-                        Text("Arca")
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
-                            .onTapGesture {
-                                logoTapCount += 1
-                                if logoTapCount >= 5 {
-                                    logoTapCount = 0
-                                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                                    showSpiderGame = true
-                                }
-                            }
-                        Spacer()
-                        HeaderStatPills(
-                            vault: store.vaultItems.count,
-                            documents: store.documents.count,
-                            tasks: store.lists.count,
-                            notes: store.notes.count
-                        )
-                        if store.notes.contains(where: \.isQuickIdea) {
-                            Button {
-                                selectedSection = .notes
-                            } label: {
-                                Text("Z")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 24, height: 24)
-                                    .background(Color.red)
-                                    .clipShape(RoundedRectangle(cornerRadius: 7))
-                            }
-                            .buttonStyle(.plain)
-                            .transition(.scale.combined(with: .opacity))
+            if isSearching {
+                ScrollView {
+                    SearchResultsView(
+                        query: searchText,
+                        store: store,
+                        onSelectSection: { section in
+                            searchText = ""
+                            isSearchFocused = false
+                            selectedSection = section
+                        },
+                        onPreviewDocument: { url in
+                            quickAccessPreviewURL = url
                         }
-                    }
+                    )
                     .padding(.horizontal, 20)
-                    .padding(.top, 14)
                     .padding(.bottom, 16)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : -16)
-                    .animation(enterAnimation(delay: 0.0), value: appeared)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scrollDismissesKeyboard(.interactively)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
 
-                if isSearching {
-                    ScrollView {
-                        SearchResultsView(
-                            query: searchText,
-                            store: store,
-                            onSelectSection: { section in
-                                searchText = ""
-                                isSearchFocused = false
-                                selectedSection = section
-                            },
-                            onPreviewDocument: { url in
-                                quickAccessPreviewURL = url
-                            }
-                        )
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 16)
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                } else {
-                    ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-
-                    // Ende-zu-Ende Hinweis — rechtsbündig über dem Inhalt
-                    HStack {
-                        Spacer()
-                        Label("Ende-zu-Ende verschlüsselt", systemImage: "checkmark.shield")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.primary.opacity(0.3))
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-
-                    // Schnellzugriff (nur wenn etwas angepinnt ist)
                     if hasQuickAccess {
                         QuickAccessTile(
                             title: quickAccessTitle,
@@ -528,81 +586,142 @@ struct HomeView: View {
                             onUnpin: { store.unpinQuickAccess() }
                         )
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
                         .transition(.scale.combined(with: .opacity))
                     }
 
-                    // 2x2 Grid der Hauptkacheln
-                    LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: 12),
-                                       count: horizontalSizeClass == .regular ? 4 : 2),
-                        spacing: 12
-                    ) {
-                        ForEach(Array(tiles.enumerated()), id: \.element.id) { idx, tile in
-                            SoftHomeTile(tile: tile, count: count(for: tile.id)) {
-                                selectedSection = tile.section
-                            }
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 24)
-                            .animation(enterAnimation(delay: 0.13 + Double(idx) * 0.07), value: appeared)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-
-                    // QR-Code horizontale Kachel
-                    QRBigTile {
-                        showQRScanner = true
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 24)
-                    .animation(enterAnimation(delay: 0.41), value: appeared)
-
-                    // Letzte Aktivitäten
-                    if !recentActivities.isEmpty {
-                        VStack(spacing: 0) {
-                            ForEach(Array(recentActivities.enumerated()), id: \.element.id) { idx, item in
-                                ActivityRow(item: item) {
-                                    selectedSection = item.kind.section
-                                }
-                                if idx < recentActivities.count - 1 {
-                                    Divider()
-                                        .padding(.leading, 56)
+                    // ── 4 Säulen: Dokumente · Tasks · Passwörter · Notizen ──
+                    VStack(alignment: .leading, spacing: 12) {
+                        LazyVGrid(
+                            columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2),
+                            spacing: 10
+                        ) {
+                            ForEach(pillars) { pillar in
+                                ArcaPillarCard(pillar: pillar) {
+                                    selectedSection = pillar.section
                                 }
                             }
                         }
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
                         .padding(.horizontal, 20)
-                        .padding(.top, 12)
-                        .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : 24)
-                        .animation(enterAnimation(delay: 0.48), value: appeared)
                     }
 
-                    Spacer().frame(height: 12)
+                    // ── Schnellaktionen ──
+                    VStack(alignment: .leading, spacing: 12) {
+                        ArcaSectionTitle(title: "Schnellaktion")
+                            .padding(.horizontal, 20)
+
+                        VStack(spacing: 10) {
+                            HStack(spacing: 10) {
+                                ForEach(quickActionsTopRow) { item in
+                                    ArcaQuickActionChip(action: item) {
+                                        handleQuickAction(item.id)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                            }
+                            HStack(spacing: 10) {
+                                ForEach(quickActionsBottomRow) { item in
+                                    ArcaQuickActionChip(action: item) {
+                                        handleQuickAction(item.id)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
                     }
+
+                    // ── Ordner-Schnellzugriff (gewählte, nicht leere Gruppen) ──
+                    if !homeQuickViewFolders.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                ArcaSectionTitle(title: "Ordner")
+                                Spacer()
+                                if homeQuickViewFolders.count > 1 {
+                                    Button(isReorderingHomeFolders ? "Fertig" : "Sortieren") {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            isReorderingHomeFolders.toggle()
+                                        }
+                                    }
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.blue)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+
+                            if isReorderingHomeFolders {
+                                List {
+                                    ForEach(homeQuickViewFolders, id: \.self) { category in
+                                        homeFolderRow(category, tappable: false)
+                                            .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
+                                            .listRowSeparator(.hidden)
+                                            .listRowBackground(Color.clear)
+                                    }
+                                    .onMove { from, to in
+                                        store.moveHomeFolderQuickView(visibleFrom: from, visibleTo: to)
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    }
+                                }
+                                .listStyle(.plain)
+                                .scrollContentBackground(.hidden)
+                                .scrollDisabled(true)
+                                .frame(height: CGFloat(homeQuickViewFolders.count) * 62)
+                                .environment(\.editMode, .constant(.active))
+                            } else {
+                                VStack(spacing: 8) {
+                                    ForEach(homeQuickViewFolders, id: \.self) { category in
+                                        homeFolderRow(category, tappable: true)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
                     }
-                    .scrollDismissesKeyboard(.interactively)
+
+                    if !recentDocuments.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ArcaCollapsibleSectionHeader(
+                                title: "Zuletzt hinzugefügt",
+                                count: recentDocuments.count,
+                                isCollapsed: recentDocsCollapsed
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    recentDocsCollapsed.toggle()
+                                }
+                            }
+                            .padding(.horizontal, 20)
+
+                            if !recentDocsCollapsed {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(recentDocuments) { doc in
+                                            ArcaRecentDocumentCard(
+                                                title: doc.title,
+                                                typeLabel: doc.type.rawValue,
+                                                tint: categoryColor(doc.category, overrides: store.categoryColors).accent
+                                            ) {
+                                                quickAccessPreviewURL = store.documentURL(for: doc.filename)
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 20)
+                                }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+                    }
+
+                    Spacer().frame(height: 24)
+                    }
                 }
-
-                // Suchleiste unten (immer sichtbar)
-                HomeSearchBar(text: $searchText, focused: $isSearchFocused)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-                    .padding(.bottom, 10)
-                    .background(.ultraThinMaterial)
-                    .opacity(appeared ? 1 : 0)
-                    .animation(enterAnimation(delay: 0.07), value: appeared)
-        }
-        .onAppear {
-            guard !appeared else { return }
-            Self.hasAppeared = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                appeared = true
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scrollDismissesKeyboard(.interactively)
             }
+
+            HomeSearchBar(text: $searchText, focused: $isSearchFocused)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
         }
+        .background(Color(.systemGroupedBackground))
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)
@@ -650,7 +769,7 @@ struct HomeSearchBar: View {
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
-        .background(Color(.secondarySystemBackground), in: Capsule())
+        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
     }
 }
 
@@ -987,13 +1106,22 @@ struct HeaderStatPills: View {
     }
 
     var body: some View {
-        // Einfache monochrome Zahlen — dezent, kein Farb-Overload im Header
-        HStack(spacing: 8) {
-            ForEach(Array([formatted(vault), formatted(documents), formatted(tasks), formatted(notes)].enumerated()), id: \.offset) { _, val in
-                Text(val)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.primary.opacity(0.4))
-            }
+        HStack(spacing: 6) {
+            statItem(icon: "key.fill", value: vault, color: NoteColor.for_(2).accent)
+            statItem(icon: "doc.fill", value: documents, color: NoteColor.for_(5).accent)
+            statItem(icon: "checklist", value: tasks, color: NoteColor.for_(3).accent)
+            statItem(icon: "note.text", value: notes, color: NoteColor.for_(4).accent)
+        }
+    }
+
+    private func statItem(icon: String, value: Int, color: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(color)
+            Text(formatted(value))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.primary.opacity(0.55))
         }
     }
 }
@@ -2899,6 +3027,12 @@ struct DocumentsView: View {
                                         Text(category)
                                             .font(.system(size: 15, weight: .semibold))
                                             .foregroundStyle(.primary)
+                                        if store.isInHomeFolderQuickView(category) {
+                                            Image(systemName: "house.fill")
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundStyle(catColor.accent.opacity(0.85))
+                                                .accessibilityHidden(true)
+                                        }
                                         Text("\(docs.count)")
                                             .font(.caption.weight(.bold))
                                             .foregroundStyle(catColor.accent)
@@ -2930,6 +3064,17 @@ struct DocumentsView: View {
                                     }
 
                                     Divider()
+
+                                    Button {
+                                        store.toggleHomeFolderQuickView(category)
+                                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                    } label: {
+                                        if store.isInHomeFolderQuickView(category) {
+                                            Label("Aus Schnellansicht entfernen", systemImage: "house.slash")
+                                        } else {
+                                            Label("In Schnellansicht anzeigen", systemImage: "house")
+                                        }
+                                    }
 
                                     Button {
                                         store.pinCategoryForQuickAccess(category)
@@ -5413,6 +5558,146 @@ struct StatRow: View {
     }
 }
 
+// MARK: - Wusstest du? Karte
+
+struct ArcaTip {
+    let icon: String
+    let text: String
+    let tint: Color
+}
+
+struct DidYouKnowCard: View {
+    private static let tips: [ArcaTip] = [
+        ArcaTip(icon: "hand.draw.fill", text: "Tippe lange auf einen Ordner, um ihn umzubenennen, einzufärben oder zu teilen.", tint: .orange),
+        ArcaTip(icon: "house.fill", text: "Über „In Schnellansicht anzeigen“ legst du fest, welche Ordner auf dem Startbildschirm erscheinen.", tint: .blue),
+        ArcaTip(icon: "mic.fill", text: "Notizen kannst du einfach einsprechen – Arca wandelt deine Stimme in Text um.", tint: .purple),
+        ArcaTip(icon: "bolt.fill", text: "Mit der Blitzidee hältst du Gedanken in Sekunden fest, bevor sie weg sind.", tint: .yellow),
+        ArcaTip(icon: "qrcode.viewfinder", text: "Der QR-Scanner auf dem Start liest Codes blitzschnell ein.", tint: .teal),
+        ArcaTip(icon: "lock.shield.fill", text: "Alle Passwörter liegen sicher im iCloud-Schlüsselbund – verschlüsselt und nur für dich.", tint: .green),
+        ArcaTip(icon: "icloud.fill", text: "Deine Daten synchronisieren sich automatisch zwischen iPhone und iPad.", tint: .cyan),
+        ArcaTip(icon: "square.and.arrow.up.fill", text: "Sichere deinen Tresor regelmäßig über „Daten sichern“ – so bist du auch bei Geräteverlust geschützt.", tint: .indigo),
+        ArcaTip(icon: "ticket.fill", text: "Lege deine Fahrkarten und Tickets in einen Ordner und zeig ihn in der Schnellansicht – am Bahnsteig sofort griffbereit.", tint: .pink),
+        ArcaTip(icon: "airplane", text: "Reisedokumente wie Pass, Buchungen und Bordkarten an einem Ort – auf Reisen alles schnell zur Hand.", tint: .orange),
+        ArcaTip(icon: "car.fill", text: "Führerschein, Fahrzeugschein und Versichertenkarte fotografieren – bei einer Kontrolle in Sekunden gefunden.", tint: .blue),
+        ArcaTip(icon: "cross.case.fill", text: "Impfpass, Rezepte und Befunde an einem Ort – beim Arztbesuch alles sofort zur Hand.", tint: .red),
+        ArcaTip(icon: "receipt.fill", text: "Kassenbons und Garantiebelege fotografieren – beim Umtausch oder Garantiefall sofort griffbereit.", tint: .green),
+        ArcaTip(icon: "wifi", text: "Speichere dein WLAN-Passwort einmal – und zeig es Gästen blitzschnell, ohne langes Suchen.", tint: .cyan),
+        ArcaTip(icon: "sparkles", text: "Tippe auf dem Startbildschirm mehrmals auf das Arca-Logo – vielleicht entdeckst du etwas. 🕷️", tint: .pink),
+    ]
+
+    @State private var index = Int.random(in: 0..<DidYouKnowCard.tips.count)
+
+    private var tip: ArcaTip { Self.tips[index] }
+
+    var body: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                var next = index
+                while next == index && Self.tips.count > 1 {
+                    next = Int.random(in: 0..<Self.tips.count)
+                }
+                index = next
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: tip.icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(tip.tint)
+                    .frame(width: 44, height: 44)
+                    .background(tip.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Wusstest du?")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(tip.tint)
+                    Text(tip.text)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(tip.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(10)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct RateAppRow: View {
+    /// Numerische App-Store-ID von Arca. Der Knopf öffnet direkt die Bewertungsseite.
+    /// Solange leer, nutzt Arca die System-Bewertungsabfrage von Apple als Fallback.
+    private let appStoreID = "6764523136"
+
+    @Environment(\.requestReview) private var requestReview
+
+    var body: some View {
+        Button {
+            if !appStoreID.isEmpty,
+               let url = URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review") {
+                UIApplication.shared.open(url)
+            } else {
+                requestReview()
+            }
+        } label: {
+            HStack {
+                Label("Arca bewerten", systemImage: "star.fill")
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .foregroundStyle(.primary)
+    }
+}
+
+struct FeedbackLinkRow: View {
+    let url: URL?
+    let email = "kontakt@arcavault.app"
+
+    @State private var showCopiedAlert = false
+
+    private var canOpenMail: Bool {
+        guard let url else { return false }
+        return UIApplication.shared.canOpenURL(url)
+    }
+
+    var body: some View {
+        Button {
+            if let url, canOpenMail {
+                UIApplication.shared.open(url)
+            } else {
+                UIPasteboard.general.string = email
+                showCopiedAlert = true
+            }
+        } label: {
+            HStack {
+                Label("Feedback senden", systemImage: "envelope.fill")
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .foregroundStyle(.primary)
+        .alert("E-Mail-Adresse kopiert", isPresented: $showCopiedAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Auf diesem Gerät ist keine Mail-App eingerichtet. Schreib uns gern an \(email) – die Adresse wurde in die Zwischenablage kopiert.")
+        }
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject var store: AppStore
 
@@ -5439,27 +5724,45 @@ struct SettingsView: View {
     @State private var importErrorMessage = ""
     @State private var showReleaseNotes = false
 
-    private var totalTasks: Int { store.lists.reduce(0) { $0 + $1.items.count } }
-    private var doneTasks: Int { store.lists.reduce(0) { $0 + $1.items.filter(\.isDone).count } }
+    private var feedbackURL: URL? {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.3.0"
+        let subject = "Arca Feedback (Version \(version))"
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = "kontakt@arcavault.app"
+        components.queryItems = [URLQueryItem(name: "subject", value: subject)]
+        return components.url
+    }
+
+    @ViewBuilder
+    private var aboutSection: some View {
+        Section {
+            Button {
+                showReleaseNotes = true
+            } label: {
+                HStack {
+                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.3.0")", systemImage: "app.badge")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+            Label("Entwickler: Hans zen Ruffinen", systemImage: "person.fill")
+            RateAppRow()
+            FeedbackLinkRow(url: feedbackURL)
+        } header: {
+            Text("Über ARCA")
+        } footer: {
+            Text("Fragen, Wünsche oder ein Lob? Schreib mir gern – über jedes Feedback freue ich mich.")
+        }
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                Section("Über ARCA") {
-                    Button {
-                        showReleaseNotes = true
-                    } label: {
-                        HStack {
-                            Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.2.4")", systemImage: "app.badge")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .foregroundStyle(.primary)
-                    Label("© 2026 Hans Zen Ruffinen", systemImage: "c.circle")
-                }
+                aboutSection
 
                 // Backup — wichtigste Funktion, direkt oben
                 Section {
@@ -5486,14 +5789,16 @@ struct SettingsView: View {
                     Text("Das Backup wird verschlüsselt gespeichert. Du kannst es in iCloud Drive, per Mail oder lokal sichern. Falls du deinen PIN vergisst und die App zurücksetzen musst, kannst du alle Daten daraus wiederherstellen.")
                 }
 
-                // Statistik
+                // Wusstest du? – wechselnde Tipps & versteckte Funktionen
                 Section {
-                    StatRow(icon: "key.fill",      color: NoteColor.for_(2).accent, label: "Passwörter",     value: "\(store.vaultItems.count)")
-                    StatRow(icon: "doc.fill",      color: NoteColor.for_(5).accent, label: "Dokumente",      value: "\(store.documents.count)", subValue: "\(store.documentCategories.count) \(store.documentCategories.count == 1 ? "Gruppe" : "Gruppen")")
-                    StatRow(icon: "note.text",     color: NoteColor.for_(4).accent, label: "Notizen",        value: "\(store.notes.count)", subValue: store.notes.contains(where: \.isPinned) ? "\(store.notes.filter(\.isPinned).count) angepinnt" : nil)
-                    StatRow(icon: "checklist",     color: NoteColor.for_(3).accent, label: "Tasklisten",     value: "\(store.lists.count)", subValue: totalTasks > 0 ? "\(doneTasks) von \(totalTasks) erledigt" : nil)
-                } header: {
-                    Text("Deine Daten in Zahlen")
+                    DidYouKnowCard()
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                } footer: {
+                    Label("Arca ist kostenlos, werbefrei und sammelt keine Daten über dich.", systemImage: "lock.shield.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
             }
@@ -5512,12 +5817,26 @@ struct SettingsView: View {
                 NavigationStack {
                     List {
                         Section {
+                            Label("Videos mit Mehrfachauswahl in Dokumente importieren", systemImage: "film.stack.fill")
+                            Label("Diktat-Einträge direkt in Tasklisten", systemImage: "mic.fill")
+                            Label("Datei-Vorschauen für Bilder und Dokumente", systemImage: "doc.text.viewfinder")
+                            Label("iCloud-Download-Handling – Dateien werden bei Bedarf nachgeladen", systemImage: "icloud.and.arrow.down.fill")
+                            Label("Speicherschonendes Backup – große Archive ohne RAM-Überlast", systemImage: "externaldrive.fill.badge.checkmark")
+                            Label("Einheitliche Bedienführung auf allen Seiten", systemImage: "hand.tap.fill")
+                            Label("Scan-Fix und verbesserte Dokumentenerfassung", systemImage: "doc.viewfinder.fill")
+                            Label("iPad-Layout optimiert, App-Store-Compliance (Guideline 4)", systemImage: "ipad")
+                            Label("Undurchsichtiger Sperrbildschirm im Hintergrund", systemImage: "lock.shield.fill")
+                        } header: {
+                            Text("Neu in Version 2.3.0")
+                        }
+
+                        Section {
                             Label("iCloud Sync – alle Daten automatisch zwischen iPhone und iPad", systemImage: "icloud.fill")
                             Label("Passwörter, Notizen, Tasks und Dokumente auf allen Geräten synchron", systemImage: "arrow.triangle.2.circlepath")
                             Label("Offline voll nutzbar – Sync im Hintergrund sobald Verbindung besteht", systemImage: "wifi.slash")
                             Label("Bestehende Daten werden automatisch migriert – kein Datenverlust", systemImage: "checkmark.shield.fill")
                         } header: {
-                            Text("Neu in Version 2.2.4")
+                            Text("Version 2.2.4")
                         }
 
                         Section {
@@ -5929,6 +6248,50 @@ func categoryIcon(_ name: String) -> String {
     }
 }
 
+struct DocumentCategoryManagerRow: View {
+    @EnvironmentObject var store: AppStore
+    let category: String
+    let onRename: () -> Void
+
+    private var docCount: Int { store.documentCount(in: category) }
+    private var inQuickView: Bool { store.isInHomeFolderQuickView(category) }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: categoryIcon(category))
+                .foregroundStyle(categoryColor(category, overrides: store.categoryColors).accent)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(category)
+                if docCount > 0 {
+                    Text("\(docCount) Dokument\(docCount == 1 ? "" : "e")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Leer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary.opacity(0.6))
+                }
+            }
+            Spacer()
+            Button { store.toggleHomeFolderQuickView(category) } label: {
+                Image(systemName: inQuickView ? "house.fill" : "house")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(inQuickView ? Color.blue : (docCount > 0 ? Color.secondary : Color.secondary.opacity(0.5)))
+                    .frame(width: 36, height: 36)
+                    .background(Color(.secondarySystemFill), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(inQuickView ? "Aus Start-Schnellansicht entfernen" : "In Start-Schnellansicht anzeigen")
+            Button(action: onRename) {
+                Image(systemName: "pencil")
+                    .foregroundStyle(.blue)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
 struct DocumentCategoryManagerView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) var dismiss
@@ -5941,20 +6304,9 @@ struct DocumentCategoryManagerView: View {
         NavigationStack {
             List {
                 ForEach(store.documentCategories, id: \.self) { cat in
-                    HStack {
-                        Image(systemName: categoryIcon(cat))
-                            .foregroundStyle(categoryColor(cat, overrides: store.categoryColors).accent)
-                            .frame(width: 28)
-                        Text(cat)
-                        Spacer()
-                        Button {
-                            renameTarget = cat
-                            renameText = cat
-                        } label: {
-                            Image(systemName: "pencil")
-                                .foregroundStyle(.blue)
-                        }
-                        .buttonStyle(.plain)
+                    DocumentCategoryManagerRow(category: cat) {
+                        renameTarget = cat
+                        renameText = cat
                     }
                 }
                 .onDelete { indexSet in

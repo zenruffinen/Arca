@@ -1,3 +1,10 @@
+//
+//  ArcaIntents.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import AppIntents
 
 // MARK: - Notification names for in-process intent delivery

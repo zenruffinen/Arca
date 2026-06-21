@@ -112,7 +112,23 @@
       "Bash(sed -n '160,210p' ContentView.swift)",
       "Bash(sed -n '520,560p' ContentView.swift)",
       "Bash(sed -n '4340,4380p' ContentView.swift)",
-      "Bash(awk 'NR==2169,/^}/{print NR\": \"$0}' ContentView.swift)"
+      "Bash(awk 'NR==2169,/^}/{print NR\": \"$0}' ContentView.swift)",
+      "Bash(xcodebuild -project Arca.xcodeproj -scheme Arca -destination 'platform=iOS Simulator,name=iPad Air 11-inch \\(M4\\)' -derivedDataPath /tmp/ArcaBuild -configuration Debug build CODE_SIGNING_ALLOWED=NO)",
+      "Bash(open -a Simulator)",
+      "Bash(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' /tmp/ArcaBuild/Build/Products/Debug-iphonesimulator/Arca.app/Info.plist)",
+      "Bash(git -C /Users/hansi/Desktop/Projekte/programmieren/Arca status --short)",
+      "Bash(xcodebuild -showBuildSettings -project Arca.xcodeproj -target Arca)",
+      "Bash(xcodebuild -showBuildSettings -project /Users/hansi/Desktop/Projekte/programmieren/Arca/Arca.xcodeproj -target Arca)",
+      "Bash(xcodebuild build *)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "Bash(git commit -m 'Fix: iPad-Layout entzerrt + redundantes Zahnrad entfernt \\(Guideline 4\\) — Build 30' -m '- Verschachtelte Drei-Spalten-Master-Detail in Passwörter/Dokumente/Notizen/Tasks entfernt; auf dem iPad nun einspaltiges Layout in der Sidebar-SplitView \\(kein '\\\\''crowded interface'\\\\'' mehr, Guideline 4\\). *)",
+      "Bash(mkdir -p ~/Desktop/Projekte/programmieren/Miner/Miner/Miner.xcodeproj)",
+      "Read(//Users/hansi/Desktop/Projekte/programmieren/**)",
+      "Bash(rm -rf ~/Desktop/Projekte/programmieren/Miner)",
+      "Bash(mkdir -p ~/Desktop/Projekte/programmieren/Miner/Miner.xcodeproj)",
+      "Bash(mkdir -p ~/Desktop/Projekte/programmieren/Miner/Miner)",
+      "Bash(mkdir -p ~/Desktop/Projekte/programmieren/Miner/Miner.xcodeproj/xcshareddata/xcschemes && echo \"Scheme-Ordner angelegt\")"
     ]
   }
 }

@@ -1,3 +1,10 @@
+//
+//  QRScanner.swift
+//  Arca
+//
+//  Entwickler: Hans zen Ruffinen
+//
+
 import SwiftUI
 import Vision
 import VisionKit
