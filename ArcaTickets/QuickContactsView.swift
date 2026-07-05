@@ -26,6 +26,7 @@ struct QuickContactsSection: View {
                     showManageAll = true
                 }
                 .font(.subheadline.weight(.medium))
+                .ticketsMinTapTarget()
             }
             .padding(.horizontal, 4)
 
@@ -49,7 +50,7 @@ struct QuickContactsSection: View {
 
     private var emptyHint: some View {
         VStack(spacing: 8) {
-            Text("Polizei, Hotel, Fluggesellschaft — alles griffbereit.")
+            Text("Polizei, Hotel, Flug — ein Tap zum Anrufen.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -57,6 +58,7 @@ struct QuickContactsSection: View {
                 showManageAll = true
             }
             .font(.subheadline.weight(.semibold))
+            .ticketsMinTapTarget()
         }
         .frame(maxWidth: .infinity)
         .padding(20)
@@ -140,6 +142,7 @@ struct QuickContactRow: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

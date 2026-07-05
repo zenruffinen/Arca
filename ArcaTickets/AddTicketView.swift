@@ -38,6 +38,7 @@ struct AddTicketView: View {
     @State private var hasBoarding = false
     @State private var boardingTime = Date()
     @State private var pinOnAdd = false
+    @State private var showTravelDetails = false
 
     init(
         preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges",
@@ -70,7 +71,7 @@ struct AddTicketView: View {
                     }
                 }
 
-                Section("Quelle") {
+                Section {
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
                         Label("Aus Fotos wählen", systemImage: "photo.on.rectangle")
                     }
@@ -84,6 +85,11 @@ struct AddTicketView: View {
                     } label: {
                         Label("Kamera", systemImage: "camera.fill")
                     }
+                } header: {
+                    Text("Quelle")
+                } footer: {
+                    Text("Tipp: In Mail oder Safari auf Teilen tippen → Arca Tickets.")
+                        .font(.caption)
                 }
 
                 if pendingFileURL != nil || pendingData != nil {
@@ -92,14 +98,14 @@ struct AddTicketView: View {
                     }
                 }
 
-                Section("Details") {
+                Section {
                     TextField("Titel", text: $title)
                     Picker("Ordner", selection: $folder) {
                         ForEach(store.folders, id: \.self) { name in
                             Text(name).tag(name)
                         }
                     }
-                    Toggle("Auf Unterwegs pinnen", isOn: $pinOnAdd)
+                    Toggle("Auf Unterwegs anheften", isOn: $pinOnAdd)
                     Toggle("Ablaufdatum", isOn: $hasExpiry)
                     if hasExpiry {
                         DatePicker("Gültig bis", selection: $expiryDate, displayedComponents: [.date, .hourAndMinute])
@@ -111,19 +117,28 @@ struct AddTicketView: View {
                     }
                     TextField("Notizen (optional)", text: $notes, axis: .vertical)
                         .lineLimit(2...4)
+                } header: {
+                    Text("Details")
                 }
 
-                Section("Reise (optional)") {
-                    TextField("Flugnummer", text: $flightNumber)
-                        .textInputAutocapitalization(.characters)
-                    TextField("Sitzplatz", text: $seatNumber)
-                        .textInputAutocapitalization(.characters)
-                    TextField("Gate", text: $gate)
-                        .textInputAutocapitalization(.characters)
-                    Toggle("Boarding-Zeit", isOn: $hasBoarding)
-                    if hasBoarding {
-                        DatePicker("Boarding", selection: $boardingTime, displayedComponents: [.date, .hourAndMinute])
+                Section {
+                    DisclosureGroup(isExpanded: $showTravelDetails) {
+                        TextField("Flugnummer", text: $flightNumber)
+                            .textInputAutocapitalization(.characters)
+                        TextField("Sitzplatz", text: $seatNumber)
+                            .textInputAutocapitalization(.characters)
+                        TextField("Gate", text: $gate)
+                            .textInputAutocapitalization(.characters)
+                        Toggle("Boarding-Zeit", isOn: $hasBoarding)
+                        if hasBoarding {
+                            DatePicker("Boarding", selection: $boardingTime, displayedComponents: [.date, .hourAndMinute])
+                        }
+                    } label: {
+                        Label("Reisedetails (optional)", systemImage: "airplane")
                     }
+                } footer: {
+                    Text("Flug, Sitz und Gate — nur wenn du sie brauchst. Alles später änderbar.")
+                        .font(.caption)
                 }
 
                 if !errorMessage.isEmpty {
@@ -134,7 +149,7 @@ struct AddTicketView: View {
                     }
                 }
             }
-            .navigationTitle(isRenewal ? "Ticket erneuern" : "Ticket hinzufügen")
+            .navigationTitle(isRenewal ? "Ticket erneuern" : "Neues Ticket")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -162,8 +177,8 @@ struct AddTicketView: View {
                     if title.isEmpty {
                         title = url.deletingPathExtension().lastPathComponent
                     }
-                case .failure(let error):
-                    errorMessage = error.localizedDescription
+                case .failure:
+                    errorMessage = "Das hat nicht geklappt — nochmal versuchen?"
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
@@ -231,7 +246,7 @@ struct AddTicketView: View {
                 if title.isEmpty { title = "Ticket \(Date().formatted(date: .abbreviated, time: .omitted))" }
             }
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            await MainActor.run { errorMessage = "Das hat nicht geklappt — nochmal versuchen?" }
         }
     }
 
@@ -249,7 +264,7 @@ struct AddTicketView: View {
         }
 
         guard var saved = entry else {
-            errorMessage = "Import fehlgeschlagen."
+            errorMessage = "Das hat nicht geklappt — nochmal versuchen?"
             return
         }
 
@@ -275,6 +290,16 @@ struct AddTicketView: View {
         }
 
         TicketsHaptics.success()
+        let hasFlight = !(saved.flightNumber?.isEmpty ?? true)
+        if pinOnAdd {
+            store.showToast("Auf Unterwegs angehefixt ✈️")
+        } else if hasFlight {
+            store.showToast("Guten Flug! ✈️")
+        } else if isRenewal {
+            store.showToast("Ticket erneuert — gute Fahrt!")
+        } else {
+            store.showToast("Alles gespeichert — gute Reise!")
+        }
         dismiss()
     }
 }

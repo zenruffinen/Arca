@@ -96,7 +96,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Familie")
                 } footer: {
-                    Text("Reise teilen — Familie erhält alle Tickets. Wenn dir jemand eine .arcaticketsfolder-Datei geschickt hat, importiere sie hier oder tippe die Datei in Dateien/Nachrichten an.")
+                    Text("Schritt 1: Ordner teilen · Schritt 2: AirDrop oder Nachrichten · Schritt 3: Datei öffnen. Reise teilen — Familie erhält alle Tickets.")
                 }
 
                 Section {
@@ -157,8 +157,8 @@ struct SettingsView: View {
                     Text("Tickets aus der geteilten Reise liegen in „\(name)“.")
                 }
             }
-            .alert("Import fehlgeschlagen", isPresented: $folderImportFailed) {
-                Button("OK", role: .cancel) {}
+            .alert("Das hat nicht geklappt", isPresented: $folderImportFailed) {
+                Button("Nochmal versuchen", role: .cancel) {}
             } message: {
                 Text("Die Datei ist kein gültiger geteilter Arca-Tickets-Ordner.")
             }
@@ -202,6 +202,7 @@ struct FolderManagementView: View {
     @State private var renameText = ""
     @State private var showAddAlert = false
     @State private var shareItem: ShareURLItem?
+    @State private var shareGuideFolder: String?
 
     var body: some View {
         NavigationStack {
@@ -223,9 +224,7 @@ struct FolderManagementView: View {
                             Spacer()
                             Menu {
                                 Button {
-                                    if let url = store.exportFolder(folder) {
-                                        shareItem = ShareURLItem(url: url)
-                                    }
+                                    shareGuideFolder = folder
                                 } label: {
                                     Label("Mit Familie teilen", systemImage: "person.2.fill")
                                 }
@@ -289,6 +288,24 @@ struct FolderManagementView: View {
             .sheet(item: $shareItem) { item in
                 ShareSheet(activityItems: [item.url])
             }
+            .sheet(item: Binding(
+                get: { shareGuideFolder.map { ShareGuideItem(name: $0) } },
+                set: { shareGuideFolder = $0?.name }
+            )) { item in
+                FolderShareGuideView(folderName: item.name) {
+                    shareGuideFolder = nil
+                    if let url = store.exportFolder(item.name) {
+                        TicketsHaptics.lightImpact()
+                        shareItem = ShareURLItem(url: url)
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
         }
     }
+}
+
+private struct ShareGuideItem: Identifiable {
+    let name: String
+    var id: String { name }
 }

@@ -16,6 +16,7 @@ struct FolderView: View {
     @State private var showDeleteConfirm = false
     @State private var shareItem: ShareURLItem?
     @State private var showShareEmptyAlert = false
+    @State private var showShareGuide = false
 
     private var folderTickets: [TicketEntry] {
         store.tickets(in: folder, filter: filter)
@@ -42,10 +43,9 @@ struct FolderView: View {
                             NavigationLink(value: ticket) {
                                 TicketRow(ticket: ticket, showPinIndicator: true)
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button(role: .destructive) {
-                                    ticketToDelete = ticket
-                                    showDeleteConfirm = true
+                                    deleteTicket(ticket)
                                 } label: {
                                     Label("Löschen", systemImage: "trash")
                                 }
@@ -62,10 +62,11 @@ struct FolderView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 16) {
                     Button {
-                        shareFolder()
+                        beginShare()
                     } label: {
                         Image(systemName: "person.2.fill")
                     }
+                    .ticketsMinTapTarget()
                     .accessibilityLabel("Mit Familie teilen")
 
                     Button {
@@ -78,6 +79,13 @@ struct FolderView: View {
         }
         .sheet(item: $shareItem) { item in
             ShareSheet(activityItems: [item.url])
+        }
+        .sheet(isPresented: $showShareGuide) {
+            FolderShareGuideView(folderName: folder) {
+                showShareGuide = false
+                shareFolder()
+            }
+            .presentationDetents([.medium, .large])
         }
         .alert("Nichts zu teilen", isPresented: $showShareEmptyAlert) {
             Button("OK", role: .cancel) {}
@@ -109,8 +117,26 @@ struct FolderView: View {
             }
         } message: {
             if let ticket = ticketToDelete {
-                Text("\u{201E}\(ticket.title)\u{201C} wird unwiderruflich gelöscht.")
+                Text("\u{201E}\(ticket.title)\u{201C} wirklich löschen? Das lässt sich nicht rückgängig machen.")
             }
+        }
+    }
+
+    private func beginShare() {
+        guard !allFolderTickets.isEmpty else {
+            showShareEmptyAlert = true
+            return
+        }
+        showShareGuide = true
+    }
+
+    private func deleteTicket(_ ticket: TicketEntry) {
+        if ticket.needsDeleteConfirmation {
+            ticketToDelete = ticket
+            showDeleteConfirm = true
+        } else {
+            TicketsHaptics.delete()
+            store.deleteTicket(ticket)
         }
     }
 

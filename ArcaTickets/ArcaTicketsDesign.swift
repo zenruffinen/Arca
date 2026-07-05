@@ -164,6 +164,186 @@ struct TicketsPrimaryButton: View {
     }
 }
 
+// MARK: - Toast
+
+struct TicketsToastBanner: View {
+    let message: String
+
+    var body: some View {
+        Text(message)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+            .padding(.horizontal, 20)
+            .accessibilityAddTraits(.isStaticText)
+    }
+}
+
+private struct TicketsToastOverlayModifier: ViewModifier {
+    @EnvironmentObject private var store: TicketStore
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) {
+                if let message = store.toastMessage {
+                    TicketsToastBanner(message: message)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(100)
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: store.toastMessage)
+    }
+}
+
+extension View {
+    func ticketsToastOverlay() -> some View {
+        modifier(TicketsToastOverlayModifier())
+    }
+
+    func ticketsMinTapTarget() -> some View {
+        frame(minWidth: 44, minHeight: 44, alignment: .center)
+            .contentShape(Rectangle())
+    }
+}
+
+// MARK: - FAB
+
+struct TicketsFAB: View {
+    let title: String
+    var useTravelGradient: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.title3.bold())
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background {
+                if useTravelGradient {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                } else {
+                    Capsule()
+                        .fill(Color.accentColor)
+                }
+            }
+            .shadow(
+                color: (useTravelGradient ? ArcaTicketsDesign.travelOcean : .black).opacity(useTravelGradient ? 0.3 : 0.18),
+                radius: 10,
+                y: 4
+            )
+        }
+        .buttonStyle(.plain)
+        .ticketsMinTapTarget()
+        .accessibilityLabel("\(title) — neues Ticket")
+    }
+}
+
+// MARK: - Folder share guide
+
+struct FolderShareGuideView: View {
+    let folderName: String
+    var onContinue: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Reise teilen")
+                            .font(.title2.bold())
+                        Text("Einmal teilen — jeder hat Flug, Hotel und Eintritt griffbereit.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(spacing: 14) {
+                        shareStep(
+                            icon: "folder.fill",
+                            number: "1",
+                            title: "Ordner wählen",
+                            subtitle: "\u{201E}\(folderName)\u{201C} mit allen Tickets wird verpackt.",
+                            tintName: "blue"
+                        )
+                        shareStep(
+                            icon: "square.and.arrow.up",
+                            number: "2",
+                            title: "Teilen",
+                            subtitle: "Per AirDrop oder Nachrichten an Familie senden.",
+                            tintName: "teal"
+                        )
+                        shareStep(
+                            icon: "hand.tap.fill",
+                            number: "3",
+                            title: "Öffnen",
+                            subtitle: "Empfänger tippt die Datei — Tickets erscheinen in der App.",
+                            tintName: "purple"
+                        )
+                    }
+
+                    TicketsPrimaryButton(title: "Jetzt teilen", icon: "person.2.fill", action: onContinue)
+                }
+                .padding(20)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Familie einladen")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func shareStep(icon: String, number: String, title: String, subtitle: String, tintName: String) -> some View {
+        let tint = ArcaTicketsDesign.tint(for: tintName)
+        return HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.14))
+                    .frame(width: 48, height: 48)
+                Image(systemName: icon)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(tint)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("Schritt \(number)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(tint)
+                    Text(title)
+                        .font(.headline)
+                }
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .ticketsCardBackground(tint: tint, cornerRadius: ArcaTicketsDesign.chipRadius)
+    }
+}
+
 struct TicketsAppIcon: View {
     var size: CGFloat = 96
 

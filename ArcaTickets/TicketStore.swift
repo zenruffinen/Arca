@@ -29,6 +29,9 @@ final class TicketStore: ObservableObject {
         didSet { guard !isLoadingData else { return }; saveQuickContacts() }
     }
     @Published private(set) var isCloudSyncPending = false
+    @Published var toastMessage: String?
+
+    private var toastDismissTask: Task<Void, Never>?
 
     enum ICloudStatus: String {
         case unavailable = "Nicht verfügbar"
@@ -489,13 +492,25 @@ final class TicketStore: ObservableObject {
         }
     }
 
+    func showToast(_ message: String) {
+        toastMessage = message
+        toastDismissTask?.cancel()
+        toastDismissTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled else { return }
+            toastMessage = nil
+        }
+    }
+
     func togglePin(for entry: TicketEntry) {
         guard let idx = tickets.firstIndex(where: { $0.id == entry.id }) else { return }
         tickets[idx].isPinned.toggle()
         if tickets[idx].isPinned {
             TicketsHaptics.pin()
+            showToast("Auf Unterwegs angehefixt ✈️")
         } else {
             TicketsHaptics.lightImpact()
+            showToast("Von Unterwegs gelöst")
         }
     }
 
@@ -505,6 +520,7 @@ final class TicketStore: ObservableObject {
         tickets[idx].isPinned = pinned
         if pinned && !wasPinned {
             TicketsHaptics.pin()
+            showToast("Auf Unterwegs angehefixt ✈️")
         }
     }
 

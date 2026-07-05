@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var importedFolderName: String?
     @State private var showFolderImportSuccess = false
     @State private var showFolderImportError = false
+    @State private var showContactsSheet = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -50,16 +51,20 @@ struct ContentView: View {
                     }
             }
             .tabItem {
-                Label("Alle Tickets", systemImage: "folder.fill")
+                Label("Alle Tickets", systemImage: "ticket.fill")
             }
             .tag(1)
         }
+        .ticketsToastOverlay()
         .sheet(isPresented: $showAddTicket) {
             AddTicketView(importURL: importURL)
                 .onDisappear { importURL = nil }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showContactsSheet) {
+            QuickContactsManagementView()
         }
         .disabled(!isUnlocked)
         .onChange(of: pendingFolderImportURL) { _, url in
@@ -70,6 +75,7 @@ struct ContentView: View {
         }
         .onChange(of: isUnlocked) { _, unlocked in
             guard unlocked else { return }
+            handlePostOnboardingActions()
             handleIncomingFolderURL(pendingFolderImportURL)
             handleIncomingURL(pendingImportURL)
             if let id = pendingTicketID {
@@ -83,6 +89,7 @@ struct ContentView: View {
             pendingTicketID = nil
         }
         .onAppear {
+            handlePostOnboardingActions()
             if let url = pendingFolderImportURL {
                 handleIncomingFolderURL(url)
             }
@@ -110,10 +117,20 @@ struct ContentView: View {
                 Text("Alle Tickets aus der geteilten Reise liegen jetzt in \u{201E}\(name)\u{201C}. Flug, Hotel und Eintritt sind griffbereit.")
             }
         }
-        .alert("Import fehlgeschlagen", isPresented: $showFolderImportError) {
-            Button("OK", role: .cancel) {}
+        .alert("Das hat nicht geklappt", isPresented: $showFolderImportError) {
+            Button("Nochmal versuchen", role: .cancel) {}
         } message: {
-            Text("Die Datei konnte nicht als geteilter Ordner gelesen werden. Bitte eine gültige .arcaticketsfolder-Datei wählen.")
+            Text("Die Datei konnte nicht gelesen werden. Bitte eine gültige .arcaticketsfolder-Datei wählen.")
+        }
+    }
+
+    private func handlePostOnboardingActions() {
+        guard isUnlocked else { return }
+        if OnboardingStorage.consumeAddTicket() {
+            showAddTicket = true
+        }
+        if OnboardingStorage.consumeContacts() {
+            showContactsSheet = true
         }
     }
 

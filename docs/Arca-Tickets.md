@@ -302,18 +302,39 @@ Für Live-Sync (Vater fügt Hotel-Ticket hinzu → erscheint bei allen): CloudKi
 
 ## UI-Skizze
 
+### Ton & UX-Prinzipien (v2 Polish)
+
+> **Motto:** *Alles dabei. Sorglos reisen.*
+
+| Bereich | Stil |
+|---------|------|
+| **Ton** | Warm, freundlich, nicht corporate — „Guten Flug! ✈️" statt „Ticket hinzugefügt" |
+| **Leere Zustände** | Kurz, ermutigend — „Noch keine Tickets — leg los ✈️" |
+| **Fehler** | Sanft — „Das hat nicht geklappt — nochmal versuchen?" |
+| **Pin** | Haptik + Toast „Auf Unterwegs angehefixt ✈️" |
+| **Löschen** | Rot mit „Löschen"-Label; Bestätigung für wichtige Tickets (gepinnt, Reisedetails, Ablauf, Mehrfachkarte) |
+| **Barrierefreiheit** | Mindestens 44 pt Tap-Targets, Dynamic Type wo möglich |
+
 ### Zwei Tabs — Reise-UX (v2)
 
-> **Motto:** *Arca Tickets — alles dabei, sorglos*
+> **Tab-Leiste:** `airplane.departure` · **Unterwegs** | `ticket.fill` · **Alle Tickets**
 
 | Tab | Zweck |
 |-----|--------|
 | **Unterwegs** | Gepinnte + bald anstehende Tickets als Boarding-Pass-Karten; **Wichtige Nummern** nach Kategorie (Notfall, Flug, Hotel, Event, Familie) |
 | **Alle Tickets** | Ordnerstruktur (Bahn, Abos, Berge, Sonstiges + eigene) → Ticketliste |
 
-**Unterwegs:** Nutzer pinnt Tickets per Pin-Icon („Aktuell"). Reisefelder sind auf der Karte tippbar und im Bearbeiten-Formular editierbar. „Am Schalter zeigen" öffnet QR-Vollbild. **Wichtige Nummern:** Schweizer Notrufe (117, 118, 144, 112) vorausgefüllt; Vorlagen für Fluggesellschaft, Veranstalter, Reiseunternehmen, Hotel, Reiseversicherung, Mutter, Vater, Anwalt — Nummern eintragen, tippen zum Anrufen. Verwaltung unter Einstellungen → Wichtige Nummern.
+**Onboarding (3 Screens):** „Alles dabei. Sorglos reisen." → Ticket importieren → Unterwegs & Nummern. Letzter Screen bietet „Erstes Ticket hinzufügen" und „Wichtige Nummern einrichten".
 
-**Alle Tickets:** Wischen nach links → Löschen mit Bestätigung. Pin-Icon in der Liste für schnelles Pinnen.
+**Unterwegs:** Nutzer heftet Tickets per Pin-Icon an („Auf Unterwegs anheften"). Reisefelder sind auf der Karte tippbar. FAB „Hinzufügen" mit Reise-Gradient. **Wichtige Nummern:** Gruppierte Karten mit Kategorie-Farben, prominentes Telefon-Icon, ein Tap zum Anrufen.
+
+**Alle Tickets:** FAB „Hinzufügen". Wischen → „Löschen" (rot). Pin-Icon in der Liste.
+
+**Ticket hinzufügen:** Reisedetails eingeklappt unter „Reisedetails (optional)" — nicht überwältigend. Speichern zeigt kontextuelle Toasts („Guten Flug!", „Alles gespeichert — gute Reise!").
+
+**Familien-Ordner teilen:** 3-Schritt-Erklärung mit Icons (Ordner wählen → Teilen → Öffnen) vor dem Share Sheet. Einstellungen → Familie mit Kurz-Anleitung.
+
+**Wichtige Nummern:** Schweizer Notrufe (117, 118, 144, 112) vorausgefüllt; Vorlagen für Fluggesellschaft, Hotel, Familie u. a. Verwaltung unter Einstellungen → Wichtige Nummern.
 
 ### Hauptansicht (iPhone, Tab „Alle Tickets")
 
@@ -506,7 +527,7 @@ Arca Tickets ist die schlanke Schwester von Arca: nur Tickets, nichts Überflüs
 - [x] QR/Barcode-Erkennung & Vollbild-Ansicht (Vision, Wisch-Dismiss)
 - [x] Ablauf-Erinnerungen (1 Tag vorher, UNUserNotificationCenter)
 - [x] Nächstes Ticket Hero-Karte
-- [x] Onboarding (3 Screens)
+- [x] Onboarding (3 Screens, Reise-Freude, Erstes Ticket / Nummern)
 - [x] LockView + Keychain
 - [x] iCloud Sync
 - [x] Homescreen-Widget (nächstes Ticket)

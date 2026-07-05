@@ -134,7 +134,15 @@ struct TicketEntry: Identifiable, Codable, Hashable {
     }
 
     var hasTravelDetails: Bool {
-        flightNumber != nil || seatNumber != nil || boardingTime != nil || gate != nil
+        !(flightNumber?.isEmpty ?? true)
+            || !(seatNumber?.isEmpty ?? true)
+            || boardingTime != nil
+            || !(gate?.isEmpty ?? true)
+    }
+
+    /// Wichtige Tickets brauchen eine Lösch-Bestätigung.
+    var needsDeleteConfirmation: Bool {
+        isPinned || hasTravelDetails || expiryDate != nil || remainingUses != nil
     }
 
     var unterwegsSortDate: Date {

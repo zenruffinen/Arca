@@ -63,30 +63,10 @@ struct UnderwegsView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Button {
+            TicketsFAB(title: "Hinzufügen", useTravelGradient: true) {
                 showAddTicket = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                        .font(.title3.bold())
-                    Text("Hinzufügen")
-                        .font(.system(size: 17, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
-                .background(
-                    LinearGradient(
-                        colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    in: Capsule()
-                )
-                .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.3), radius: 10, y: 4)
             }
             .padding(.bottom, 24)
-            .accessibilityLabel("Ticket hinzufügen")
         }
     }
 
@@ -98,7 +78,7 @@ struct UnderwegsView: View {
                     Text("Alles dabei, sorglos")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                     Text(unterwegsTickets.isEmpty
-                         ? "Deine Reise beginnt hier"
+                         ? "Deine Reise beginnt hier ✈️"
                          : "\(unterwegsTickets.count) Ticket\(unterwegsTickets.count == 1 ? "" : "s") griffbereit")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -120,11 +100,11 @@ struct UnderwegsView: View {
                 .foregroundStyle(ArcaTicketsDesign.travelSunset)
                 .symbolEffect(.pulse, options: .repeating)
 
-            Text("Pinne ein Ticket oder füge deine Reise hinzu")
+            Text("Noch nichts gepinnt")
                 .font(.headline)
                 .multilineTextAlignment(.center)
 
-            Text("Flugnummer, Sitzplatz und Boarding-Zeit — alles auf einen Blick, wenn du unterwegs bist.")
+            Text("Pinne ein Ticket unter \u{201E}Alle Tickets\u{201C} oder füge deine erste Reise hinzu — Flug, Sitz und Boarding auf einen Blick.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -132,7 +112,7 @@ struct UnderwegsView: View {
             Button {
                 showAddTicket = true
             } label: {
-                Label("Reise hinzufügen", systemImage: "plus.circle.fill")
+                Label("Erste Reise hinzufügen", systemImage: "plus.circle.fill")
                     .font(.headline)
             }
             .buttonStyle(.borderedProminent)
@@ -230,7 +210,8 @@ struct BoardingPassCard: View {
                     .symbolEffect(.bounce, value: localTicket.isPinned)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(localTicket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs pinnen")
+            .ticketsMinTapTarget()
+            .accessibilityLabel(localTicket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs anheften")
         }
         .padding(16)
     }

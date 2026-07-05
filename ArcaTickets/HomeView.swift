@@ -66,29 +66,16 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Button {
+            TicketsFAB(title: "Hinzufügen") {
                 showAddTicket = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                        .font(.title3.bold())
-                    Text("Hinzufügen")
-                        .font(.system(size: 17, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
-                .background(Color.accentColor, in: Capsule())
-                .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
             }
             .padding(.bottom, 24)
-            .accessibilityLabel("Ticket hinzufügen")
         }
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Noch keine Tickets")
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Noch keine Tickets — leg los ✈️")
                 .font(.headline)
             Text("Tippe auf Hinzufügen oder teile ein PDF oder Foto direkt in Arca Tickets.")
                 .font(.subheadline)
@@ -166,8 +153,7 @@ struct AllTicketsView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
-                        ticketToDelete = ticket
-                        showDeleteConfirm = true
+                        deleteTicket(ticket)
                     } label: {
                         Label("Löschen", systemImage: "trash")
                     }
@@ -186,8 +172,18 @@ struct AllTicketsView: View {
             }
         } message: {
             if let ticket = ticketToDelete {
-                Text("\u{201E}\(ticket.title)\u{201C} wird unwiderruflich gelöscht.")
+                Text("\u{201E}\(ticket.title)\u{201C} wirklich löschen? Das lässt sich nicht rückgängig machen.")
             }
+        }
+    }
+
+    private func deleteTicket(_ ticket: TicketEntry) {
+        if ticket.needsDeleteConfirmation {
+            ticketToDelete = ticket
+            showDeleteConfirm = true
+        } else {
+            TicketsHaptics.delete()
+            store.deleteTicket(ticket)
         }
     }
 }
@@ -258,7 +254,8 @@ struct TicketRow: View {
                         .foregroundStyle(ticket.isPinned ? ArcaTicketsDesign.travelSunset : Color.secondary.opacity(0.5))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(ticket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs pinnen")
+                .ticketsMinTapTarget()
+                .accessibilityLabel(ticket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs anheften")
             }
         }
         .padding(.vertical, 2)

@@ -9,6 +9,8 @@ import SwiftUI
 
 enum OnboardingStorage {
     static let completedKey = "arcatickets_onboarding_completed"
+    static let pendingAddTicketKey = "arcatickets_pending_add_ticket"
+    static let pendingContactsKey = "arcatickets_pending_contacts"
 
     static var hasCompleted: Bool {
         UserDefaults.standard.bool(forKey: completedKey)
@@ -17,37 +19,65 @@ enum OnboardingStorage {
     static func markCompleted() {
         UserDefaults.standard.set(true, forKey: completedKey)
     }
+
+    static func requestAddTicket() {
+        UserDefaults.standard.set(true, forKey: pendingAddTicketKey)
+    }
+
+    static func requestContacts() {
+        UserDefaults.standard.set(true, forKey: pendingContactsKey)
+    }
+
+    static func consumeAddTicket() -> Bool {
+        let pending = UserDefaults.standard.bool(forKey: pendingAddTicketKey)
+        if pending { UserDefaults.standard.set(false, forKey: pendingAddTicketKey) }
+        return pending
+    }
+
+    static func consumeContacts() -> Bool {
+        let pending = UserDefaults.standard.bool(forKey: pendingContactsKey)
+        if pending { UserDefaults.standard.set(false, forKey: pendingContactsKey) }
+        return pending
+    }
 }
 
 struct OnboardingView: View {
     @Binding var isPresented: Bool
     @State private var page = 0
 
-    private let pages: [(icon: String, title: String, subtitle: String, showFlow: Bool)] = [
+    private let pages: [(icon: String, title: String, subtitle: String, accent: String)] = [
+        (
+            "airplane.departure",
+            "Alles dabei. Sorglos reisen.",
+            "Flug, Bahn, Skipass — alles an einem Ort. Kein Wühlen, kein Stress.",
+            "travel"
+        ),
         (
             "square.and.arrow.down.fill",
             "Ticket rein",
-            "Per Teilen aus Mail oder Safari, Foto oder PDF — in Sekunden gespeichert und sortiert.",
-            false
+            "Per Teilen aus Mail oder Safari, Foto oder PDF — in Sekunden gespeichert.",
+            "import"
         ),
         (
-            "qrcode.viewfinder",
-            "Am Schalter zeigen",
-            "QR-Code im Vollbild mit maximaler Helligkeit — kein Wühlen in der Tasche.",
-            true
+            "pin.fill",
+            "Unterwegs griffbereit",
+            "Pinne dein nächstes Ticket, trage Flug & Sitz ein — und halte wichtige Nummern parat.",
+            "unterwegs"
         )
     ]
 
     var body: some View {
         ZStack {
-            Color(.systemBackground).ignoresSafeArea()
+            ArcaTicketsDesign.travelGradient
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
                     Button("Überspringen") { finish() }
-                        .font(.subheadline)
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
+                        .ticketsMinTapTarget()
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -58,7 +88,8 @@ struct OnboardingView: View {
                             icon: item.icon,
                             title: item.title,
                             subtitle: item.subtitle,
-                            showFlow: item.showFlow
+                            showFlow: index == 1,
+                            showGettingStarted: index == pages.count - 1
                         )
                         .tag(index)
                     }
@@ -66,28 +97,39 @@ struct OnboardingView: View {
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
 
-                Button {
-                    if page < pages.count - 1 {
+                if page < pages.count - 1 {
+                    Button {
                         withAnimation { page += 1 }
-                    } else {
-                        finish()
+                    } label: {
+                        Text("Weiter")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(.white)
+                            .background(
+                                LinearGradient(
+                                    colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                in: RoundedRectangle(cornerRadius: ArcaTicketsDesign.cornerRadius, style: .continuous)
+                            )
                     }
-                } label: {
-                    Text(page < pages.count - 1 ? "Weiter" : "Los geht's")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .foregroundStyle(.white)
-                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: ArcaTicketsDesign.cornerRadius, style: .continuous))
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 32)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 32)
             }
         }
     }
 
-    private func onboardingPage(icon: String, title: String, subtitle: String, showFlow: Bool) -> some View {
-        VStack(spacing: 28) {
+    private func onboardingPage(
+        icon: String,
+        title: String,
+        subtitle: String,
+        showFlow: Bool,
+        showGettingStarted: Bool
+    ) -> some View {
+        VStack(spacing: 24) {
             Spacer()
 
             TicketsAppIcon(size: 88)
@@ -104,9 +146,10 @@ struct OnboardingView: View {
             }
 
             Image(systemName: icon)
-                .font(.system(size: 56))
-                .foregroundStyle(Color.accentColor)
+                .font(.system(size: 52))
+                .foregroundStyle(ArcaTicketsDesign.travelOcean)
                 .symbolRenderingMode(.hierarchical)
+                .symbolEffect(.bounce, value: page)
 
             VStack(spacing: 10) {
                 Text(title)
@@ -119,8 +162,47 @@ struct OnboardingView: View {
                     .padding(.horizontal, 32)
             }
 
+            if showGettingStarted {
+                VStack(spacing: 12) {
+                    Text("Bereit für deine erste Reise?")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        OnboardingStorage.requestAddTicket()
+                        finish()
+                    } label: {
+                        Label("Erstes Ticket hinzufügen", systemImage: "plus.circle.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(ArcaTicketsDesign.travelOcean)
+
+                    Button {
+                        OnboardingStorage.requestContacts()
+                        finish()
+                    } label: {
+                        Label("Wichtige Nummern einrichten", systemImage: "phone.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Später — App entdecken") {
+                        finish()
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                }
+                .padding(.horizontal, 28)
+            }
+
             Spacer()
-            Spacer()
+            if !showGettingStarted { Spacer() }
         }
     }
 
@@ -131,10 +213,10 @@ struct OnboardingView: View {
             Text(label)
                 .font(.caption.weight(.semibold))
         }
-        .foregroundStyle(Color.accentColor)
+        .foregroundStyle(ArcaTicketsDesign.travelOcean)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color.accentColor.opacity(0.12), in: Capsule())
+        .background(ArcaTicketsDesign.travelOcean.opacity(0.12), in: Capsule())
     }
 
     private func finish() {
