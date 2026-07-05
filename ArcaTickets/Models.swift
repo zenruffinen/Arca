@@ -352,6 +352,18 @@ struct TravelNotes: Codable, Hashable {
     }
 }
 
+struct SouvenirItem: Identifiable, Codable, Hashable {
+    var id: UUID
+    var title: String
+    var isChecked: Bool
+
+    init(id: UUID = UUID(), title: String, isChecked: Bool = false) {
+        self.id = id
+        self.title = title
+        self.isChecked = isChecked
+    }
+}
+
 struct PersonalIDCard: Codable, Hashable {
     var name: String
     var passportNumber: String

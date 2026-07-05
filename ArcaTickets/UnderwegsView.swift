@@ -81,6 +81,11 @@ struct UnderwegsView: View {
                 .padding(.leading, 16)
                 .padding(.bottom, 196)
         }
+        .overlay(alignment: .trailing) {
+            SouvenirsFloatingDecoration()
+                .padding(.trailing, 12)
+                .padding(.top, 168)
+        }
         .navigationTitle(SwissDialectPhrases.tabLabel)
         .navigationBarTitleDisplayMode(.large)
         .background {

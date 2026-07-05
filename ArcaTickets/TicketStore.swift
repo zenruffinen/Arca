@@ -41,6 +41,9 @@ final class TicketStore: ObservableObject {
     @Published var travelNotes: TravelNotes = .empty {
         didSet { guard !isLoadingData else { return }; saveTravelNotes() }
     }
+    @Published var opaSouvenirs: [SouvenirItem] = [] {
+        didSet { guard !isLoadingData else { return }; saveOpaSouvenirs() }
+    }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
@@ -349,6 +352,9 @@ final class TicketStore: ObservableObject {
         if let decoded = loadJSON(TravelNotes.self, key: "notes") {
             travelNotes = decoded
         }
+        if let decoded = loadJSON([SouvenirItem].self, key: "opa_souvenirs") {
+            opaSouvenirs = decoded
+        }
     }
 
     private static let taxiQuickContactLabel = "Taxi"
@@ -485,6 +491,10 @@ final class TicketStore: ObservableObject {
         saveJSON(travelNotes, key: "notes")
     }
 
+    private func saveOpaSouvenirs() {
+        saveJSON(opaSouvenirs, key: "opa_souvenirs")
+    }
+
     private func persistAllData() {
         saveTickets()
         saveFolders()
@@ -494,6 +504,7 @@ final class TicketStore: ObservableObject {
         saveTaxiContact()
         saveGolfContact()
         saveTravelNotes()
+        saveOpaSouvenirs()
     }
 
     func updateTaxiContact(_ contact: TaxiContact) {
@@ -510,6 +521,21 @@ final class TicketStore: ObservableObject {
 
     func updateTravelNotes(_ notes: TravelNotes) {
         travelNotes = notes
+    }
+
+    func addOpaSouvenir(title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        opaSouvenirs.append(SouvenirItem(title: trimmed))
+    }
+
+    func toggleOpaSouvenir(id: UUID) {
+        guard let idx = opaSouvenirs.firstIndex(where: { $0.id == id }) else { return }
+        opaSouvenirs[idx].isChecked.toggle()
+    }
+
+    func deleteOpaSouvenir(id: UUID) {
+        opaSouvenirs.removeAll { $0.id == id }
     }
 
     var insuranceContacts: [QuickContact] {
@@ -798,6 +824,7 @@ final class TicketStore: ObservableObject {
         taxiContact = .empty
         golfContact = .empty
         travelNotes = .empty
+        opaSouvenirs = []
         KeychainManager.shared.delete(key: Self.pinHashKey)
     }
 
@@ -974,7 +1001,8 @@ final class TicketStore: ObservableObject {
             personalIDCard: personalIDCard,
             taxiContact: taxiContact,
             golfContact: golfContact,
-            travelNotes: travelNotes
+            travelNotes: travelNotes,
+            opaSouvenirs: opaSouvenirs
         )
         return TicketsBackupArchive.exportBackup(
             manifest: manifest,
@@ -1060,6 +1088,9 @@ final class TicketStore: ObservableObject {
             if travelNotes.isEmpty, let importedNotes = manifest.travelNotes, !importedNotes.isEmpty {
                 travelNotes = importedNotes
             }
+            if opaSouvenirs.isEmpty, let importedSouvenirs = manifest.opaSouvenirs, !importedSouvenirs.isEmpty {
+                opaSouvenirs = importedSouvenirs
+            }
         } else {
             for ticket in tickets {
                 try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
@@ -1072,6 +1103,7 @@ final class TicketStore: ObservableObject {
             taxiContact = manifest.taxiContact ?? .empty
             golfContact = manifest.golfContact ?? .empty
             travelNotes = manifest.travelNotes ?? .empty
+            opaSouvenirs = manifest.opaSouvenirs ?? []
         }
 
         isLoadingData = false
