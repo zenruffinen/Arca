@@ -57,14 +57,52 @@ struct KofferPINFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ComicStarburstKlecks(palette: .koffer, tilt: tilt) {
+        ZStack {
+            KlecksBlobShape()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.travelOcean.opacity(0.20),
+                            ArcaTicketsDesign.travelGlassPurple.opacity(0.12),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 44
+                    )
+                )
+                .frame(width: 86, height: 82)
+                .blur(radius: 4)
+
+            KlecksBlobShape()
+                .fill(.ultraThinMaterial)
+                .frame(width: 76, height: 72)
+                .overlay {
+                    KlecksBlobShape()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    ArcaTicketsDesign.travelOcean.opacity(0.65),
+                                    ArcaTicketsDesign.travelGlassPurple.opacity(0.45)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                }
+                .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.22), radius: 8, y: 3)
+
             VStack(spacing: 2) {
                 ZStack {
                     Image(systemName: "suitcase.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: ComicStarburstPalette.koffer.icon,
+                                colors: [
+                                    ArcaTicketsDesign.travelOcean,
+                                    ArcaTicketsDesign.travelGlassPurple
+                                ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -72,33 +110,36 @@ struct KofferPINFloatingDecoration: View {
                         .symbolRenderingMode(.hierarchical)
 
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(ArcaTicketsDesign.travelSunset)
-                        .offset(x: 9, y: 7)
+                        .offset(x: 10, y: 8)
                 }
 
                 if hasPIN {
                     ComicCurvedText(
                         text: displayPIN,
                         style: .pinCode,
-                        foreground: ComicStarburstPalette.koffer.label
+                        foreground: ArcaTicketsDesign.travelOcean
                     )
-                    .scaleEffect(0.88)
+                    .scaleEffect(0.92)
                     .contentTransition(.numericText())
 
                     Image(systemName: pinRevealed ? "eye.fill" : "eye.slash.fill")
                         .font(.system(size: 7, weight: .bold))
-                        .foregroundStyle(ComicStarburstPalette.koffer.label.opacity(0.55))
+                        .foregroundStyle(ArcaTicketsDesign.travelOcean.opacity(0.55))
                 } else {
                     Text("Koffer")
-                        .font(.system(size: 8, weight: .black, design: .rounded))
-                        .foregroundStyle(ComicStarburstPalette.koffer.label)
+                        .font(.system(size: 8.5, weight: .black, design: .rounded))
+                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
                 }
             }
-            .rotationEffect(.degrees(-tilt * 0.35))
+            .rotationEffect(.degrees(-tilt))
         }
+        .frame(width: 80, height: 78)
+        .rotationEffect(.degrees(tilt))
+        .accessibilityHidden(true)
     }
 }
 

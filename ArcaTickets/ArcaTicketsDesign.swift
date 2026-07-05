@@ -501,267 +501,15 @@ struct TravelGlassBackground: View {
 }
 
 enum UnterwegsKlecksMetrics {
-    static let scale: CGFloat = 0.74
-    static let contentHorizontalPadding: CGFloat = 56
-    static let edgeAnchorInset: CGFloat = 4
-    static let decorationZIndex: Double = 10
-    static let fabBottomClearance: CGFloat = 108
-    static let starburstSize: CGFloat = 54
+    static let sceneAspectRatio: CGFloat = 1.55
+    static let sceneKlecksScale: CGFloat = 0.58
+    static let contentHorizontalPadding: CGFloat = 16
+    static let sceneHorizontalPadding: CGFloat = 16
 }
 
-// MARK: - Comic starburst (POW-style splash)
-
-struct ComicStarburstShape: Shape {
-    var spikes: Int = 12
-    var innerRatio: CGFloat = 0.46
-    var wobble: CGFloat = 0.16
-
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let maxRadius = min(rect.width, rect.height) / 2
-        let spikeCount = max(spikes, 8)
-        let totalVertices = spikeCount * 2
-
-        var path = Path()
-        for index in 0..<totalVertices {
-            let isOuter = index.isMultiple(of: 2)
-            let spikeIndex = index / 2
-            let angleJitter = sin(CGFloat(spikeIndex) * 1.85) * 0.07
-            let fraction = (CGFloat(index) + angleJitter) / CGFloat(totalVertices)
-            let angle = fraction * 2 * .pi - .pi / 2
-            let wobbleFactor = 1 + sin(CGFloat(spikeIndex) * 2.65) * wobble
-            let radius: CGFloat
-            if isOuter {
-                radius = maxRadius * wobbleFactor
-            } else {
-                radius = maxRadius * innerRatio * (1 + cos(CGFloat(spikeIndex) * 3.05) * wobble * 0.55)
-            }
-            let point = CGPoint(
-                x: center.x + cos(angle) * radius,
-                y: center.y + sin(angle) * radius
-            )
-            if index == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
-        }
-        path.closeSubpath()
-        return path
-    }
-}
-
-struct ComicStarburstPalette {
-    let primary: Color
-    let secondary: Color
-    let glow: Color
-    let strokeLeading: Color
-    let strokeTrailing: Color
-    let label: Color
-    let icon: [Color]
-    let shadow: Color
-
-    static let visitenkarte = ComicStarburstPalette(
-        primary: ArcaTicketsDesign.travelOcean,
-        secondary: ArcaTicketsDesign.travelSky,
-        glow: ArcaTicketsDesign.travelSky,
-        strokeLeading: ArcaTicketsDesign.travelOcean.opacity(0.85),
-        strokeTrailing: ArcaTicketsDesign.travelSky.opacity(0.55),
-        label: ArcaTicketsDesign.travelOcean,
-        icon: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
-        shadow: ArcaTicketsDesign.travelOcean
-    )
-
-    static let notizen = ComicStarburstPalette(
-        primary: ArcaTicketsDesign.travelGlassCyan,
-        secondary: Color(red: 0.12, green: 0.62, blue: 0.68),
-        glow: ArcaTicketsDesign.travelGlassCyan,
-        strokeLeading: ArcaTicketsDesign.travelGlassCyan.opacity(0.85),
-        strokeTrailing: ArcaTicketsDesign.travelSky.opacity(0.55),
-        label: Color(red: 0.08, green: 0.48, blue: 0.58),
-        icon: [ArcaTicketsDesign.travelGlassCyan, ArcaTicketsDesign.travelOcean],
-        shadow: ArcaTicketsDesign.travelGlassCyan
-    )
-
-    static let souvenirs = ComicStarburstPalette(
-        primary: Color(red: 1.0, green: 0.45, blue: 0.55),
-        secondary: ArcaTicketsDesign.travelSunset,
-        glow: Color(red: 1.0, green: 0.55, blue: 0.62),
-        strokeLeading: Color(red: 1.0, green: 0.45, blue: 0.55).opacity(0.85),
-        strokeTrailing: ArcaTicketsDesign.travelSunset.opacity(0.6),
-        label: Color(red: 0.88, green: 0.28, blue: 0.42),
-        icon: [Color(red: 1.0, green: 0.45, blue: 0.55), ArcaTicketsDesign.travelSunset],
-        shadow: Color(red: 1.0, green: 0.45, blue: 0.55)
-    )
-
-    static let koffer = ComicStarburstPalette(
-        primary: ArcaTicketsDesign.travelGlassPurple,
-        secondary: Color(red: 0.38, green: 0.22, blue: 0.72),
-        glow: ArcaTicketsDesign.travelGlassPurple,
-        strokeLeading: ArcaTicketsDesign.travelGlassPurple.opacity(0.85),
-        strokeTrailing: ArcaTicketsDesign.travelOcean.opacity(0.5),
-        label: Color(red: 0.42, green: 0.24, blue: 0.68),
-        icon: [ArcaTicketsDesign.travelGlassPurple, ArcaTicketsDesign.travelOcean],
-        shadow: ArcaTicketsDesign.travelGlassPurple
-    )
-
-    static let golf = ComicStarburstPalette(
-        primary: ArcaTicketsDesign.golfCyan,
-        secondary: ArcaTicketsDesign.golfFairway,
-        glow: ArcaTicketsDesign.golfCyan,
-        strokeLeading: ArcaTicketsDesign.golfCyan.opacity(0.8),
-        strokeTrailing: ArcaTicketsDesign.golfFairwayDeep.opacity(0.55),
-        label: ArcaTicketsDesign.golfFairwayDeep,
-        icon: [ArcaTicketsDesign.golfCyan, ArcaTicketsDesign.golfFairwayDeep],
-        shadow: ArcaTicketsDesign.golfFairwayDeep
-    )
-
-    static let taxi = ComicStarburstPalette(
-        primary: ArcaTicketsDesign.taxiYellow,
-        secondary: ArcaTicketsDesign.taxiYellowDeep,
-        glow: ArcaTicketsDesign.taxiYellow,
-        strokeLeading: ArcaTicketsDesign.taxiYellow.opacity(0.9),
-        strokeTrailing: ArcaTicketsDesign.taxiYellowDeep.opacity(0.55),
-        label: ArcaTicketsDesign.taxiYellowDeep,
-        icon: [ArcaTicketsDesign.taxiYellow, ArcaTicketsDesign.taxiYellowDeep],
-        shadow: ArcaTicketsDesign.taxiYellowDeep
-    )
-}
-
-struct ComicStarburstKlecks<Content: View>: View {
-    let palette: ComicStarburstPalette
-    let tilt: Double
-    let size: CGFloat
-  @ViewBuilder let content: () -> Content
-
-    init(
-        palette: ComicStarburstPalette,
-        tilt: Double = 0,
-        size: CGFloat = UnterwegsKlecksMetrics.starburstSize,
-        @ViewBuilder content: @escaping () -> Content
-    ) {
-        self.palette = palette
-        self.tilt = tilt
-        self.size = size
-        self.content = content
-    }
-
-    var body: some View {
-        ZStack {
-            ComicStarburstShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            palette.glow.opacity(0.42),
-                            palette.primary.opacity(0.18),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 2,
-                        endRadius: size * 0.62
-                    )
-                )
-                .frame(width: size + 10, height: size + 10)
-                .blur(radius: 3)
-
-            ComicStarburstShape()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            palette.primary.opacity(0.94),
-                            palette.secondary.opacity(0.88)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: size, height: size)
-                .overlay {
-                    ComicStarburstShape()
-                        .fill(.ultraThinMaterial.opacity(0.45))
-                }
-                .overlay {
-                    ComicStarburstShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [palette.strokeLeading, palette.strokeTrailing],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: palette.shadow.opacity(0.26), radius: 6, y: 2)
-
-            content()
-        }
-        .frame(width: size, height: size)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
-    }
-}
-
-extension ComicStarburstKlecks where Content == ComicStarburstIconLabel {
-    init(
-        icon: String,
-        label: String,
-        palette: ComicStarburstPalette,
-        tilt: Double = 0,
-        size: CGFloat = UnterwegsKlecksMetrics.starburstSize,
-        showsBadge: Bool = false
-    ) {
-        self.palette = palette
-        self.tilt = tilt
-        self.size = size
-        self.content = {
-            ComicStarburstIconLabel(
-                icon: icon,
-                label: label,
-                palette: palette,
-                tilt: tilt,
-                showsBadge: showsBadge
-            )
-        }
-    }
-}
-
-struct ComicStarburstIconLabel: View {
-    let icon: String
-    let label: String
-    let palette: ComicStarburstPalette
-    let tilt: Double
-    var showsBadge: Bool = false
-    var iconSize: CGFloat = 16
-
-    var body: some View {
-        VStack(spacing: 2) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: icon)
-                    .font(.system(size: iconSize, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: palette.icon,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .symbolRenderingMode(.hierarchical)
-
-                if showsBadge {
-                    Circle()
-                        .fill(palette.primary)
-                        .frame(width: 6, height: 6)
-                        .offset(x: 4, y: -3)
-                }
-            }
-
-            Text(label)
-                .font(.system(size: 8, weight: .black, design: .rounded))
-                .foregroundStyle(palette.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-        }
-        .rotationEffect(.degrees(-tilt * 0.35))
+extension View {
+    func unterwegsSceneKlecks() -> some View {
+        scaleEffect(UnterwegsKlecksMetrics.sceneKlecksScale)
     }
 }
 
@@ -777,16 +525,16 @@ struct TravelSunDecoration: View {
                             Color.clear
                         ],
                         center: .center,
-                        startRadius: 4,
-                        endRadius: 38
+                        startRadius: 6,
+                        endRadius: 50
                     )
                 )
-                .frame(width: 68, height: 68)
-                .blur(radius: 5)
+                .frame(width: 92, height: 92)
+                .blur(radius: 6)
 
             Circle()
                 .fill(.ultraThinMaterial)
-                .frame(width: 43, height: 43)
+                .frame(width: 58, height: 58)
                 .overlay {
                     Circle()
                         .strokeBorder(
@@ -801,10 +549,10 @@ struct TravelSunDecoration: View {
                             lineWidth: 1.5
                         )
                 }
-                .shadow(color: ArcaTicketsDesign.travelSunOrange.opacity(0.25), radius: 8, y: 2)
+                .shadow(color: ArcaTicketsDesign.travelSunOrange.opacity(0.25), radius: 10, y: 3)
 
             Image(systemName: "sun.max.fill")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [ArcaTicketsDesign.travelSunYellow, ArcaTicketsDesign.travelSunOrange],
@@ -822,12 +570,65 @@ struct TravelTaxiDecoration: View {
     private let tilt: Double = -10
 
     var body: some View {
-        ComicStarburstKlecks(
-            icon: "car.side.fill",
-            label: "Taxi",
-            palette: .taxi,
-            tilt: tilt
-        )
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.taxiYellow.opacity(0.5),
+                            ArcaTicketsDesign.taxiYellowDeep.opacity(0.2),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 48
+                    )
+                )
+                .frame(width: 88, height: 88)
+                .blur(radius: 6)
+
+            VStack(spacing: 2) {
+                Text("Taxi")
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
+                    .shadow(color: .white.opacity(0.55), radius: 0, y: 1)
+
+                Image(systemName: "car.side.fill")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [ArcaTicketsDesign.taxiYellow, ArcaTicketsDesign.taxiYellowDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.14), radius: 2, y: 2)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        ArcaTicketsDesign.taxiYellow.opacity(0.7),
+                                        ArcaTicketsDesign.taxiYellowDeep.opacity(0.4)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    }
+                    .shadow(color: ArcaTicketsDesign.taxiYellowDeep.opacity(0.25), radius: 10, y: 3)
+            }
+            .rotationEffect(.degrees(tilt))
+        }
+        .frame(width: 84, height: 78)
+        .accessibilityHidden(true)
     }
 }
 
@@ -835,12 +636,65 @@ struct TravelGolfDecoration: View {
     private let tilt: Double = 8
 
     var body: some View {
-        ComicStarburstKlecks(
-            icon: "figure.golf",
-            label: "Golf",
-            palette: .golf,
-            tilt: tilt
-        )
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.golfCyan.opacity(0.45),
+                            ArcaTicketsDesign.golfFairway.opacity(0.2),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 48
+                    )
+                )
+                .frame(width: 88, height: 88)
+                .blur(radius: 6)
+
+            VStack(spacing: 2) {
+                Text("Golf")
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep)
+                    .shadow(color: .white.opacity(0.55), radius: 0, y: 1)
+
+                Image(systemName: "figure.golf")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [ArcaTicketsDesign.golfCyan, ArcaTicketsDesign.golfFairwayDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.14), radius: 2, y: 2)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Circle()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        ArcaTicketsDesign.golfCyan.opacity(0.65),
+                                        ArcaTicketsDesign.golfFairwayDeep.opacity(0.4)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    }
+                    .shadow(color: ArcaTicketsDesign.golfFairwayDeep.opacity(0.22), radius: 10, y: 3)
+            }
+            .rotationEffect(.degrees(tilt))
+        }
+        .frame(width: 78, height: 78)
+        .accessibilityHidden(true)
     }
 }
 

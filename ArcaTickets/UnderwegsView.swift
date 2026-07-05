@@ -164,53 +164,61 @@ private struct UnterwegsEdgeDecorations: View {
             let bottomY = height - safe.bottom - UnterwegsKlecksMetrics.fabBottomClearance
 
             ZStack {
-                SwissGlassFlag(size: 28, style: .decoration)
+                SwissGlassFlag(size: 36, style: .decoration)
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: safe.leading + edge + 18,
-                        y: safe.top + edge + 14
+                        x: safe.leading + edge + 20,
+                        y: safe.top + edge + 16
                     )
                     .allowsHitTesting(false)
 
                 TravelSunDecoration()
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: width - safe.trailing - edge - 22,
-                        y: safe.top + edge + 18
+                        x: width - safe.trailing - edge - 24,
+                        y: safe.top + edge + 20
                     )
                     .allowsHitTesting(false)
 
                 VisitenkarteFloatingDecoration()
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: safe.leading + edge + 30,
-                        y: height * 0.38
+                        x: safe.leading + edge + 28,
+                        y: height * 0.36
                     )
 
                 NotizenFloatingDecoration()
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: width - safe.trailing - edge - 30,
-                        y: height * 0.30
+                        x: width - safe.trailing - edge - 28,
+                        y: height * 0.28
                     )
 
                 SouvenirsFloatingDecoration()
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: safe.leading + edge + 30,
-                        y: height * 0.58
+                        x: safe.leading + edge + 28,
+                        y: height * 0.56
                     )
 
                 KofferPINFloatingDecoration()
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: width - safe.trailing - edge - 30,
-                        y: height * 0.50
+                        x: width - safe.trailing - edge - 28,
+                        y: height * 0.48
                     )
 
                 TaxiButtonView()
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: safe.leading + edge + 34,
+                        x: safe.leading + edge + 32,
                         y: bottomY
                     )
 
                 GolfButtonView()
+                    .unterwegsEdgeKlecks()
                     .position(
-                        x: width - safe.trailing - edge - 34,
+                        x: width - safe.trailing - edge - 32,
                         y: bottomY - 6
                     )
             }

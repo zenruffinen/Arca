@@ -96,14 +96,52 @@ struct GolfschlagerFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ComicStarburstKlecks(palette: .golf, tilt: tilt) {
+        ZStack {
+            KlecksBlobShape()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.golfCyan.opacity(0.28),
+                            ArcaTicketsDesign.golfFairway.opacity(0.14),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 44
+                    )
+                )
+                .frame(width: 86, height: 82)
+                .blur(radius: 4)
+
+            KlecksBlobShape()
+                .fill(.ultraThinMaterial)
+                .frame(width: 76, height: 72)
+                .overlay {
+                    KlecksBlobShape()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    ArcaTicketsDesign.golfCyan.opacity(0.65),
+                                    ArcaTicketsDesign.golfFairwayDeep.opacity(0.45)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                }
+                .shadow(color: ArcaTicketsDesign.golfFairwayDeep.opacity(0.22), radius: 8, y: 3)
+
             VStack(spacing: 2) {
                 ZStack {
                     Image(systemName: "figure.golf")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: ComicStarburstPalette.golf.icon,
+                                colors: [
+                                    ArcaTicketsDesign.golfCyan,
+                                    ArcaTicketsDesign.golfFairwayDeep
+                                ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -111,16 +149,16 @@ struct GolfschlagerFloatingDecoration: View {
                         .symbolRenderingMode(.hierarchical)
 
                     Image(systemName: "bag.fill")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(ArcaTicketsDesign.golfFairway)
-                        .offset(x: 10, y: 8)
+                        .offset(x: 11, y: 9)
                         .opacity(0.9)
 
                     if travel.checkedIn {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(ArcaTicketsDesign.golfFairway)
-                            .offset(x: -10, y: -9)
+                            .offset(x: -11, y: -10)
                     }
                 }
 
@@ -128,30 +166,33 @@ struct GolfschlagerFloatingDecoration: View {
                     ComicCurvedText(
                         text: line,
                         style: .golfTag,
-                        foreground: ComicStarburstPalette.golf.label
+                        foreground: ArcaTicketsDesign.golfFairwayDeep
                     )
-                    .scaleEffect(0.88)
+                    .scaleEffect(0.92)
                     .contentTransition(.numericText())
 
                     if hasBagTag {
                         Image(systemName: tagRevealed ? "eye.fill" : "eye.slash.fill")
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(ComicStarburstPalette.golf.label.opacity(0.55))
+                            .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep.opacity(0.55))
                     } else if hasPhone {
                         Image(systemName: "phone.fill")
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(ComicStarburstPalette.golf.label.opacity(0.55))
+                            .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep.opacity(0.55))
                     }
                 } else {
                     Text("Golf")
-                        .font(.system(size: 8, weight: .black, design: .rounded))
-                        .foregroundStyle(ComicStarburstPalette.golf.label)
+                        .font(.system(size: 8.5, weight: .black, design: .rounded))
+                        .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep)
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
                 }
             }
-            .rotationEffect(.degrees(-tilt * 0.35))
+            .rotationEffect(.degrees(-tilt))
         }
+        .frame(width: 80, height: 78)
+        .rotationEffect(.degrees(tilt))
+        .accessibilityHidden(true)
     }
 }
 
