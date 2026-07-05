@@ -42,6 +42,14 @@ struct ContentView: View {
         .onChange(of: pendingImportURL) { _, url in
             handleIncomingURL(url)
         }
+        .onChange(of: isUnlocked) { _, unlocked in
+            guard unlocked else { return }
+            handleIncomingURL(pendingImportURL)
+            if let id = pendingTicketID {
+                navigateToTicket(id: id)
+                pendingTicketID = nil
+            }
+        }
         .onChange(of: pendingTicketID) { _, id in
             guard let id, isUnlocked else { return }
             navigateToTicket(id: id)
@@ -73,7 +81,7 @@ struct ContentView: View {
         }
 
         if url.isFileURL || url.scheme == "file" {
-            importURL = url
+            importURL = ImportStaging.copyToTemporary(url) ?? url
             showAddTicket = true
             pendingImportURL = nil
         }
@@ -82,5 +90,26 @@ struct ContentView: View {
     private func navigateToTicket(id: UUID) {
         guard let ticket = store.tickets.first(where: { $0.id == id }) else { return }
         navigationPath.append(ticket)
+    }
+}
+
+enum ImportStaging {
+    /// Kopiert geteilte Dateien sofort in ein Temp-Verzeichnis, damit sie nach Onboarding/Entsperren noch verfügbar sind.
+    static func copyToTemporary(_ sourceURL: URL) -> URL? {
+        let accessing = sourceURL.startAccessingSecurityScopedResource()
+        defer { if accessing { sourceURL.stopAccessingSecurityScopedResource() } }
+
+        let ext = sourceURL.pathExtension.isEmpty ? "jpg" : sourceURL.pathExtension
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arcatickets-import-\(UUID().uuidString).\(ext)")
+        do {
+            if FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.removeItem(at: dest)
+            }
+            try FileManager.default.copyItem(at: sourceURL, to: dest)
+            return dest
+        } catch {
+            return nil
+        }
     }
 }

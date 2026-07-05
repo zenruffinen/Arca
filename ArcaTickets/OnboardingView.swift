@@ -23,10 +23,19 @@ struct OnboardingView: View {
     @Binding var isPresented: Bool
     @State private var page = 0
 
-    private let pages: [(icon: String, title: String, subtitle: String)] = [
-        ("square.and.arrow.down.fill", "Ticket speichern", "Foto, PDF oder Screenshot — alles an einem Ort, sortiert in Ordnern."),
-        ("qrcode.viewfinder", "QR zeigen", "Am Schalter sofort im Vollbild mit maximaler Helligkeit vorzeigen."),
-        ("checkmark.circle.fill", "Fertig", "Lege dein erstes Ticket an — Arca Tickets erinnert dich vor Ablauf.")
+    private let pages: [(icon: String, title: String, subtitle: String, showFlow: Bool)] = [
+        (
+            "square.and.arrow.down.fill",
+            "Ticket rein",
+            "Per Teilen aus Mail oder Safari, Foto oder PDF — in Sekunden gespeichert und sortiert.",
+            false
+        ),
+        (
+            "qrcode.viewfinder",
+            "Am Schalter zeigen",
+            "QR-Code im Vollbild mit maximaler Helligkeit — kein Wühlen in der Tasche.",
+            true
+        )
     ]
 
     var body: some View {
@@ -45,8 +54,13 @@ struct OnboardingView: View {
 
                 TabView(selection: $page) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, item in
-                        onboardingPage(icon: item.icon, title: item.title, subtitle: item.subtitle)
-                            .tag(index)
+                        onboardingPage(
+                            icon: item.icon,
+                            title: item.title,
+                            subtitle: item.subtitle,
+                            showFlow: item.showFlow
+                        )
+                        .tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
@@ -72,11 +86,22 @@ struct OnboardingView: View {
         }
     }
 
-    private func onboardingPage(icon: String, title: String, subtitle: String) -> some View {
+    private func onboardingPage(icon: String, title: String, subtitle: String, showFlow: Bool) -> some View {
         VStack(spacing: 28) {
             Spacer()
 
             TicketsAppIcon(size: 88)
+
+            if showFlow {
+                HStack(spacing: 10) {
+                    flowChip("Ticket rein", icon: "square.and.arrow.down.fill")
+                    Image(systemName: "arrow.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                    flowChip("Am Schalter zeigen", icon: "qrcode.viewfinder")
+                }
+                .padding(.horizontal, 20)
+            }
 
             Image(systemName: icon)
                 .font(.system(size: 56))
@@ -97,6 +122,19 @@ struct OnboardingView: View {
             Spacer()
             Spacer()
         }
+    }
+
+    private func flowChip(_ label: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption.weight(.semibold))
+            Text(label)
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(Color.accentColor)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.accentColor.opacity(0.12), in: Capsule())
     }
 
     private func finish() {

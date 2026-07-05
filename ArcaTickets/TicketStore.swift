@@ -33,7 +33,7 @@ final class TicketStore: ObservableObject {
 
     @Published private(set) var iCloudStatus: ICloudStatus = .unavailable
 
-    static let defaultFolders = ["Bahn", "ÖV", "Events", "Parken", "Sonstiges"]
+    static let defaultFolders = ["Bahn", "Events", "Sonstiges"]
     static let pinHashKey = "arcatickets_pin_hash"
 
     private static let cloudSyncTimeout: TimeInterval = 30

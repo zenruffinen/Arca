@@ -62,6 +62,8 @@ struct ArcaTicketsApp: App {
                    let idString = url.pathComponents.dropFirst().first,
                    let id = UUID(uuidString: idString) {
                     pendingTicketID = id
+                } else if url.isFileURL || url.scheme == "file" {
+                    pendingImportURL = ImportStaging.copyToTemporary(url) ?? url
                 } else {
                     pendingImportURL = url
                 }

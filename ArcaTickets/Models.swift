@@ -91,6 +91,8 @@ struct TicketFolderStyle {
             return TicketFolderStyle(icon: "ticket.fill", tintName: "purple")
         case "Parken":
             return TicketFolderStyle(icon: "parkingsign.circle.fill", tintName: "orange")
+        case "Sonstiges":
+            return TicketFolderStyle(icon: "folder.fill", tintName: "gray")
         default:
             return TicketFolderStyle(icon: "folder.fill", tintName: "gray")
         }
@@ -106,6 +108,8 @@ struct TicketFolderStyle {
             return ("Keine Event-Tickets", "Konzert, Sport oder Festival — lege dein Ticket ab, bevor du losgehst.")
         case "Parken":
             return ("Keine Parktickets", "Parkschein oder Parkhaus-Ticket? Hier landet alles für die Ausfahrt.")
+        case "Sonstiges":
+            return ("Noch nichts hier", "ÖV, Parken und mehr — unter Einstellungen eigene Ordner anlegen oder hier ablegen.")
         default:
             return ("Ordner ist leer", "Füge ein Ticket hinzu — per Kamera, Galerie, PDF oder Teilen aus einer anderen App.")
         }
