@@ -27,6 +27,10 @@ struct UnderwegsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    TravelSceneWithKlecks()
+                        .padding(.horizontal, UnterwegsKlecksMetrics.sceneHorizontalPadding)
+                        .padding(.top, 4)
+
                     header
 
                     if showGlassTip {
@@ -79,8 +83,6 @@ struct UnderwegsView: View {
                 .padding(.bottom, 100)
                 .animation(.spring(response: 0.4, dampingFraction: 0.82), value: unterwegsTickets.map(\.id))
             }
-
-            UnterwegsEdgeDecorations()
         }
         .navigationTitle(SwissDialectPhrases.tabLabel)
         .navigationBarTitleDisplayMode(.large)
@@ -149,82 +151,6 @@ struct UnderwegsView: View {
         .frame(maxWidth: .infinity)
         .padding(28)
         .boardingPassCard()
-    }
-}
-
-// MARK: - Edge decorations (screen corners only)
-
-private struct UnterwegsEdgeDecorations: View {
-    var body: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let height = geo.size.height
-            let safe = geo.safeAreaInsets
-            let edge = UnterwegsKlecksMetrics.edgeAnchorInset
-            let bottomY = height - safe.bottom - UnterwegsKlecksMetrics.fabBottomClearance
-
-            ZStack {
-                SwissGlassFlag(size: 36, style: .decoration)
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: safe.leading + edge + 20,
-                        y: safe.top + edge + 16
-                    )
-                    .allowsHitTesting(false)
-
-                TravelSunDecoration()
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: width - safe.trailing - edge - 24,
-                        y: safe.top + edge + 20
-                    )
-                    .allowsHitTesting(false)
-
-                VisitenkarteFloatingDecoration()
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: safe.leading + edge + 28,
-                        y: height * 0.36
-                    )
-
-                NotizenFloatingDecoration()
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: width - safe.trailing - edge - 28,
-                        y: height * 0.28
-                    )
-
-                SouvenirsFloatingDecoration()
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: safe.leading + edge + 28,
-                        y: height * 0.56
-                    )
-
-                KofferPINFloatingDecoration()
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: width - safe.trailing - edge - 28,
-                        y: height * 0.48
-                    )
-
-                TaxiButtonView()
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: safe.leading + edge + 32,
-                        y: bottomY
-                    )
-
-                GolfButtonView()
-                    .unterwegsEdgeKlecks()
-                    .position(
-                        x: width - safe.trailing - edge - 32,
-                        y: bottomY - 6
-                    )
-            }
-        }
-        .ignoresSafeArea()
-        .zIndex(UnterwegsKlecksMetrics.decorationZIndex)
     }
 }
 

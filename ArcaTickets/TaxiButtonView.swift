@@ -12,18 +12,21 @@ struct TaxiButtonView: View {
     @State private var showEditSheet = false
 
     private var contact: TaxiContact { store.taxiContact }
+    private let tilt: Double = -10
 
     var body: some View {
         Button {
             handleTap()
         } label: {
-            TravelTaxiDecoration()
+            klecksGraphic
         }
         .buttonStyle(.plain)
-        .onLongPressGesture(minimumDuration: 0.45) {
-            TicketsHaptics.lightImpact()
-            showEditSheet = true
-        }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.45).onEnded { _ in
+                TicketsHaptics.lightImpact()
+                showEditSheet = true
+            }
+        )
         .contextMenu {
             Button {
                 showEditSheet = true
@@ -38,6 +41,68 @@ struct TaxiButtonView: View {
         .sheet(isPresented: $showEditSheet) {
             TaxiContactEditorView()
         }
+    }
+
+    private var klecksGraphic: some View {
+        ZStack {
+            KlecksBlobShape()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.taxiYellow.opacity(0.32),
+                            ArcaTicketsDesign.taxiYellowDeep.opacity(0.16),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 44
+                    )
+                )
+                .frame(width: 86, height: 82)
+                .blur(radius: 4)
+
+            KlecksBlobShape()
+                .fill(.ultraThinMaterial)
+                .frame(width: 76, height: 72)
+                .overlay {
+                    KlecksBlobShape()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    ArcaTicketsDesign.taxiYellow.opacity(0.7),
+                                    ArcaTicketsDesign.taxiYellowDeep.opacity(0.45)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                }
+                .shadow(color: ArcaTicketsDesign.taxiYellowDeep.opacity(0.22), radius: 8, y: 3)
+
+            VStack(spacing: 2) {
+                Image(systemName: "car.side.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [ArcaTicketsDesign.taxiYellow, ArcaTicketsDesign.taxiYellowDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .symbolRenderingMode(.hierarchical)
+
+                Text("Taxi")
+                    .font(.system(size: 9, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .rotationEffect(.degrees(tilt))
+        }
+        .frame(width: 80, height: 78)
+        .rotationEffect(.degrees(tilt))
+        .accessibilityHidden(true)
     }
 
     private func handleTap() {
