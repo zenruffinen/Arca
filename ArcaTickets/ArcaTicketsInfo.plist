@@ -51,19 +51,19 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Geteilter Ticket-Ordner</string>
+			<string>Arca Tickets Sicherung</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.hansruffin.arca.ticketsfolder</string>
+				<string>com.hansruffin.arca.ticketsbackup</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Ticket</string>
+			<string>Geteilter Ticket-Ordner</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -81,6 +81,23 @@
 	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.hansruffin.arca.ticketsbackup</string>
+			<key>UTTypeDescription</key>
+			<string>Arca Tickets Sicherung</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>arcaticketsbackup</string>
+				</array>
+			</dict>
+		</dict>
 		<dict>
 			<key>UTTypeIdentifier</key>
 			<string>com.hansruffin.arca.ticketsfolder</string>

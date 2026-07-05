@@ -64,6 +64,8 @@ struct ArcaTicketsApp: App {
                    let idString = url.pathComponents.dropFirst().first,
                    let id = UUID(uuidString: idString) {
                     pendingTicketID = id
+                } else if store.isBackupCandidateURL(url) {
+                    store.pendingBackupURL = ImportStaging.copyToTemporary(url) ?? url
                 } else if store.isFolderSharePackageURL(url) {
                     pendingFolderImportURL = ImportStaging.copyToTemporary(url) ?? url
                 } else if url.isFileURL || url.scheme == "file" {

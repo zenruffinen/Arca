@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import os
 
 final class TicketStore: ObservableObject {
     private var isLoadingData = false
@@ -33,8 +34,13 @@ final class TicketStore: ObservableObject {
     }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
+    /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
+    @Published var pendingBackupURL: URL?
 
     private var toastDismissTask: Task<Void, Never>?
+    private static let backupLog = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.hansruffin.ArcaTickets", category: "Backup")
+    private static let backupFolderBookmarkKey = "arcaTicketsBackupFolderBookmark_v1"
+    private var rememberedBackupFolderURL: URL?
 
     enum ICloudStatus: String {
         case unavailable = "Nicht verfügbar"
@@ -358,6 +364,14 @@ final class TicketStore: ObservableObject {
 
     private func savePersonalIDCard() {
         saveJSON(personalIDCard, key: "personal_card")
+    }
+
+    private func persistAllData() {
+        saveTickets()
+        saveFolders()
+        saveSharedFolders()
+        saveQuickContacts()
+        savePersonalIDCard()
     }
 
     func updatePersonalIDCard(_ card: PersonalIDCard) {
@@ -724,5 +738,193 @@ final class TicketStore: ObservableObject {
         }
 
         return importedName
+    }
+
+    // MARK: - Vollständiges Backup
+
+    static let minBackupPasswordLength = TicketsBackupArchive.minPasswordLength
+
+    static let blockedBackupImportExtensions: Set<String> = [
+        "pdf", "jpg", "jpeg", "png", "heic", "heif", "tiff", "gif", "webp",
+        "mov", "mp4", "m4v", "avi",
+        "doc", "docx", "txt", "rtf", "pages",
+        "arcaticketsfolder", "arcabackup",
+    ]
+
+    func isBlockedDocumentExtension(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        guard !ext.isEmpty else { return false }
+        return Self.blockedBackupImportExtensions.contains(ext)
+    }
+
+    func rememberBackupFolder(containing fileURL: URL) {
+        guard !fileURL.path.hasPrefix(FileManager.default.temporaryDirectory.path) else { return }
+        guard fileURL.startAccessingSecurityScopedResource() else { return }
+        defer { fileURL.stopAccessingSecurityScopedResource() }
+
+        let folder = fileURL.deletingLastPathComponent()
+        do {
+            let data = try folder.bookmarkData(
+                options: .minimalBookmark,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            UserDefaults.standard.set(data, forKey: Self.backupFolderBookmarkKey)
+            Self.backupLog.info("Backup-Ordner gemerkt: \(folder.lastPathComponent, privacy: .public)")
+        } catch {
+            Self.backupLog.error(
+                "Backup-Ordner-Bookmark fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func beginAccessingRememberedBackupFolder() -> URL? {
+        releaseRememberedBackupFolderAccess()
+        guard let data = UserDefaults.standard.data(forKey: Self.backupFolderBookmarkKey) else { return nil }
+        var stale = false
+        do {
+            let url = try URL(
+                resolvingBookmarkData: data,
+                options: .withoutUI,
+                relativeTo: nil,
+                bookmarkDataIsStale: &stale
+            )
+            if stale { refreshBackupFolderBookmark(for: url) }
+            guard url.startAccessingSecurityScopedResource() else { return nil }
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                url.stopAccessingSecurityScopedResource()
+                return nil
+            }
+            rememberedBackupFolderURL = url
+            return url
+        } catch {
+            Self.backupLog.error(
+                "Backup-Ordner-Bookmark ungültig: \(error.localizedDescription, privacy: .public)")
+            UserDefaults.standard.removeObject(forKey: Self.backupFolderBookmarkKey)
+            return nil
+        }
+    }
+
+    func releaseRememberedBackupFolderAccess() {
+        if let url = rememberedBackupFolderURL {
+            url.stopAccessingSecurityScopedResource()
+            rememberedBackupFolderURL = nil
+        }
+    }
+
+    private func refreshBackupFolderBookmark(for folder: URL) {
+        guard folder.startAccessingSecurityScopedResource() else { return }
+        defer { folder.stopAccessingSecurityScopedResource() }
+        if let data = try? folder.bookmarkData(
+            options: .minimalBookmark,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        ) {
+            UserDefaults.standard.set(data, forKey: Self.backupFolderBookmarkKey)
+        }
+    }
+
+    func exportBackup(password: String) -> Result<URL, TicketsBackupArchive.ExportError> {
+        for ticket in tickets {
+            _ = ensureFileDownloaded(ticket.fileName)
+        }
+        let manifest = TicketsBackupManifest(
+            tickets: tickets,
+            folders: folders,
+            sharedFolders: sharedFolders,
+            quickContacts: quickContacts,
+            personalIDCard: personalIDCard
+        )
+        return TicketsBackupArchive.exportBackup(
+            manifest: manifest,
+            filesDirectory: filesDirectory,
+            password: password
+        )
+    }
+
+    func prepareBackupImport(from url: URL) -> Result<URL, TicketsBackupArchive.ImportError> {
+        let filename = url.lastPathComponent
+        Self.backupLog.info("Import: Datei ausgewählt — \(filename, privacy: .public)")
+
+        if isBlockedDocumentExtension(url) {
+            Self.backupLog.error(
+                "Import: Abgelehnt (Dokument-Endung .\(url.pathExtension, privacy: .public)) — \(filename, privacy: .public)")
+            return .failure(.invalidBackupFile)
+        }
+
+        let ext = url.pathExtension.lowercased()
+        if !ext.isEmpty && ext != TicketsBackupType.extensionName {
+            Self.backupLog.error(
+                "Import: Abgelehnt (Endung .\(ext, privacy: .public), erwartet .\(TicketsBackupType.extensionName, privacy: .public)) — \(filename, privacy: .public)")
+            return .failure(.invalidBackupFile)
+        }
+
+        return TicketsBackupArchive.stageImport(from: url)
+    }
+
+    func importBackup(from stagedURL: URL, password: String, merge: Bool) -> Result<Void, TicketsBackupArchive.ImportError> {
+        switch TicketsBackupArchive.importBackup(from: stagedURL, password: password, into: self, merge: merge) {
+        case .success:
+            return .success(())
+        case .failure(let error):
+            return .failure(error)
+        }
+    }
+
+    func isBackupCandidateURL(_ url: URL) -> Bool {
+        TicketsBackupType.isBackupURL(url)
+    }
+
+    func applyBackup(_ manifest: TicketsBackupManifest, filesFrom extractedFiles: URL, merge: Bool) {
+        isLoadingData = true
+
+        var fileMap: [String: String] = [:]
+        if let files = try? FileManager.default.contentsOfDirectory(
+            at: extractedFiles, includingPropertiesForKeys: nil) {
+            for file in files {
+                let newName = "\(UUID().uuidString).\((file.lastPathComponent as NSString).pathExtension)"
+                let dest = fileURL(for: newName)
+                try? FileManager.default.removeItem(at: dest)
+                try? FileManager.default.copyItem(at: file, to: dest)
+                fileMap[file.lastPathComponent] = newName
+            }
+        }
+
+        var importedTickets = manifest.tickets
+        for i in importedTickets.indices {
+            importedTickets[i].id = UUID()
+            if let mapped = fileMap[importedTickets[i].fileName] {
+                importedTickets[i].fileName = mapped
+            }
+        }
+
+        if merge {
+            tickets.append(contentsOf: importedTickets)
+            for folder in manifest.folders where !folders.contains(folder) {
+                folders.append(folder)
+            }
+            sharedFolders.formUnion(manifest.sharedFolders)
+            if quickContacts.isEmpty {
+                quickContacts = manifest.quickContacts
+            }
+            if personalIDCard == .empty {
+                personalIDCard = manifest.personalIDCard
+            }
+        } else {
+            for ticket in tickets {
+                try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
+            }
+            tickets = importedTickets
+            folders = manifest.folders.isEmpty ? Self.defaultFolders : manifest.folders
+            sharedFolders = Set(manifest.sharedFolders)
+            quickContacts = manifest.quickContacts
+            personalIDCard = manifest.personalIDCard
+        }
+
+        isLoadingData = false
+        persistAllData()
+        NotificationManager.rescheduleAll(for: tickets)
+        WidgetDataUpdater.update(from: tickets)
     }
 }

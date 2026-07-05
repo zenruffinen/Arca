@@ -184,6 +184,7 @@ enum FolderArchive {
 struct ShareURLItem: Identifiable {
     let id = UUID()
     let url: URL
+    var isTicketsBackup: Bool = false
 }
 
 struct ShareSheet: UIViewControllerRepresentable {
@@ -194,6 +195,49 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uvc: UIActivityViewController, context: Context) {}
+}
+
+struct BackupImportDocumentPicker: UIViewControllerRepresentable {
+    var contentType: UTType
+    var directoryURL: URL?
+    var onPick: (URL) -> Void
+    var onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [contentType], asCopy: true)
+        picker.directoryURL = directoryURL
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ picker: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick, onCancel: onCancel)
+    }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+        let onCancel: () -> Void
+
+        init(onPick: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
+            self.onPick = onPick
+            self.onCancel = onCancel
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else {
+                onCancel()
+                return
+            }
+            onPick(url)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onCancel()
+        }
+    }
 }
 
 struct FolderShareExportItem: Transferable {
