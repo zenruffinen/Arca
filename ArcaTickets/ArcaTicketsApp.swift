@@ -9,6 +9,10 @@ import SwiftUI
 
 @main
 struct ArcaTicketsApp: App {
+    init() {
+        ArcaTicketsTabBar.configure()
+    }
+
     @StateObject private var store = TicketStore()
     @State private var isUnlocked = false
     @State private var showOnboarding = !OnboardingStorage.hasCompleted

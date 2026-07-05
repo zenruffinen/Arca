@@ -34,6 +34,7 @@ struct ContentView: View {
                     .tag(tab)
             }
         }
+        .ticketsGlassTabBar()
         .ticketsToastOverlay()
         .sheet(isPresented: $showAddTicket) {
             AddTicketView(importURL: importURL)

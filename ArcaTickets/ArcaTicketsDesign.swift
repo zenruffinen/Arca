@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 enum ArcaTicketsDesign {
     static let cornerRadius: CGFloat = 20
@@ -52,6 +53,67 @@ enum ArcaTicketsDesign {
         case "red": return .red
         default: return .secondary
         }
+    }
+
+    static var tabBarSelectedTint: Color { travelGlassCyan }
+    static var tabBarUnselectedTint: Color { Color(.secondaryLabel) }
+
+    static var tabBarGlassTint: Color {
+        Color(
+            red: (travelGlassCyan.components.red + travelGlassPurple.components.red) / 2,
+            green: (travelGlassCyan.components.green + travelGlassPurple.components.green) / 2,
+            blue: (travelGlassCyan.components.blue + travelGlassPurple.components.blue) / 2
+        )
+    }
+}
+
+private extension Color {
+    var components: (red: CGFloat, green: CGFloat, blue: CGFloat) {
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (r, g, b)
+    }
+}
+
+enum ArcaTicketsTabBar {
+    static func configure() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        appearance.backgroundColor = UIColor(ArcaTicketsDesign.tabBarGlassTint).withAlphaComponent(0.10)
+        appearance.shadowColor = .clear
+        appearance.shadowImage = UIImage()
+
+        let selectedUIColor = UIColor(ArcaTicketsDesign.tabBarSelectedTint)
+        let normalUIColor = UIColor(ArcaTicketsDesign.tabBarUnselectedTint)
+
+        func styleItems(_ item: UITabBarItemAppearance) {
+            item.normal.iconColor = normalUIColor
+            item.normal.titleTextAttributes = [.foregroundColor: normalUIColor]
+            item.selected.iconColor = selectedUIColor
+            item.selected.titleTextAttributes = [
+                .foregroundColor: selectedUIColor,
+                .shadow: {
+                    let shadow = NSShadow()
+                    shadow.shadowColor = UIColor(ArcaTicketsDesign.travelGlassPurple).withAlphaComponent(0.35)
+                    shadow.shadowBlurRadius = 6
+                    shadow.shadowOffset = .zero
+                    return shadow
+                }()
+            ]
+        }
+
+        styleItems(appearance.stackedLayoutAppearance)
+        styleItems(appearance.inlineLayoutAppearance)
+        styleItems(appearance.compactInlineLayoutAppearance)
+
+        let tabBar = UITabBar.appearance()
+        tabBar.standardAppearance = appearance
+        tabBar.scrollEdgeAppearance = appearance
+        tabBar.isTranslucent = true
     }
 }
 
@@ -228,6 +290,13 @@ extension View {
     func ticketsMinTapTarget() -> some View {
         frame(minWidth: 44, minHeight: 44, alignment: .center)
             .contentShape(Rectangle())
+    }
+
+    func ticketsGlassTabBar() -> some View {
+        self
+            .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .tint(ArcaTicketsDesign.tabBarSelectedTint)
     }
 }
 
