@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  Arca
 //
-//  ARCA 2.4.0
+//  ARCA 2.4.1
 //  Entwickler: Hans zen Ruffinen
 //  Ein lokaler Mini-Tresor für Passwörter, Dokumente und Notizen.
 //  Erstellt mit SwiftUI.
@@ -21,6 +21,7 @@ struct ContentView: View {
     var isUnlocked: Bool = true
     @State private var selectedSection: ArcaSection = .home
     @State private var screenHeight: CGFloat = 852   // vernünftiger Fallback, wird sofort überschrieben
+    @State private var showRecoveryHint = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // Reihenfolge der wischbaren Tabs (settings bleibt ausgenommen — öffnet sich per Icon)
@@ -35,7 +36,17 @@ struct ContentView: View {
             }
         }
         .onChange(of: store.pendingSharedURL) { _, url in
-            if url != nil { selectedSection = .documents }
+            guard let url else { return }
+            if store.isBackupCandidateURL(url) {
+                store.pendingSharedURL = nil
+                store.pendingBackupURL = url
+                selectedSection = .settings
+            } else {
+                selectedSection = .documents
+            }
+        }
+        .onChange(of: store.pendingBackupURL) { _, url in
+            if url != nil { selectedSection = .settings }
         }
         .onChange(of: store.pendingSection) { _, section in
             guard let section else { return }
@@ -54,6 +65,11 @@ struct ContentView: View {
                 }
                 store.pendingSection = nil
             }
+            if unlocked, let url = store.pendingSharedURL, store.isBackupCandidateURL(url) {
+                store.pendingSharedURL = nil
+                store.pendingBackupURL = url
+                selectedSection = .settings
+            }
         }
         .onChange(of: selectedSection) { _, section in
             if section != .documents { store.pendingScrollCategory = nil }
@@ -63,6 +79,31 @@ struct ContentView: View {
                 store.addQuickIdea(title: title, text: text)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
+        }
+        .overlay(alignment: .top) {
+            if store.isCloudSyncPending {
+                CloudSyncBanner()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: store.isCloudSyncPending)
+        .onAppear { evaluateRecoveryHint(isFirstLaunch: true) }
+        .onChange(of: store.isCloudSyncPending) { _, pending in
+            if !pending { evaluateRecoveryHint() }
+        }
+        .alert("Daten fehlen?", isPresented: $showRecoveryHint) {
+            Button("Verstanden") { store.markRecoveryHintShown() }
+        } message: {
+            Text("Falls Daten fehlen, versuche: (1) ein anderes Gerät, das noch nicht aktualisiert wurde, (2) Wiederherstellung aus einem Backup über Einstellungen → Daten wiederherstellen.")
+        }
+    }
+
+    private func evaluateRecoveryHint(isFirstLaunch: Bool = false) {
+        guard store.shouldShowRecoveryHint else { return }
+        if isFirstLaunch || store.isLikelyEmptyWithPendingCloud {
+            showRecoveryHint = true
         }
     }
 
@@ -1410,6 +1451,25 @@ struct ActivityRow: View {
 }
 
 // MARK: - Status Banner
+
+struct CloudSyncBanner: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Daten werden aus iCloud geladen…")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "icloud.and.arrow.down")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
 
 struct StatusBanner: View {
     var body: some View {
@@ -3372,19 +3432,19 @@ struct DocumentsView: View {
             }
             // Eingehende Datei aus Mail / Dateien-App verarbeiten
             .onAppear {
-                if isUnlocked, let url = store.pendingSharedURL {
+                if isUnlocked, let url = store.pendingSharedURL, !store.isBackupCandidateURL(url) {
                     handleSharedURL(url)
                     store.pendingSharedURL = nil
                 }
             }
             .onChange(of: store.pendingSharedURL) { _, url in
-                guard let url, isUnlocked else { return }
+                guard let url, isUnlocked, !store.isBackupCandidateURL(url) else { return }
                 handleSharedURL(url)
                 store.pendingSharedURL = nil
             }
             // URL verarbeiten sobald App entsperrt wird (war beim Empfang noch gesperrt)
             .onChange(of: isUnlocked) { _, unlocked in
-                guard unlocked, let url = store.pendingSharedURL else { return }
+                guard unlocked, let url = store.pendingSharedURL, !store.isBackupCandidateURL(url) else { return }
                 handleSharedURL(url)
                 store.pendingSharedURL = nil
             }
@@ -3416,9 +3476,10 @@ struct DocumentsView: View {
     private func handleSharedURL(_ url: URL) {
         let ext = url.pathExtension.lowercased()
 
-        // Arca Backup → Passwort-Sheet im Settings-View öffnen
-        if ext == "arcabackup" {
+        // Arca Backup — Extension oder Magic-Bytes (Export ohne Endung in Dateien-App)
+        if ext == "arcabackup" || store.isBackupCandidateURL(url) {
             store.pendingBackupURL = url
+            store.pendingSection = .settings
             return
         }
 
@@ -5521,7 +5582,55 @@ struct ListDetailView: View {
 struct ShareURLItem: Identifiable {
     let id = UUID()
     let url: URL
+    /// true = Arca-Backup-Export mit erzwungener .arcabackup-Endung im Share-Sheet
+    var isArcaBackup: Bool = false
 }
+
+#if canImport(UIKit)
+import LinkPresentation
+
+/// Share-Item für Backup-Export: erzwingt UTType + Dateiname mit .arcabackup (Speichern in Dateien-App).
+final class BackupShareActivityItem: NSObject, UIActivityItemSource {
+    let fileURL: URL
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+    }
+
+    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
+        fileURL
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        fileURL
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        subjectForActivityType activityType: UIActivity.ActivityType?
+    ) -> String {
+        fileURL.lastPathComponent
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?
+    ) -> String {
+        AppStore.arcabackupContentType.identifier
+    }
+
+    func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
+        let meta = LPLinkMetadata()
+        meta.title = fileURL.lastPathComponent
+        meta.originalURL = fileURL
+        meta.url = fileURL
+        return meta
+    }
+}
+#endif
 
 // MARK: - Share Sheet
 struct ShareSheet: UIViewControllerRepresentable {
@@ -5530,6 +5639,50 @@ struct ShareSheet: UIViewControllerRepresentable {
         UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
     }
     func updateUIViewController(_ uvc: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Backup Import Document Picker (mit gemerktem Startordner)
+struct BackupImportDocumentPicker: UIViewControllerRepresentable {
+    var contentType: UTType
+    var directoryURL: URL?
+    var onPick: (URL) -> Void
+    var onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [contentType], asCopy: true)
+        picker.directoryURL = directoryURL
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ picker: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick, onCancel: onCancel)
+    }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+        let onCancel: () -> Void
+
+        init(onPick: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
+            self.onPick = onPick
+            self.onCancel = onCancel
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else {
+                onCancel()
+                return
+            }
+            onPick(url)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onCancel()
+        }
+    }
 }
 
 // MARK: - Stat Row (für Statistik in Settings)
@@ -5715,12 +5868,11 @@ struct SettingsView: View {
     @State private var exportPasswordConfirm = ""
     @State private var exportPasswordError = ""
     @State private var showExportPassword = false
+    @FocusState private var exportPasswordFieldFocused: Bool
+    @FocusState private var importPasswordFieldFocused: Bool
     @State private var showImportPasswordReveal = false
     @State private var importMerge = true
-    @State private var pendingImportURLLocal: URL? = nil  // aus "Öffnen mit" via AppStore
-    @State private var showExportFailure = false
-    @State private var showExportShare = false
-    @State private var exportURL: URL? = nil
+    @State private var exportShareItem: ShareURLItem? = nil
 
     // Import flow
     @State private var showImportPicker = false
@@ -5731,9 +5883,11 @@ struct SettingsView: View {
     @State private var showImportError = false
     @State private var importErrorMessage = ""
     @State private var showReleaseNotes = false
+    @State private var showImportConfirm = false
+    @State private var importPickerStartFolder: URL? = nil
 
     private var feedbackURL: URL? {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.0"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.1"
         let subject = "Arca Feedback (Version \(version))"
         var components = URLComponents()
         components.scheme = "mailto"
@@ -5749,7 +5903,7 @@ struct SettingsView: View {
                 showReleaseNotes = true
             } label: {
                 HStack {
-                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.0")", systemImage: "app.badge")
+                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.1")", systemImage: "app.badge")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -5767,10 +5921,146 @@ struct SettingsView: View {
         }
     }
 
+    private var arcabackupType: UTType {
+        AppStore.arcabackupContentType
+    }
+
+    private func backupImportErrorMessage(for url: URL, error: AppStore.BackupImportError) -> String {
+        if store.isBlockedDocumentExtension(url) {
+            let ext = url.pathExtension.uppercased()
+            if ext == "PDF" {
+                return "Das ist ein PDF-Dokument, keine Arca-Sicherung (.arcabackup). Bitte die exportierte Datei „ArcaBackup_….arcabackup“ wählen — nicht ein Dokument aus dem Tresor."
+            }
+            return "Das ist eine \(ext)-Datei, keine Arca-Sicherung (.arcabackup). Bitte die exportierte Backup-Datei wählen."
+        }
+        switch error {
+        case .fileAccessDenied:
+            return "Kein Zugriff auf die Datei. Bitte erneut auswählen."
+        case .invalidBackupFile:
+            return "Keine gültige Arca-Backup-Datei (.arcabackup). Bitte die exportierte Sicherungsdatei wählen — keine PDF oder anderes Dokument."
+        case .wrongPasswordOrCorrupt, .manifestInvalid:
+            return "Die Datei konnte nicht gelesen werden."
+        }
+    }
+
+    private func consumePendingBackupURL() {
+        guard let url = store.pendingBackupURL else { return }
+        store.pendingBackupURL = nil
+        beginBackupImport(from: url)
+    }
+
+    private func beginBackupImport(from url: URL) {
+        store.rememberBackupFolder(containing: url)
+        switch store.prepareBackupImport(from: url) {
+        case .success(let staged):
+            pendingImportURL = staged
+            importPassword = ""
+            showImportPasswordReveal = false
+            showImportPasswordSheet = true
+        case .failure(let error):
+            importErrorMessage = backupImportErrorMessage(for: url, error: error)
+            showImportError = true
+        }
+    }
+
+    private func backupShareActivityItems(for item: ShareURLItem) -> [Any] {
+        #if canImport(UIKit)
+        if item.isArcaBackup {
+            return [BackupShareActivityItem(fileURL: item.url)]
+        }
+        #endif
+        return [item.url]
+    }
+
+    private func performBackupExport() {
+        exportPasswordFieldFocused = false
+        #if canImport(UIKit)
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
+
+        let password = exportPassword
+        let passwordConfirm = exportPasswordConfirm
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            guard password.count >= AppStore.minBackupPasswordLength else {
+                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+                return
+            }
+            guard password == passwordConfirm else {
+                exportPasswordError = "Passwörter stimmen nicht überein."
+                return
+            }
+
+            switch store.exportData(password: password) {
+            case .success(let url):
+                showExportPasswordSheet = false
+                // Kurz warten bis Passwort-Sheet zu ist — sonst wird das Share-Sheet
+                // von iOS ignoriert (gleiches Muster wie beim Import).
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    exportShareItem = ShareURLItem(url: url, isArcaBackup: true)
+                }
+            case .failure(.passwordTooShort):
+                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+            case .failure(.archiveFailed):
+                exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
+            }
+        }
+    }
+
+    private func performBackupImport() {
+        importPasswordFieldFocused = false
+        #if canImport(UIKit)
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
+
+        // SecureField committet den Text erst nach Focus-Verlust — vor async einfrieren
+        // (gleiches Muster wie performBackupExport).
+        let password = importPassword
+        let url = pendingImportURL
+        let mergeMode = importMerge
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            guard let url else { return }
+            switch store.importData(from: url, password: password, merge: mergeMode) {
+            case .success:
+                showImportPasswordSheet = false
+                showImportPasswordReveal = false
+                pendingImportURL = nil
+                showImportSuccess = true
+            case .failure(.fileAccessDenied):
+                importErrorMessage = "Kein Zugriff auf die Datei. Bitte erneut auswählen."
+                showImportError = true
+            case .failure(.manifestInvalid):
+                importErrorMessage = "Backup-Datei beschädigt (manifest.json ungültig)."
+                showImportError = true
+            case .failure(.wrongPasswordOrCorrupt):
+                importErrorMessage = "Falsches Passwort oder beschädigte Datei."
+                showImportError = true
+            case .failure(.invalidBackupFile):
+                importErrorMessage = "Keine gültige Arca-Backup-Datei (.arcabackup)."
+                showImportError = true
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 aboutSection
+
+                Section {
+                    HStack {
+                        Label("iCloud", systemImage: "icloud.fill")
+                        Spacer()
+                        Text(store.iCloudStatus.rawValue)
+                            .font(.subheadline)
+                            .foregroundStyle(store.iCloudStatus == .downloading ? .orange : .secondary)
+                    }
+                } footer: {
+                    Text("Deine Daten werden über iCloud zwischen Geräten synchronisiert. Bei „Warte auf Download“ werden Inhalte noch aus der Cloud geladen.")
+                }
 
                 // Backup — wichtigste Funktion, direkt oben
                 Section {
@@ -5786,7 +6076,7 @@ struct SettingsView: View {
                     }
 
                     Button {
-                        showImportPicker = true
+                        showImportConfirm = true
                     } label: {
                         Label("Daten wiederherstellen", systemImage: "square.and.arrow.down.fill")
                             .foregroundStyle(.green)
@@ -5825,13 +6115,28 @@ struct SettingsView: View {
                 NavigationStack {
                     List {
                         Section {
+                            Label("iCloud: Datenverlust beim App-Update behoben – Downloads werden vollständig abgewartet", systemImage: "icloud.fill")
+                            Label("Ladehinweis beim iCloud-Download und Sync-Status in den Einstellungen", systemImage: "icloud.and.arrow.down.fill")
+                            Label("Hinweis zur Datenwiederherstellung für von Update betroffene Nutzer", systemImage: "arrow.counterclockwise.icloud.fill")
+                            Label("Backup teilen: Freigabe-Dialog erscheint zuverlässig nach Passworteingabe", systemImage: "square.and.arrow.up.fill")
+                            Label("Verbesserter Passwortschutz für verschlüsselte Backups (HKDF/AEA)", systemImage: "lock.shield.fill")
+                            Label("Import: Passworteingabe und Dateiauswahl zuverlässiger (.arcabackup)", systemImage: "square.and.arrow.down.fill")
+                            Label("Falsche Dateitypen beim Import werden klar abgewiesen", systemImage: "doc.badge.gearshape.fill")
+                            Label("Letzter Backup-Ordner wird gemerkt", systemImage: "folder.fill")
+                            Label("Bestätigung vor dem Datenimport", systemImage: "checkmark.circle.fill")
+                            Label("Passwort-Hinweise beim Sichern und Wiederherstellen", systemImage: "info.circle.fill")
+                        } header: {
+                            Text("Neu in Version 2.4.1")
+                        }
+
+                        Section {
                             Label("Neues, modernes App-Icon im Liquid-Glass-Stil – hell und dunkel", systemImage: "app.gift.fill")
                             Label("Frischer Startbildschirm mit wählbarer Ordner-Schnellansicht", systemImage: "square.grid.2x2.fill")
                             Label("Ordner per Drag & Drop sortieren, leere Ordner werden ausgeblendet", systemImage: "arrow.up.arrow.down")
                             Label("„Wusstest du?“-Tipps mit praktischen Anwendungen", systemImage: "lightbulb.fill")
                             Label("Feedback senden und Arca im App Store bewerten", systemImage: "star.fill")
                         } header: {
-                            Text("Neu in Version 2.4.0")
+                            Text("Version 2.4.0")
                         }
 
                         Section {
@@ -5903,12 +6208,7 @@ struct SettingsView: View {
             }
 
             // --- Export: password input sheet ---
-            .sheet(isPresented: $showExportPasswordSheet, onDismiss: {
-                // Wenn Export erfolgreich war (URL gesetzt), öffne ShareSheet
-                if exportURL != nil {
-                    showExportShare = true
-                }
-            }) {
+            .sheet(isPresented: $showExportPasswordSheet) {
                 NavigationStack {
                     Form {
                         Section {
@@ -5920,9 +6220,11 @@ struct SettingsView: View {
                                         SecureField("Passwort", text: $exportPassword)
                                     }
                                 }
+                                .focused($exportPasswordFieldFocused)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
                                 .font(.system(.body, design: .monospaced))
+                                .onChange(of: exportPassword) { _, _ in exportPasswordError = "" }
                                 Button {
                                     showExportPassword.toggle()
                                 } label: {
@@ -5942,16 +6244,21 @@ struct SettingsView: View {
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
                                 .font(.system(.body, design: .monospaced))
+                                .onChange(of: exportPasswordConfirm) { _, _ in exportPasswordError = "" }
                             }
                         } header: {
                             Text("Backup-Passwort festlegen")
                         } footer: {
-                            Text("Das Backup wird verschlüsselt. Ohne dieses Passwort kann es nicht wiederhergestellt werden.")
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Das Passwort muss mindestens 4 Zeichen lang sein.")
+                                Text("Das Backup wird verschlüsselt. Ohne dieses Passwort kann es nicht wiederhergestellt werden.")
+                            }
                         }
                         if !exportPasswordError.isEmpty {
                             Section {
-                                Text(exportPasswordError)
+                                Label(exportPasswordError, systemImage: "exclamationmark.triangle.fill")
                                     .foregroundStyle(.red)
+                                    .font(.subheadline)
                             }
                         }
                     }
@@ -5960,26 +6267,13 @@ struct SettingsView: View {
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Abbrechen") {
-                                exportURL = nil      // verhindert, dass danach das ShareSheet aufgeht
+                                exportPasswordFieldFocused = false
                                 showExportPasswordSheet = false
                             }
                         }
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Sichern") {
-                                guard exportPassword.count >= 4 else {
-                                    exportPasswordError = "Mindestens 4 Zeichen erforderlich."
-                                    return
-                                }
-                                guard exportPassword == exportPasswordConfirm else {
-                                    exportPasswordError = "Passwörter stimmen nicht überein."
-                                    return
-                                }
-                                if let url = store.exportData(password: exportPassword) {
-                                    exportURL = url
-                                    showExportPasswordSheet = false   // onDismiss öffnet dann ShareSheet
-                                } else {
-                                    exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
-                                }
+                                performBackupExport()
                             }
                             .disabled(exportPassword.isEmpty)
                         }
@@ -5988,22 +6282,21 @@ struct SettingsView: View {
             }
 
             // --- Export: share sheet ---
-            .sheet(isPresented: $showExportShare, onDismiss: {
-                exportURL = nil  // aufräumen
-            }) {
-                if let url = exportURL {
-                    ShareSheet(activityItems: [url])
+            .sheet(item: $exportShareItem) { item in
+                if FileManager.default.fileExists(atPath: item.url.path) {
+                    ShareSheet(activityItems: backupShareActivityItems(for: item))
                 } else {
-                    // Fallback falls URL doch nil ist — zeigt Fehler statt weißem Sheet
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 40))
                             .foregroundStyle(.orange)
                         Text("Sicherung fehlgeschlagen")
                             .font(.headline)
-                        Text("Bitte versuche es erneut.")
+                        Text("Die Backup-Datei konnte nicht erstellt werden. Bitte versuche es erneut.")
                             .foregroundStyle(.secondary)
-                        Button("Schließen") { showExportShare = false }
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        Button("Schließen") { exportShareItem = nil }
                             .buttonStyle(.borderedProminent)
                             .padding(.top, 8)
                     }
@@ -6012,24 +6305,35 @@ struct SettingsView: View {
             }
 
             // --- Import: file picker ---
-            .fileImporter(
-                isPresented: $showImportPicker,
-                allowedContentTypes: [.data]
-            ) { result in
-                if case .success(let url) = result {
-                    pendingImportURL = url
-                    importPassword = ""
-                    showImportPasswordSheet = true
+            .alert("Daten wiederherstellen", isPresented: $showImportConfirm) {
+                Button("Abbrechen", role: .cancel) {}
+                Button("Fortfahren") {
+                    importPickerStartFolder = store.beginAccessingRememberedBackupFolder()
+                    showImportPicker = true
+                }
+            } message: {
+                Text("Bestehende Daten werden ersetzt. Möchtest du fortfahren?")
+            }
+            .sheet(isPresented: $showImportPicker, onDismiss: {
+                store.releaseRememberedBackupFolderAccess()
+                importPickerStartFolder = nil
+            }) {
+                BackupImportDocumentPicker(
+                    contentType: arcabackupType,
+                    directoryURL: importPickerStartFolder
+                ) { url in
+                    showImportPicker = false
+                    beginBackupImport(from: url)
+                } onCancel: {
+                    showImportPicker = false
                 }
             }
 
             // "Öffnen mit .arcabackup" von aussen → Passwort-Sheet öffnen
+            .onAppear { consumePendingBackupURL() }
             .onChange(of: store.pendingBackupURL) { _, url in
-                guard let url else { return }
-                pendingImportURL = url
-                importPassword = ""
-                store.pendingBackupURL = nil
-                showImportPasswordSheet = true
+                guard url != nil else { return }
+                consumePendingBackupURL()
             }
 
             // --- Import: password input sheet ---
@@ -6045,6 +6349,7 @@ struct SettingsView: View {
                                         SecureField("Passwort", text: $importPassword)
                                     }
                                 }
+                                .focused($importPasswordFieldFocused)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
                                 .font(.system(.body, design: .monospaced))
@@ -6084,6 +6389,7 @@ struct SettingsView: View {
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Abbrechen") {
+                                importPasswordFieldFocused = false
                                 showImportPasswordSheet = false
                                 pendingImportURL = nil
                                 showImportPasswordReveal = false
@@ -6091,19 +6397,7 @@ struct SettingsView: View {
                         }
                         ToolbarItem(placement: .confirmationAction) {
                             Button(importMerge ? "Zusammenführen" : "Ersetzen") {
-                                guard let url = pendingImportURL else { return }
-                                showImportPasswordSheet = false
-                                showImportPasswordReveal = false
-                                let mergeMode = importMerge
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    if store.importData(from: url, password: importPassword, merge: mergeMode) {
-                                        showImportSuccess = true
-                                    } else {
-                                        importErrorMessage = "Falsches Passwort oder beschädigte Datei."
-                                        showImportError = true
-                                    }
-                                    pendingImportURL = nil
-                                }
+                                performBackupImport()
                             }
                             .disabled(importPassword.isEmpty)
                         }

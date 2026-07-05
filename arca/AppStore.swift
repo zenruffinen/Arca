@@ -11,6 +11,8 @@ import CryptoKit
 import WidgetKit
 import AppleArchive
 import System
+import UniformTypeIdentifiers
+import os
 
 struct ArcaBackup: Codable {
     var vaultItems: [VaultEntry]
@@ -61,30 +63,34 @@ struct ArcaBackup: Codable {
 }
 
 final class AppStore: ObservableObject {
+    /// Unterdrückt didSet-Speichern während load()/Migration — verhindert Überschreiben
+    /// von iCloud-Daten mit leeren Defaults, bevor Platzhalter-Dateien geladen sind.
+    private var isLoadingData = false
+
     @Published var vaultItems: [VaultEntry] = [] {
-        didSet { saveVault() }
+        didSet { guard !isLoadingData else { return }; saveVault() }
     }
     @Published var documents: [DocumentEntry] = [] {
-        didSet { saveDocuments() }
+        didSet { guard !isLoadingData else { return }; saveDocuments() }
     }
     @Published var notes: [NoteEntry] = [] {
-        didSet { saveNotes() }
+        didSet { guard !isLoadingData else { return }; saveNotes() }
     }
     @Published var documentCategories: [String] = [] {
-        didSet { saveDocumentCategories() }
+        didSet { guard !isLoadingData else { return }; saveDocumentCategories() }
     }
     @Published var categoryColors: [String: Int] = [:] {
-        didSet { saveCategoryColors() }
+        didSet { guard !isLoadingData else { return }; saveCategoryColors() }
     }
     @Published var lists: [ListEntry] = [] {
-        didSet { saveLists() }
+        didSet { guard !isLoadingData else { return }; saveLists() }
     }
     @Published var documentSubcategories: [String: [String]] = [:] {
-        didSet { saveDocumentSubcategories() }
+        didSet { guard !isLoadingData else { return }; saveDocumentSubcategories() }
     }
     /// Ordner, die auf dem Startbildschirm unter „Ordner“ erscheinen (Reihenfolge = Anzeige).
     @Published var homeFolderQuickView: [String] = [] {
-        didSet { saveHomeFolderQuickView() }
+        didSet { guard !isLoadingData else { return }; saveHomeFolderQuickView() }
     }
     /// Wenn eine Datei von außen (z. B. Mail) geöffnet wird, landet die URL hier.
     @Published var pendingSharedURL: URL? = nil
@@ -92,6 +98,23 @@ final class AppStore: ObservableObject {
     @Published var pendingScrollCategory: String? = nil
     @Published var pendingSection: ArcaSection? = nil
     @Published var pendingQuickCapture: Bool = false
+
+    /// true solange iCloud-Platzhalter noch heruntergeladen werden (UI-Hinweis).
+    @Published private(set) var isCloudSyncPending = false
+
+    enum ICloudStatus: String {
+        case unavailable = "Nicht verfügbar"
+        case connected = "iCloud: verbunden"
+        case downloading = "Warte auf Download"
+        case synced = "Synchronisiert"
+    }
+
+    @Published private(set) var iCloudStatus: ICloudStatus = .unavailable
+
+    static let recoveryHintKey = "arcaRecoveryHintShown_v241"
+    private static let cloudSyncTimeout: TimeInterval = 30
+    private var cloudSyncPollTimer: Timer?
+    private var cloudSyncStartedAt: Date?
 
     var importCategoryName: String {
         get { UserDefaults.standard.string(forKey: "importCategoryName") ?? "Import" }
@@ -147,6 +170,148 @@ final class AppStore: ObservableObject {
         dataDirectory.appendingPathComponent("\(key).json")
     }
 
+    /// iCloud-Platzhalter für eine Datendatei (z. B. `.notes.json.icloud`).
+    private func cloudPlaceholderURL(for fileURL: URL) -> URL {
+        fileURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(fileURL.lastPathComponent).icloud")
+    }
+
+    private func hasCloudPlaceholder(at fileURL: URL) -> Bool {
+        FileManager.default.fileExists(atPath: cloudPlaceholderURL(for: fileURL).path)
+    }
+
+    var isICloudAvailable: Bool { cloudContainer != nil }
+
+    /// true wenn iCloud-Platzhalter noch nicht lokal verfügbar sind (Download ausstehend).
+    private func hasPendingCloudDataDownloads() -> Bool {
+        guard cloudContainer != nil else { return false }
+        for dir in [dataDirectory, filesDirectory] {
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: dir, includingPropertiesForKeys: nil) else { continue }
+            if files.contains(where: { $0.lastPathComponent.hasSuffix(".icloud") }) { return true }
+        }
+        return false
+    }
+
+    /// Leerer App-Zustand, aber iCloud-Daten existieren noch als Platzhalter.
+    var isLikelyEmptyWithPendingCloud: Bool {
+        guard vaultItems.isEmpty, documents.isEmpty, notes.isEmpty, lists.isEmpty else { return false }
+        return hasPendingCloudDataDownloads() || hasAnyExistingDataStore()
+    }
+
+    var shouldShowRecoveryHint: Bool {
+        !UserDefaults.standard.bool(forKey: Self.recoveryHintKey)
+    }
+
+    func markRecoveryHintShown() {
+        UserDefaults.standard.set(true, forKey: Self.recoveryHintKey)
+    }
+
+    func updateCloudSyncState() {
+        guard isICloudAvailable else {
+            iCloudStatus = .unavailable
+            isCloudSyncPending = false
+            return
+        }
+        if hasPendingCloudDataDownloads() {
+            iCloudStatus = .downloading
+            isCloudSyncPending = true
+        } else if hasAnyExistingDataStore() {
+            iCloudStatus = .synced
+            isCloudSyncPending = false
+        } else {
+            iCloudStatus = .connected
+            isCloudSyncPending = false
+        }
+    }
+
+    private func beginCloudSyncMonitoringIfNeeded() {
+        updateCloudSyncState()
+        guard isCloudSyncPending else {
+            stopCloudSyncMonitoring()
+            return
+        }
+        cloudSyncStartedAt = cloudSyncStartedAt ?? Date()
+        guard cloudSyncPollTimer == nil else { return }
+        cloudSyncPollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.pollCloudSyncProgress()
+        }
+    }
+
+    private func stopCloudSyncMonitoring() {
+        cloudSyncPollTimer?.invalidate()
+        cloudSyncPollTimer = nil
+        cloudSyncStartedAt = nil
+    }
+
+    private func pollCloudSyncProgress() {
+        updateCloudSyncState()
+        if !isCloudSyncPending {
+            stopCloudSyncMonitoring()
+            return
+        }
+        downloadAllCloudFiles()
+        if let started = cloudSyncStartedAt,
+           Date().timeIntervalSince(started) >= Self.cloudSyncTimeout {
+            isCloudSyncPending = false
+            stopCloudSyncMonitoring()
+        }
+    }
+
+    /// true wenn bereits Arca-Daten (lokal oder als iCloud-Platzhalter) existieren.
+    private func hasAnyExistingDataStore() -> Bool {
+        let keys = [
+            "vaultItems", "documents", "notes", "lists",
+            "documentCategories", "categoryColors", "documentSubcategories", "homeFolderQuickView"
+        ]
+        for key in keys {
+            let url = dataURL(key)
+            if FileManager.default.fileExists(atPath: url.path) { return true }
+            if hasCloudPlaceholder(at: url) { return true }
+        }
+        return false
+    }
+
+    /// Stößt Downloads an und wartet kurz, damit load() nach App-Update nicht leer startet.
+    private func waitForPendingCloudDownloads(timeout: TimeInterval = 3.0) {
+        guard cloudContainer != nil else { return }
+        var pending: [URL] = []
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: dataDirectory, includingPropertiesForKeys: nil) else { return }
+        for f in files where f.lastPathComponent.hasSuffix(".icloud") {
+            var name = f.lastPathComponent
+            name.removeFirst()
+            name.removeLast(".icloud".count)
+            let target = dataDirectory.appendingPathComponent(name)
+            pending.append(target)
+            try? FileManager.default.startDownloadingUbiquitousItem(at: target)
+        }
+        guard !pending.isEmpty else { return }
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let stillPending = pending.contains { url in
+                guard FileManager.default.fileExists(atPath: url.path) else { return true }
+                guard let status = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+                    .ubiquitousItemDownloadingStatus else { return true }
+                return status != .current
+            }
+            if !stillPending { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+    }
+
+    private func startObservingCloudDownloads() {
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("NSUbiquitousItemDidDownload"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reloadFromCloud()
+            self?.updateCloudSyncState()
+            self?.beginCloudSyncMonitoringIfNeeded()
+        }
+    }
+
     // MARK: - iCloud Download (Platzhalter-Dateien)
 
     /// Prüft ob eine Dokument-Datei lokal vorliegt. Falls sie nur als iCloud-
@@ -187,8 +352,11 @@ final class AppStore: ObservableObject {
     // MARK: - Generische JSON I/O mit NSFileCoordinator
 
     private func saveJSON<T: Encodable>(_ value: T, key: String) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
+        guard !isLoadingData else { return }
         let url = dataURL(key)
+        // Niemals lokale Leerdaten über ausstehende iCloud-Platzhalter schreiben.
+        if hasCloudPlaceholder(at: url) { return }
+        guard let data = try? JSONEncoder().encode(value) else { return }
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var err: NSError?
         coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &err) { u in
@@ -198,12 +366,16 @@ final class AppStore: ObservableObject {
 
     private func loadJSON<T: Decodable>(_ type: T.Type, key: String) -> T? {
         let url = dataURL(key)
+        if hasCloudPlaceholder(at: url) {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            return nil
+        }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         var result: T? = nil
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var err: NSError?
         coordinator.coordinate(readingItemAt: url, options: .withoutChanges, error: &err) { u in
-            guard let data = try? Data(contentsOf: u) else { return }
+            guard let data = try? Data(contentsOf: u), !data.isEmpty else { return }
             result = try? JSONDecoder().decode(type, from: data)
         }
         return result
@@ -213,9 +385,36 @@ final class AppStore: ObservableObject {
 
     init() {
         migrateFromUserDefaultsIfNeeded()
+        waitForPendingCloudDownloads()
+        isLoadingData = true
         load()
+        isLoadingData = false
+        persistFreshInstallDefaults()
+        persistHomeFolderQuickViewMigrationIfNeeded()
         downloadAllCloudFiles()
         createDefaultListIfNeeded()
+        startObservingCloudDownloads()
+        updateCloudSyncState()
+        beginCloudSyncMonitoringIfNeeded()
+    }
+
+    /// Speichert Erststart-Defaults, die während load() wegen isLoadingData nicht geschrieben wurden.
+    private func persistFreshInstallDefaults() {
+        guard !hasAnyExistingDataStore() else { return }
+        guard !hasPendingCloudDataDownloads() else { return }
+        if documentCategories.isEmpty {
+            documentCategories = AppStore.defaultCategories
+        } else {
+            saveDocumentCategories()
+        }
+    }
+
+    private func persistHomeFolderQuickViewMigrationIfNeeded() {
+        let url = dataURL("homeFolderQuickView")
+        guard !FileManager.default.fileExists(atPath: url.path),
+              !hasCloudPlaceholder(at: url),
+              !homeFolderQuickView.isEmpty else { return }
+        saveHomeFolderQuickView()
     }
 
     /// Legt beim ersten Start eine Beispiel-Taskliste an, damit die Funktion
@@ -223,6 +422,7 @@ final class AppStore: ObservableObject {
     private func createDefaultListIfNeeded() {
         let key = "arcaDefaultListCreated_v1"
         guard !UserDefaults.standard.bool(forKey: key) else { return }
+        guard !hasPendingCloudDataDownloads() else { return }
         if lists.isEmpty {
             let demo = ListEntry(
                 title: "Einkaufen",
@@ -248,6 +448,8 @@ final class AppStore: ObservableObject {
             let target = dataURL(fileKey)
             // Nicht überschreiben wenn Datei schon existiert (z. B. vom anderen Gerät)
             guard !FileManager.default.fileExists(atPath: target.path) else { return }
+            // iCloud-Platzhalter = echte Daten in der Cloud, nicht mit UD überschreiben
+            guard !hasCloudPlaceholder(at: target) else { return }
             try? data.write(to: target)
         }
 
@@ -279,15 +481,151 @@ final class AppStore: ObservableObject {
     // MARK: - Reload (aufgerufen wenn App in den Vordergrund kommt)
 
     func reloadFromCloud() {
+        waitForPendingCloudDownloads(timeout: 1.0)
+        isLoadingData = true
         load()
+        isLoadingData = false
         downloadAllCloudFiles()
+        updateCloudSyncState()
+        beginCloudSyncMonitoringIfNeeded()
     }
 
     // MARK: - Export / Import
 
+    static let minBackupPasswordLength = 4
+
+    /// Endungen, die nie als Backup importiert werden dürfen (Dokumente, Medien, Arca-Exporttypen).
+    static let blockedBackupImportExtensions: Set<String> = [
+        "pdf", "jpg", "jpeg", "png", "heic", "heif", "tiff", "gif", "webp",
+        "mov", "mp4", "m4v", "avi",
+        "doc", "docx", "txt", "rtf", "pages",
+        "arcafolder", "arcanote", "arcalist",
+    ]
+
+    static var arcabackupContentType: UTType {
+        if let declared = UTType("com.hansruffin.arca.arcabackup") { return declared }
+        if let byExt = UTType(filenameExtension: "arcabackup") { return byExt }
+        return UTType(tag: "arcabackup", tagClass: .filenameExtension, conformingTo: .data)
+            ?? UTType.data
+    }
+
+    func isBlockedDocumentExtension(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        guard !ext.isEmpty else { return false }
+        return Self.blockedBackupImportExtensions.contains(ext)
+    }
+
+    /// Prüft Magic-Bytes — für Routing bei „Öffnen mit Arca“ (Extension kann fehlen).
+    func isBackupCandidateURL(_ url: URL) -> Bool {
+        if url.pathExtension.lowercased() == "arcabackup" { return true }
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        switch detectBackupFormat(at: url) {
+        case .aeaEncrypted, .v1EncryptedJSON: return true
+        case .unknown: return false
+        }
+    }
+
+    enum BackupExportError: Equatable, Error {
+        case passwordTooShort
+        case archiveFailed
+    }
+
+    enum BackupImportError: Equatable, Error {
+        case fileAccessDenied
+        case wrongPasswordOrCorrupt
+        case manifestInvalid
+        case invalidBackupFile
+    }
+
+    enum BackupFileFormat: Equatable {
+        case aeaEncrypted
+        case v1EncryptedJSON
+        case unknown(String)
+    }
+
+    private static let backupLog = Logger(subsystem: Bundle.main.bundleIdentifier ?? "app.arcavault", category: "Backup")
+    private static let stagedImportPrefix = "ArcaImport_"
+    private static let backupFolderBookmarkKey = "arcaBackupFolderBookmark_v1"
+    /// Hält Security-Scope für den gemerkten Backup-Ordner (Document-Picker).
+    private var rememberedBackupFolderURL: URL?
+
+    /// Security-scoped Bookmark des zuletzt genutzten Backup-Ordners speichern.
+    func rememberBackupFolder(containing fileURL: URL) {
+        guard !fileURL.path.hasPrefix(FileManager.default.temporaryDirectory.path) else { return }
+        guard fileURL.startAccessingSecurityScopedResource() else { return }
+        defer { fileURL.stopAccessingSecurityScopedResource() }
+
+        let folder = fileURL.deletingLastPathComponent()
+        do {
+            let data = try folder.bookmarkData(
+                options: .minimalBookmark,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            UserDefaults.standard.set(data, forKey: Self.backupFolderBookmarkKey)
+            Self.backupLog.info("Backup-Ordner gemerkt: \(folder.lastPathComponent, privacy: .public)")
+        } catch {
+            Self.backupLog.error(
+                "Backup-Ordner-Bookmark fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Gemerkten Backup-Ordner auflösen und Security-Scope starten (für Document-Picker).
+    func beginAccessingRememberedBackupFolder() -> URL? {
+        releaseRememberedBackupFolderAccess()
+        guard let data = UserDefaults.standard.data(forKey: Self.backupFolderBookmarkKey) else { return nil }
+        var stale = false
+        do {
+            let url = try URL(
+                resolvingBookmarkData: data,
+                options: .withoutUI,
+                relativeTo: nil,
+                bookmarkDataIsStale: &stale
+            )
+            if stale { refreshBackupFolderBookmark(for: url) }
+            guard url.startAccessingSecurityScopedResource() else { return nil }
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                url.stopAccessingSecurityScopedResource()
+                return nil
+            }
+            rememberedBackupFolderURL = url
+            return url
+        } catch {
+            Self.backupLog.error(
+                "Backup-Ordner-Bookmark ungültig: \(error.localizedDescription, privacy: .public)")
+            UserDefaults.standard.removeObject(forKey: Self.backupFolderBookmarkKey)
+            return nil
+        }
+    }
+
+    func releaseRememberedBackupFolderAccess() {
+        if let url = rememberedBackupFolderURL {
+            url.stopAccessingSecurityScopedResource()
+            rememberedBackupFolderURL = nil
+        }
+    }
+
+    private func refreshBackupFolderBookmark(for folder: URL) {
+        guard folder.startAccessingSecurityScopedResource() else { return }
+        defer { folder.stopAccessingSecurityScopedResource() }
+        if let data = try? folder.bookmarkData(
+            options: .minimalBookmark,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        ) {
+            UserDefaults.standard.set(data, forKey: Self.backupFolderBookmarkKey)
+        }
+    }
+
     /// Backup-Export, Format v2: verschlüsseltes Apple-Archiv (AEA).
     /// Speicherschonend — die Dateien werden gestreamt statt in den RAM geladen.
-    func exportData(password: String) -> URL? {
+    func exportData(password: String) -> Result<URL, BackupExportError> {
+        guard password.count >= Self.minBackupPasswordLength else {
+            return .failure(.passwordTooShort)
+        }
         // 1. Staging-Ordner: manifest.json (Metadaten) + files/ (Hardlinks/Kopien)
         let stage = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArcaExport_\(UUID().uuidString)")
@@ -318,28 +656,86 @@ final class AppStore: ObservableObject {
                     try? FileManager.default.copyItem(at: src, to: dst)
                 }
             }
-        } catch { return nil }
+        } catch { return .failure(.archiveFailed) }
 
         // 2. Verschlüsselt archivieren
         let filename = "ArcaBackup_\(Date().formatted(date: .abbreviated, time: .omitted)).arcabackup"
             .replacingOccurrences(of: " ", with: "_")
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        guard archiveDirectory(stage, to: url, password: password),
+        guard archiveDirectory(stage, to: url, password: password, deriveBackupPassword: true),
               let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
-              size > 0 else { return nil }
-        return url
+              size > 0 else { return .failure(.archiveFailed) }
+        return .success(url)
     }
 
-    func importData(from url: URL, password: String, merge: Bool = false) -> Bool {
-        guard url.startAccessingSecurityScopedResource() else { return false }
-        defer { url.stopAccessingSecurityScopedResource() }
+    /// Kopiert eine externe Backup-Datei lokal und prüft das Format (Magic-Bytes).
+    func prepareBackupImport(from url: URL) -> Result<URL, BackupImportError> {
+        let filename = url.lastPathComponent
+        Self.backupLog.info("Import: Datei ausgewählt — \(filename, privacy: .public)")
 
-        // Neues Format (v2): verschlüsseltes Apple-Archiv
-        if isAppleEncryptedArchive(url) {
-            guard let extracted = extractArchive(url, password: password) else { return false }
+        if isBlockedDocumentExtension(url) {
+            Self.backupLog.error(
+                "Import: Abgelehnt (Dokument-Endung .\(url.pathExtension, privacy: .public)) — \(filename, privacy: .public)")
+            return .failure(.invalidBackupFile)
+        }
+
+        let ext = url.pathExtension.lowercased()
+        if !ext.isEmpty && ext != "arcabackup" {
+            Self.backupLog.error(
+                "Import: Abgelehnt (Endung .\(ext, privacy: .public), erwartet .arcabackup) — \(filename, privacy: .public)")
+            return .failure(.invalidBackupFile)
+        }
+
+        switch stageBackupFileForImport(from: url) {
+        case .success(let staged):
+            switch detectBackupFormat(at: staged) {
+            case .aeaEncrypted:
+                Self.backupLog.info("Import: AEA-Format erkannt — \(filename, privacy: .public)")
+                return .success(staged)
+            case .v1EncryptedJSON:
+                Self.backupLog.info("Import: v1-Format (AES-GCM) erkannt — \(filename, privacy: .public)")
+                return .success(staged)
+            case .unknown(let magic):
+                try? FileManager.default.removeItem(at: staged)
+                Self.backupLog.error(
+                    "Import: Keine Backup-Datei (Magic: \(magic, privacy: .public)) — \(filename, privacy: .public)")
+                return .failure(.invalidBackupFile)
+            }
+        case .failure(let error):
+            return .failure(error)
+        }
+    }
+
+    func importData(from url: URL, password: String, merge: Bool = false) -> Result<Void, BackupImportError> {
+        Self.backupLog.info("Import: Entschlüsselung starten — \(url.lastPathComponent, privacy: .public)")
+        let staged: URL
+        let removeStaged: Bool
+        if url.lastPathComponent.hasPrefix(Self.stagedImportPrefix) {
+            staged = url
+            removeStaged = true
+        } else {
+            switch prepareBackupImport(from: url) {
+            case .success(let copy):
+                staged = copy
+                removeStaged = true
+            case .failure(let error):
+                return .failure(error)
+            }
+        }
+        defer { if removeStaged { try? FileManager.default.removeItem(at: staged) } }
+
+        switch detectBackupFormat(at: staged) {
+        case .aeaEncrypted:
+            guard let extracted = extractArchive(staged, password: password, deriveBackupPassword: true) else {
+                Self.backupLog.error("Import: AEA-Entschlüsselung fehlgeschlagen (Passwort oder beschädigtes Archiv)")
+                return .failure(.wrongPasswordOrCorrupt)
+            }
             defer { try? FileManager.default.removeItem(at: extracted) }
             guard let manifestData = try? Data(contentsOf: extracted.appendingPathComponent("manifest.json")),
-                  let backup = try? JSONDecoder().decode(ArcaBackup.self, from: manifestData) else { return false }
+                  let backup = try? JSONDecoder().decode(ArcaBackup.self, from: manifestData) else {
+                Self.backupLog.error("Import: manifest.json fehlt oder ungültig")
+                return .failure(.manifestInvalid)
+            }
             let extractedFiles = extracted.appendingPathComponent("files")
             if let files = try? FileManager.default.contentsOfDirectory(
                 at: extractedFiles, includingPropertiesForKeys: nil) {
@@ -350,25 +746,70 @@ final class AppStore: ObservableObject {
                 }
             }
             applyBackup(backup, merge: merge)
-            return true
-        }
+            Self.backupLog.info("Import: erfolgreich (AEA, merge=\(merge, privacy: .public))")
+            return .success(())
 
-        // Altes Format (v1): AES-GCM-verschlüsseltes JSON
-        guard let encryptedData = try? Data(contentsOf: url),
-              let plaintext = try? decryptData(encryptedData, password: password),
-              let backup = try? JSONDecoder().decode(ArcaBackup.self, from: plaintext) else {
-            return false
-        }
-
-        if let fileData = backup.fileData {
-            for (filename, data) in fileData {
-                let dest = documentURL(for: filename)
-                try? data.write(to: dest)
+        case .v1EncryptedJSON:
+            guard let encryptedData = try? Data(contentsOf: staged),
+                  let plaintext = decryptV1Backup(encryptedData, password: password),
+                  let backup = try? JSONDecoder().decode(ArcaBackup.self, from: plaintext) else {
+                Self.backupLog.error("Import: v1-Entschlüsselung fehlgeschlagen — \(staged.lastPathComponent, privacy: .public)")
+                return .failure(.wrongPasswordOrCorrupt)
             }
+
+            if let fileData = backup.fileData {
+                for (filename, data) in fileData {
+                    let dest = documentURL(for: filename)
+                    try? data.write(to: dest)
+                }
+            }
+
+            applyBackup(backup, merge: merge)
+            Self.backupLog.info("Import: erfolgreich (v1, merge=\(merge, privacy: .public))")
+            return .success(())
+
+        case .unknown(let magic):
+            Self.backupLog.error(
+                "Import: Keine Backup-Datei (Magic: \(magic, privacy: .public)) — \(staged.lastPathComponent, privacy: .public)")
+            return .failure(.invalidBackupFile)
+        }
+    }
+
+    /// Security-scoped URL sofort in den App-Temp-Ordner kopieren (Picker-Zugriff verfällt sonst).
+    private func stageBackupFileForImport(from url: URL) -> Result<URL, BackupImportError> {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        guard FileManager.default.isReadableFile(atPath: url.path) else {
+            Self.backupLog.error("Import: Datei nicht lesbar — \(url.lastPathComponent, privacy: .public)")
+            return .failure(.fileAccessDenied)
         }
 
-        applyBackup(backup, merge: merge)
-        return true
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(Self.stagedImportPrefix)\(UUID().uuidString).arcabackup")
+        try? FileManager.default.removeItem(at: dest)
+        do {
+            try FileManager.default.copyItem(at: url, to: dest)
+            return .success(dest)
+        } catch {
+            Self.backupLog.error("Import: Kopie fehlgeschlagen — \(error.localizedDescription, privacy: .public)")
+            return .failure(.fileAccessDenied)
+        }
+    }
+
+    private func detectBackupFormat(at url: URL) -> BackupFileFormat {
+        guard let magic = readFileMagic(at: url, count: 4) else { return .unknown("unreadable") }
+        if magic == Data("AEA1".utf8) { return .aeaEncrypted }
+        if magic == Self.backupMagic { return .v1EncryptedJSON }
+        let label = String(data: magic, encoding: .ascii)
+            ?? magic.map { String(format: "%02X", $0) }.joined()
+        return .unknown(label)
+    }
+
+    private func readFileMagic(at url: URL, count: Int) -> Data? {
+        guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fh.close() }
+        return try? fh.read(upToCount: count)
     }
 
     /// Übernimmt die Metadaten eines Backups (ersetzen oder zusammenführen).
@@ -568,8 +1009,25 @@ final class AppStore: ObservableObject {
 
     // MARK: - Apple-Archiv-Helfer (speicherschonend, gestreamt)
 
+    /// Leitet aus dem Nutzerpasswort ein AEA-konformes Passwort ab.
+    /// Apples Scrypt-Profil lehnt schwache Kurzpasswörter ab — HKDF erzeugt
+    /// immer ein ausreichend starkes Passwort für `setPassword`.
+    private func aeaPassword(from userPassword: String) -> String {
+        guard let passwordData = userPassword.data(using: .utf8) else { return userPassword }
+        let key = HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: SymmetricKey(data: passwordData),
+            salt: Self.backupPasswordSalt,
+            info: Data("AEA".utf8),
+            outputByteCount: 32)
+        return key.withUnsafeBytes { Data($0) }.base64EncodedString()
+    }
+
+    private static let backupPasswordSalt = Data("ArcaBackupSalt_v1".utf8)
+
     /// Archiviert einen Ordner in eine Datei — optional passwortverschlüsselt (AEA).
-    private func archiveDirectory(_ dir: URL, to dest: URL, password: String?) -> Bool {
+    private func archiveDirectory(
+        _ dir: URL, to dest: URL, password: String?, deriveBackupPassword: Bool = false
+    ) -> Bool {
         try? FileManager.default.removeItem(at: dest)
         do {
             guard let fileStream = ArchiveByteStream.fileStream(
@@ -581,10 +1039,11 @@ final class AppStore: ObservableObject {
             var targetStream = fileStream
             var encryptionStream: ArchiveByteStream? = nil
             if let password {
+                let aeaPwd = deriveBackupPassword ? aeaPassword(from: password) : password
                 let ctx = ArchiveEncryptionContext(
                     profile: .hkdf_sha256_aesctr_hmac__scrypt__none,
                     compressionAlgorithm: .lzfse)
-                try ctx.setPassword(password)
+                try ctx.setPassword(aeaPwd)
                 guard let es = ArchiveByteStream.encryptionStream(
                     writingTo: fileStream, encryptionContext: ctx) else { return false }
                 encryptionStream = es
@@ -609,7 +1068,24 @@ final class AppStore: ObservableObject {
     }
 
     /// Entpackt ein Apple-Archiv (optional verschlüsselt) in einen temporären Ordner.
-    private func extractArchive(_ url: URL, password: String?) -> URL? {
+    private func extractArchive(
+        _ url: URL, password: String?, deriveBackupPassword: Bool = false
+    ) -> URL? {
+        if deriveBackupPassword, let password {
+            let derived = aeaPassword(from: password)
+            for (label, candidate) in [("HKDF", derived), ("raw", password)] {
+                if let outDir = tryExtractArchive(url, password: candidate) {
+                    Self.backupLog.info("Import: Archiv entschlüsselt mit \(label, privacy: .public)-Passwort")
+                    return outDir
+                }
+                Self.backupLog.debug("Import: \(label, privacy: .public)-Passwort passte nicht")
+            }
+            return nil
+        }
+        return tryExtractArchive(url, password: password)
+    }
+
+    private func tryExtractArchive(_ url: URL, password: String?) -> URL? {
         let outDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArcaExtract_\(UUID().uuidString)")
         do {
@@ -648,9 +1124,7 @@ final class AppStore: ObservableObject {
 
     /// Erkennt das neue Backup-Format am AEA-Magic-Header.
     private func isAppleEncryptedArchive(_ url: URL) -> Bool {
-        guard let fh = try? FileHandle(forReadingFrom: url) else { return false }
-        defer { try? fh.close() }
-        guard let magic = try? fh.read(upToCount: 4) else { return false }
+        guard let magic = readFileMagic(at: url, count: 4) else { return false }
         return magic == Data("AEA1".utf8)
     }
 
@@ -693,6 +1167,22 @@ final class AppStore: ObservableObject {
             let box = try AES.GCM.SealedBox(combined: data)
             return try AES.GCM.open(box, using: key)
         }
+    }
+
+    /// v1-Backups: Nutzerpasswort und HKDF-abgeleitetes Passwort probieren.
+    private func decryptV1Backup(_ data: Data, password: String) -> Data? {
+        let candidates: [(String, String)] = [
+            ("raw", password),
+            ("HKDF", aeaPassword(from: password)),
+        ]
+        for (label, candidate) in candidates {
+            if let plain = try? decryptData(data, password: candidate) {
+                Self.backupLog.info("Import: v1 entschlüsselt mit \(label, privacy: .public)-Passwort")
+                return plain
+            }
+            Self.backupLog.debug("Import: v1 \(label, privacy: .public)-Passwort passte nicht")
+        }
+        return nil
     }
 
     private func deriveKey(from password: String, salt: Data) -> SymmetricKey {
@@ -904,8 +1394,10 @@ final class AppStore: ObservableObject {
     }
 
     private func migrateHomeFolderQuickViewIfNeeded() {
-        let path = dataDirectory.appendingPathComponent("homeFolderQuickView.json")
+        let path = dataURL("homeFolderQuickView")
         guard !FileManager.default.fileExists(atPath: path.path) else { return }
+        guard !hasCloudPlaceholder(at: path) else { return }
+        guard !hasPendingCloudDataDownloads() else { return }
         homeFolderQuickView = documentCategories.filter { documentCount(in: $0) > 0 }
     }
 
@@ -933,7 +1425,10 @@ final class AppStore: ObservableObject {
         }
         if let decoded = loadJSON([String].self, key: "documentCategories") {
             documentCategories = decoded
-        } else if documentCategories.isEmpty {
+        } else if documentCategories.isEmpty,
+                  !hasPendingCloudDataDownloads(),
+                  !hasAnyExistingDataStore() {
+            // Nur bei echtem Erststart — nie Defaults schreiben während iCloud noch lädt.
             documentCategories = AppStore.defaultCategories
         }
         if let decoded = loadJSON([String: Int].self, key: "categoryColors") {
