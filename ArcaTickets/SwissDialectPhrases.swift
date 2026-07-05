@@ -37,7 +37,18 @@ struct SwissDialectPhrase: Identifiable, Hashable {
 }
 
 enum SwissDialectPhrases {
+    static let heroPhrase = SwissDialectPhrase(
+        id: "unterwaegs-huraahh",
+        text: "Unterwäää..gs huraahh",
+        design: .rounded,
+        weight: .black,
+        isItalic: true,
+        rotationDegrees: -2.8,
+        fontSize: 30
+    )
+
     static let all: [SwissDialectPhrase] = [
+        heroPhrase,
         SwissDialectPhrase(id: "sorglos-reise", text: "Sorglos reise", design: .rounded, weight: .bold, rotationDegrees: -1.5),
         SwissDialectPhrase(id: "sorglos-unterwegs", text: "Sorglos unterwegs", design: .serif, weight: .semibold),
         SwissDialectPhrase(id: "alles-debii", text: "Alles debii", design: .rounded, weight: .heavy, isItalic: true, rotationDegrees: 2),
@@ -162,7 +173,7 @@ enum SwissDialectPreferences {
 
     static var favoritePhraseID: String {
         get {
-            UserDefaults.standard.string(forKey: favoriteKey) ?? SwissDialectPhrases.all[0].id
+            UserDefaults.standard.string(forKey: favoriteKey) ?? SwissDialectPhrases.heroPhrase.id
         }
         set {
             UserDefaults.standard.set(newValue, forKey: favoriteKey)
@@ -170,7 +181,7 @@ enum SwissDialectPreferences {
     }
 
     static func phrase(for id: String) -> SwissDialectPhrase {
-        SwissDialectPhrases.all.first { $0.id == id } ?? SwissDialectPhrases.all[0]
+        SwissDialectPhrases.all.first { $0.id == id } ?? SwissDialectPhrases.heroPhrase
     }
 
     static func currentPhrase() -> SwissDialectPhrase {
@@ -180,8 +191,25 @@ enum SwissDialectPreferences {
         case .daily:
             return dailyPhrase()
         case .eachVisit:
-            return SwissDialectPhrases.all.randomElement() ?? SwissDialectPhrases.all[0]
+            return weightedRandomPhrase()
         }
+    }
+
+    private static let heroWeight = 0.48
+
+    private static func weightedRandomPhrase() -> SwissDialectPhrase {
+        if Double.random(in: 0..<1) < heroWeight {
+            return SwissDialectPhrases.heroPhrase
+        }
+        let others = SwissDialectPhrases.all.filter { $0.id != SwissDialectPhrases.heroPhrase.id }
+        return others.randomElement() ?? SwissDialectPhrases.heroPhrase
+    }
+
+    private static func weightedRandomIndex() -> Int {
+        if Double.random(in: 0..<1) < heroWeight {
+            return 0
+        }
+        return Int.random(in: SwissDialectPhrases.all.indices)
     }
 
     private static func dailyPhrase() -> SwissDialectPhrase {
@@ -195,7 +223,7 @@ enum SwissDialectPreferences {
             return SwissDialectPhrases.all[index]
         }
 
-        let index = Int.random(in: SwissDialectPhrases.all.indices)
+        let index = weightedRandomIndex()
         UserDefaults.standard.set(today, forKey: dailyDayKey)
         UserDefaults.standard.set(index, forKey: dailyIndexKey)
         return SwissDialectPhrases.all[index]
@@ -203,22 +231,26 @@ enum SwissDialectPreferences {
 }
 
 struct SwissDialectHeaderPhrase: View {
-    @State private var phrase = SwissDialectPhrases.all[0]
+    @State private var phrase = SwissDialectPhrases.heroPhrase
     @State private var appeared = false
+
+    private var isHero: Bool { phrase.id == SwissDialectPhrases.heroPhrase.id }
 
     var body: some View {
         Text(phrase.text)
             .swissDialectComicText(
-                size: max(phrase.fontSize, 22),
-                weight: .heavy,
+                size: isHero ? max(phrase.fontSize, 28) : max(phrase.fontSize, 22),
+                weight: isHero ? .black : .heavy,
                 design: phrase.design,
                 italic: phrase.isItalic || phrase.design == .rounded,
-                tracking: 0.8,
-                rotation: appeared ? phrase.rotationDegrees * 1.4 : phrase.rotationDegrees * 0.3
+                tracking: isHero ? 1.0 : 0.8,
+                rotation: appeared ? phrase.rotationDegrees * (isHero ? 1.6 : 1.4) : phrase.rotationDegrees * 0.3
             )
-            .scaleEffect(appeared ? 1 : 0.92)
+            .lineLimit(isHero ? 2 : 1)
+            .minimumScaleFactor(isHero ? 0.75 : 0.85)
+            .scaleEffect(appeared ? (isHero ? 1.04 : 1) : 0.9)
             .opacity(appeared ? 1 : 0.55)
-            .animation(.spring(response: 0.45, dampingFraction: 0.72), value: appeared)
+            .animation(.spring(response: 0.45, dampingFraction: isHero ? 0.62 : 0.72), value: appeared)
             .accessibilityLabel(phrase.text)
             .onAppear {
                 phrase = SwissDialectPreferences.currentPhrase()

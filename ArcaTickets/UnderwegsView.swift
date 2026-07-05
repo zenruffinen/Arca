@@ -97,10 +97,10 @@ struct UnderwegsView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 TicketsAppIcon(size: 40)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 7) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
                         SwissDialectHeaderPhrase()
                         SwissGlassFlag(size: 18, style: .badge)
                     }
@@ -110,7 +110,7 @@ struct UnderwegsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: 4)
                 Image(systemName: "airplane.departure")
                     .font(.title2)
                     .foregroundStyle(ArcaTicketsDesign.travelOcean)
