@@ -23,6 +23,7 @@ struct TicketsBackupManifest: Codable {
     var quickContacts: [QuickContact]
     var personalIDCard: PersonalIDCard
     var taxiContact: TaxiContact?
+    var golfContact: GolfContact?
     var exportDate: Date
 
     init(
@@ -31,7 +32,8 @@ struct TicketsBackupManifest: Codable {
         sharedFolders: Set<String>,
         quickContacts: [QuickContact],
         personalIDCard: PersonalIDCard,
-        taxiContact: TaxiContact? = nil
+        taxiContact: TaxiContact? = nil,
+        golfContact: GolfContact? = nil
     ) {
         self.formatVersion = Self.formatVersion
         self.tickets = tickets
@@ -40,6 +42,7 @@ struct TicketsBackupManifest: Codable {
         self.quickContacts = quickContacts
         self.personalIDCard = personalIDCard
         self.taxiContact = taxiContact
+        self.golfContact = golfContact
         self.exportDate = Date()
     }
 }

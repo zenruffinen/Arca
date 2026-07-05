@@ -23,7 +23,7 @@ struct UnderwegsView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
 
-                    TaxiButtonView()
+                    UnterwegsQuickActionsRow()
 
                     if store.isCloudSyncPending {
                         HStack(spacing: 8) {

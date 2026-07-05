@@ -35,6 +35,9 @@ final class TicketStore: ObservableObject {
     @Published var taxiContact: TaxiContact = .empty {
         didSet { guard !isLoadingData else { return }; saveTaxiContact() }
     }
+    @Published var golfContact: GolfContact = .empty {
+        didSet { guard !isLoadingData else { return }; saveGolfContact() }
+    }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
@@ -116,7 +119,7 @@ final class TicketStore: ObservableObject {
     static let sharedFolderSuffix = " (geteilt)"
 
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -335,9 +338,15 @@ final class TicketStore: ObservableObject {
         } else {
             taxiContact = taxiContactFromQuickContacts()
         }
+        if let decoded = loadJSON(GolfContact.self, key: "golf") {
+            golfContact = decoded
+        } else {
+            golfContact = golfContactFromQuickContacts()
+        }
     }
 
     private static let taxiQuickContactLabel = "Taxi"
+    private static let golfQuickContactLabel = "Golf"
 
     /// Liest gespeicherte Taxi-Daten aus QuickContacts (Migration / iCloud-Sync mit Kontakten).
     private func taxiContactFromQuickContacts() -> TaxiContact {
@@ -354,6 +363,21 @@ final class TicketStore: ObservableObject {
         return .empty
     }
 
+    /// Liest gespeicherte Golf-Daten aus QuickContacts (Migration / iCloud-Sync mit Kontakten).
+    private func golfContactFromQuickContacts() -> GolfContact {
+        if let contact = quickContacts.first(where: {
+            $0.label.caseInsensitiveCompare(Self.golfQuickContactLabel) == .orderedSame
+        }) {
+            return GolfContact(clubName: contact.label, phoneNumber: contact.phoneNumber)
+        }
+        if let contact = quickContacts.first(where: {
+            $0.category == .sonstiges && $0.label.localizedCaseInsensitiveContains("golf")
+        }) {
+            return GolfContact(clubName: contact.label, phoneNumber: contact.phoneNumber)
+        }
+        return .empty
+    }
+
     private func syncTaxiToQuickContacts() {
         let label = taxiContact.companyName.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedLabel = label.isEmpty ? Self.taxiQuickContactLabel : label
@@ -361,6 +385,31 @@ final class TicketStore: ObservableObject {
 
         if let idx = quickContacts.firstIndex(where: {
             $0.label.caseInsensitiveCompare(Self.taxiQuickContactLabel) == .orderedSame
+                || $0.label.caseInsensitiveCompare(resolvedLabel) == .orderedSame
+        }) {
+            if phone.isEmpty && label.isEmpty {
+                quickContacts.remove(at: idx)
+            } else {
+                quickContacts[idx].label = resolvedLabel
+                quickContacts[idx].phoneNumber = phone
+                quickContacts[idx].category = .sonstiges
+            }
+        } else if !phone.isEmpty {
+            addQuickContact(QuickContact(
+                label: resolvedLabel,
+                phoneNumber: phone,
+                category: .sonstiges
+            ))
+        }
+    }
+
+    private func syncGolfToQuickContacts() {
+        let label = golfContact.clubName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedLabel = label.isEmpty ? Self.golfQuickContactLabel : label
+        let phone = golfContact.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let idx = quickContacts.firstIndex(where: {
+            $0.label.caseInsensitiveCompare(Self.golfQuickContactLabel) == .orderedSame
                 || $0.label.caseInsensitiveCompare(resolvedLabel) == .orderedSame
         }) {
             if phone.isEmpty && label.isEmpty {
@@ -421,6 +470,11 @@ final class TicketStore: ObservableObject {
         syncTaxiToQuickContacts()
     }
 
+    private func saveGolfContact() {
+        saveJSON(golfContact, key: "golf")
+        syncGolfToQuickContacts()
+    }
+
     private func persistAllData() {
         saveTickets()
         saveFolders()
@@ -428,10 +482,15 @@ final class TicketStore: ObservableObject {
         saveQuickContacts()
         savePersonalIDCard()
         saveTaxiContact()
+        saveGolfContact()
     }
 
     func updateTaxiContact(_ contact: TaxiContact) {
         taxiContact = contact
+    }
+
+    func updateGolfContact(_ contact: GolfContact) {
+        golfContact = contact
     }
 
     func updatePersonalIDCard(_ card: PersonalIDCard) {
@@ -722,6 +781,7 @@ final class TicketStore: ObservableObject {
         quickContacts = QuickContactDefaults.seedContacts()
         personalIDCard = .empty
         taxiContact = .empty
+        golfContact = .empty
         KeychainManager.shared.delete(key: Self.pinHashKey)
     }
 
@@ -896,7 +956,8 @@ final class TicketStore: ObservableObject {
             sharedFolders: sharedFolders,
             quickContacts: quickContacts,
             personalIDCard: personalIDCard,
-            taxiContact: taxiContact
+            taxiContact: taxiContact,
+            golfContact: golfContact
         )
         return TicketsBackupArchive.exportBackup(
             manifest: manifest,
@@ -976,6 +1037,9 @@ final class TicketStore: ObservableObject {
             if taxiContact == .empty, let importedTaxi = manifest.taxiContact {
                 taxiContact = importedTaxi
             }
+            if golfContact == .empty, let importedGolf = manifest.golfContact {
+                golfContact = importedGolf
+            }
         } else {
             for ticket in tickets {
                 try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
@@ -986,6 +1050,7 @@ final class TicketStore: ObservableObject {
             quickContacts = manifest.quickContacts
             personalIDCard = manifest.personalIDCard
             taxiContact = manifest.taxiContact ?? .empty
+            golfContact = manifest.golfContact ?? .empty
         }
 
         isLoadingData = false

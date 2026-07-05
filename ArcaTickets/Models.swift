@@ -314,6 +314,33 @@ struct TaxiContact: Codable, Hashable {
     }
 }
 
+struct GolfContact: Codable, Hashable {
+    var clubName: String
+    var phoneNumber: String
+
+    static let empty = GolfContact(clubName: "", phoneNumber: "")
+
+    var hasPhoneNumber: Bool {
+        !phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var telURL: URL? {
+        let cleaned = phoneNumber.filter { $0.isNumber || $0 == "+" }
+        guard !cleaned.isEmpty else { return nil }
+        return URL(string: "tel://\(cleaned)")
+    }
+
+    var displayClubName: String {
+        let trimmed = clubName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Golf" : trimmed
+    }
+
+    var displayPhoneNumber: String {
+        let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Greenfee-Nummer eintragen" : trimmed
+    }
+}
+
 struct PersonalIDCard: Codable, Hashable {
     var name: String
     var passportNumber: String
