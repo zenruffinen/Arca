@@ -94,7 +94,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Sichern und wiederherstellen")
                 } footer: {
-                    Text("Das Backup wird verschlüsselt gespeichert (.arcaticketsbackup). Du kannst es in iCloud Drive, per Mail oder lokal sichern — ideal beim Gerätewechsel oder wenn du deinen PIN vergisst.")
+                    Text("Das Backup wird verschlüsselt gespeichert (.arcaticketsbackup). Du kannst es in iCloud Drive, per Mail oder lokal sichern — ideal beim Gerätewechsel.")
                 }
 
                 Section {
@@ -144,7 +144,74 @@ struct SettingsView: View {
                 releaseNotesSheet
             }
             .sheet(isPresented: $showExportPasswordSheet) {
-                exportPasswordSheet
+                NavigationStack {
+                    Form {
+                        Section {
+                            HStack {
+                                Group {
+                                    if showExportPassword {
+                                        TextField("Passwort", text: $exportPassword)
+                                    } else {
+                                        SecureField("Passwort", text: $exportPassword)
+                                    }
+                                }
+                                .focused($exportPasswordFieldFocused)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .font(.system(.body, design: .monospaced))
+                                .onChange(of: exportPassword) { _, _ in exportPasswordError = "" }
+                                Button {
+                                    showExportPassword.toggle()
+                                } label: {
+                                    Image(systemName: showExportPassword ? "eye.slash" : "eye")
+                                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                            HStack {
+                                Group {
+                                    if showExportPassword {
+                                        TextField("Passwort bestätigen", text: $exportPasswordConfirm)
+                                    } else {
+                                        SecureField("Passwort bestätigen", text: $exportPasswordConfirm)
+                                    }
+                                }
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .font(.system(.body, design: .monospaced))
+                                .onChange(of: exportPasswordConfirm) { _, _ in exportPasswordError = "" }
+                            }
+                        } header: {
+                            Text("Backup-Passwort festlegen")
+                        } footer: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Das Passwort muss mindestens 4 Zeichen lang sein.")
+                                Text("Das Backup wird verschlüsselt. Ohne dieses Passwort kann es nicht wiederhergestellt werden.")
+                            }
+                        }
+                        if !exportPasswordError.isEmpty {
+                            Section {
+                                Label(exportPasswordError, systemImage: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.red)
+                                    .font(.subheadline)
+                            }
+                        }
+                    }
+                    .navigationTitle("Daten sichern")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Abbrechen") {
+                                exportPasswordFieldFocused = false
+                                showExportPasswordSheet = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Sichern") { performBackupExport() }
+                                .disabled(exportPassword.isEmpty)
+                        }
+                    }
+                }
             }
             .sheet(item: $exportShareItem) { item in
                 if FileManager.default.fileExists(atPath: item.url.path) {
@@ -166,9 +233,6 @@ struct SettingsView: View {
                     }
                     .padding()
                 }
-            }
-            .sheet(isPresented: $showImportPasswordSheet) {
-                importPasswordSheet
             }
             .alert("Daten wiederherstellen", isPresented: $showImportConfirm) {
                 Button("Abbrechen", role: .cancel) {}
@@ -193,6 +257,73 @@ struct SettingsView: View {
                     showImportPicker = false
                 }
             }
+            .sheet(isPresented: $showImportPasswordSheet) {
+                NavigationStack {
+                    Form {
+                        Section {
+                            HStack {
+                                Group {
+                                    if showImportPasswordReveal {
+                                        TextField("Passwort", text: $importPassword)
+                                    } else {
+                                        SecureField("Passwort", text: $importPassword)
+                                    }
+                                }
+                                .focused($importPasswordFieldFocused)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .font(.system(.body, design: .monospaced))
+                                Button {
+                                    showImportPasswordReveal.toggle()
+                                } label: {
+                                    Image(systemName: showImportPasswordReveal ? "eye.slash" : "eye")
+                                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        } header: {
+                            Text("Backup-Passwort eingeben")
+                        } footer: {
+                            Text("Gib das Passwort ein, das beim Export vergeben wurde.")
+                        }
+
+                        Section {
+                            Toggle(isOn: $importMerge) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Zusammenführen")
+                                        .font(.body)
+                                    Text("Bestehende Daten bleiben erhalten — nur neue Einträge werden hinzugefügt.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        } footer: {
+                            Text(importMerge
+                                 ? "Vorhandene Tickets, Ordner und Kontakte bleiben erhalten."
+                                 : "Alles wird durch den Backup-Stand ersetzt.")
+                                .foregroundStyle(importMerge ? .green : .orange)
+                        }
+                    }
+                    .navigationTitle("Wiederherstellen")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Abbrechen") {
+                                importPasswordFieldFocused = false
+                                showImportPasswordSheet = false
+                                pendingImportURL = nil
+                                showImportPasswordReveal = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(importMerge ? "Zusammenführen" : "Ersetzen") {
+                                performBackupImport()
+                            }
+                            .disabled(importPassword.isEmpty)
+                        }
+                    }
+                }
+            }
             .fileImporter(
                 isPresented: $showFolderImportPicker,
                 allowedContentTypes: [TicketsFolderShareType.contentType],
@@ -212,12 +343,12 @@ struct SettingsView: View {
                     folderImportFailed = true
                 }
             }
-            .alert("Wiederherstellung erfolgreich", isPresented: $showImportSuccess) {
+            .alert("Import erfolgreich", isPresented: $showImportSuccess) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Alle Tickets und Einstellungen wurden aus dem Backup geladen.")
+                Text("Alle Daten wurden erfolgreich wiederhergestellt.")
             }
-            .alert("Das hat nicht geklappt", isPresented: $showImportError) {
+            .alert("Import fehlgeschlagen", isPresented: $showImportError) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(importErrorMessage)
@@ -234,6 +365,139 @@ struct SettingsView: View {
             } message: {
                 Text("Die Datei ist kein gültiger geteilter Arca-Tickets-Ordner.")
             }
+        }
+    }
+
+    // MARK: - Backup helpers
+
+    private func backupImportErrorMessage(for url: URL, error: TicketsBackupArchive.ImportError) -> String {
+        if store.isBlockedDocumentExtension(url) {
+            let ext = url.pathExtension.uppercased()
+            if ext == "PDF" {
+                return "Das ist ein PDF-Dokument, keine Arca-Tickets-Sicherung (.arcaticketsbackup). Bitte die exportierte Datei „ArcaTicketsBackup_….arcaticketsbackup“ wählen — nicht ein Ticket-PDF."
+            }
+            return "Das ist eine \(ext)-Datei, keine Arca-Tickets-Sicherung (.arcaticketsbackup). Bitte die exportierte Backup-Datei wählen."
+        }
+        switch error {
+        case .fileAccessDenied:
+            return "Kein Zugriff auf die Datei. Bitte erneut auswählen."
+        case .invalidBackupFile:
+            return "Keine gültige Arca-Tickets-Backup-Datei (.arcaticketsbackup). Bitte die exportierte Sicherungsdatei wählen — keine PDF oder anderes Dokument."
+        case .wrongPasswordOrCorrupt, .manifestInvalid:
+            return "Die Datei konnte nicht gelesen werden. Falsches Passwort oder beschädigte Datei."
+        }
+    }
+
+    private func consumePendingBackupURL() {
+        guard let url = store.pendingBackupURL else { return }
+        store.pendingBackupURL = nil
+        beginBackupImport(from: url)
+    }
+
+    private func beginBackupImport(from url: URL) {
+        store.rememberBackupFolder(containing: url)
+        switch store.prepareBackupImport(from: url) {
+        case .success(let staged):
+            pendingImportURL = staged
+            importPassword = ""
+            showImportPasswordReveal = false
+            showImportPasswordSheet = true
+        case .failure(let error):
+            importErrorMessage = backupImportErrorMessage(for: url, error: error)
+            showImportError = true
+        }
+    }
+
+    private func backupShareActivityItems(for item: ShareURLItem) -> [Any] {
+        #if canImport(UIKit)
+        if item.isTicketsBackup {
+            return [TicketsBackupShareActivityItem(fileURL: item.url)]
+        }
+        #endif
+        return [item.url]
+    }
+
+    private func performBackupExport() {
+        exportPasswordFieldFocused = false
+        #if canImport(UIKit)
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
+
+        let password = exportPassword
+        let passwordConfirm = exportPasswordConfirm
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            guard password.count >= TicketStore.minBackupPasswordLength else {
+                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+                return
+            }
+            guard password == passwordConfirm else {
+                exportPasswordError = "Passwörter stimmen nicht überein."
+                return
+            }
+
+            switch store.exportBackup(password: password) {
+            case .success(let url):
+                showExportPasswordSheet = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    exportShareItem = ShareURLItem(url: url, isTicketsBackup: true)
+                }
+            case .failure(.passwordTooShort):
+                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+            case .failure(.archiveFailed):
+                exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
+            }
+        }
+    }
+
+    private func performBackupImport() {
+        importPasswordFieldFocused = false
+        #if canImport(UIKit)
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
+
+        let password = importPassword
+        let url = pendingImportURL
+        let mergeMode = importMerge
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            guard let url else { return }
+            switch store.importBackup(from: url, password: password, merge: mergeMode) {
+            case .success:
+                showImportPasswordSheet = false
+                showImportPasswordReveal = false
+                pendingImportURL = nil
+                try? FileManager.default.removeItem(at: url)
+                showImportSuccess = true
+            case .failure(.fileAccessDenied):
+                importErrorMessage = "Kein Zugriff auf die Datei. Bitte erneut auswählen."
+                showImportError = true
+            case .failure(.manifestInvalid):
+                importErrorMessage = "Backup-Datei beschädigt (manifest.json ungültig)."
+                showImportError = true
+            case .failure(.wrongPasswordOrCorrupt):
+                importErrorMessage = "Falsches Passwort oder beschädigte Datei."
+                showImportError = true
+            case .failure(.invalidBackupFile):
+                importErrorMessage = "Keine gültige Arca-Tickets-Backup-Datei (.arcaticketsbackup)."
+                showImportError = true
+            }
+        }
+    }
+
+    private func moveTab(from source: IndexSet, to destination: Int) {
+        tabOrder.move(fromOffsets: source, toOffset: destination)
+        TabOrderPreferences.save(tabOrder)
+        leadTab = TabOrderPreferences.leadTab
+    }
+
+    private func tabIconColor(for tab: ArcaTicketsTab) -> Color {
+        switch tab {
+        case .notfall: return .red
+        case .settings: return .secondary
+        default: return ArcaTicketsDesign.travelOcean
         }
     }
 
@@ -401,10 +665,6 @@ struct SettingsView: View {
                 Section {
                     Label("Einstellungen im Arca-Stil: Über Arca Tickets, iCloud, Backup, Wusstest du?", systemImage: "gearshape.fill")
                     Label("Vollständiges verschlüsseltes Backup (.arcaticketsbackup)", systemImage: "lock.shield.fill")
-                    Label("Backup teilen: Freigabe-Dialog erscheint zuverlässig nach Passworteingabe", systemImage: "square.and.arrow.up.fill")
-                    Label("Import: Passworteingabe und Dateiauswahl zuverlässiger", systemImage: "square.and.arrow.down.fill")
-                    Label("Falsche Dateitypen beim Import werden klar abgewiesen", systemImage: "doc.badge.gearshape.fill")
-                    Label("Letzter Backup-Ordner wird gemerkt", systemImage: "folder.fill")
                     Label("Tab-Reihenfolge: Einstellungen bleiben unten in der Tab-Leiste", systemImage: "arrow.up.arrow.down")
                     Label("Notfall-Tab mit wichtigen Nummern und Ausweisdaten", systemImage: "phone.circle.fill")
                     Label("Reiseordner teilen und importieren", systemImage: "person.2.fill")
@@ -419,277 +679,6 @@ struct SettingsView: View {
                     Button("Fertig") { showReleaseNotes = false }
                 }
             }
-        }
-    }
-
-    private var exportPasswordSheet: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        Group {
-                            if showExportPassword {
-                                TextField("Passwort", text: $exportPassword)
-                            } else {
-                                SecureField("Passwort", text: $exportPassword)
-                            }
-                        }
-                        .focused($exportPasswordFieldFocused)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .font(.system(.body, design: .monospaced))
-                        .onChange(of: exportPassword) { _, _ in exportPasswordError = "" }
-                        Button {
-                            showExportPassword.toggle()
-                        } label: {
-                            Image(systemName: showExportPassword ? "eye.slash" : "eye")
-                                .foregroundStyle(.blue)
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    HStack {
-                        Group {
-                            if showExportPassword {
-                                TextField("Passwort bestätigen", text: $exportPasswordConfirm)
-                            } else {
-                                SecureField("Passwort bestätigen", text: $exportPasswordConfirm)
-                            }
-                        }
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .font(.system(.body, design: .monospaced))
-                        .onChange(of: exportPasswordConfirm) { _, _ in exportPasswordError = "" }
-                    }
-                } header: {
-                    Text("Backup-Passwort festlegen")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Das Passwort muss mindestens 4 Zeichen lang sein.")
-                        Text("Das Backup wird verschlüsselt. Ohne dieses Passwort kann es nicht wiederhergestellt werden.")
-                    }
-                }
-                if !exportPasswordError.isEmpty {
-                    Section {
-                        Label(exportPasswordError, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                            .font(.subheadline)
-                    }
-                }
-            }
-            .navigationTitle("Daten sichern")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") {
-                        exportPasswordFieldFocused = false
-                        showExportPasswordSheet = false
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Sichern") { performBackupExport() }
-                        .disabled(exportPassword.isEmpty)
-                }
-            }
-        }
-    }
-
-    private var importPasswordSheet: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        Group {
-                            if showImportPasswordReveal {
-                                TextField("Passwort", text: $importPassword)
-                            } else {
-                                SecureField("Passwort", text: $importPassword)
-                            }
-                        }
-                        .focused($importPasswordFieldFocused)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .font(.system(.body, design: .monospaced))
-                        Button {
-                            showImportPasswordReveal.toggle()
-                        } label: {
-                            Image(systemName: showImportPasswordReveal ? "eye.slash" : "eye")
-                                .foregroundStyle(.blue)
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                } header: {
-                    Text("Backup-Passwort eingeben")
-                } footer: {
-                    Text("Gib das Passwort ein, das beim Export vergeben wurde.")
-                }
-
-                Section {
-                    Toggle(isOn: $importMerge) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Zusammenführen")
-                                .font(.body)
-                            Text("Bestehende Daten bleiben erhalten — nur neue Einträge werden hinzugefügt.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } footer: {
-                    Text(importMerge
-                         ? "Vorhandene Tickets, Ordner und Kontakte bleiben erhalten."
-                         : "Alles wird durch den Backup-Stand ersetzt.")
-                        .foregroundStyle(importMerge ? .green : .orange)
-                }
-            }
-            .navigationTitle("Wiederherstellen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") {
-                        importPasswordFieldFocused = false
-                        showImportPasswordSheet = false
-                        pendingImportURL = nil
-                        showImportPasswordReveal = false
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(importMerge ? "Zusammenführen" : "Ersetzen") {
-                        performBackupImport()
-                    }
-                    .disabled(importPassword.isEmpty)
-                }
-            }
-        }
-    }
-
-    // MARK: - Backup actions
-
-    private func backupImportErrorMessage(for url: URL, error: TicketsBackupArchive.ImportError) -> String {
-        if store.isBlockedDocumentExtension(url) {
-            let ext = url.pathExtension.uppercased()
-            if ext == "PDF" {
-                return "Das ist ein PDF-Dokument, keine Arca-Tickets-Sicherung (.arcaticketsbackup). Bitte die exportierte Datei „ArcaTicketsBackup_….arcaticketsbackup“ wählen — nicht ein Ticket-PDF."
-            }
-            return "Das ist eine \(ext)-Datei, keine Arca-Tickets-Sicherung (.arcaticketsbackup). Bitte die exportierte Backup-Datei wählen."
-        }
-        switch error {
-        case .fileAccessDenied:
-            return "Kein Zugriff auf die Datei. Bitte erneut auswählen."
-        case .invalidBackupFile:
-            return "Keine gültige Arca-Tickets-Backup-Datei (.arcaticketsbackup). Bitte die exportierte Sicherungsdatei wählen — keine PDF oder anderes Dokument."
-        case .wrongPasswordOrCorrupt, .manifestInvalid:
-            return "Die Datei konnte nicht gelesen werden. Falsches Passwort oder beschädigte Datei."
-        }
-    }
-
-    private func consumePendingBackupURL() {
-        guard let url = store.pendingBackupURL else { return }
-        store.pendingBackupURL = nil
-        beginBackupImport(from: url)
-    }
-
-    private func beginBackupImport(from url: URL) {
-        store.rememberBackupFolder(containing: url)
-        switch store.prepareBackupImport(from: url) {
-        case .success(let staged):
-            pendingImportURL = staged
-            importPassword = ""
-            showImportPasswordReveal = false
-            showImportPasswordSheet = true
-        case .failure(let error):
-            importErrorMessage = backupImportErrorMessage(for: url, error: error)
-            showImportError = true
-        }
-    }
-
-    private func backupShareActivityItems(for item: ShareURLItem) -> [Any] {
-        #if canImport(UIKit)
-        if item.isTicketsBackup {
-            return [TicketsBackupShareActivityItem(fileURL: item.url)]
-        }
-        #endif
-        return [item.url]
-    }
-
-    private func performBackupExport() {
-        exportPasswordFieldFocused = false
-        #if canImport(UIKit)
-        UIApplication.shared.sendAction(
-            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        #endif
-
-        let password = exportPassword
-        let passwordConfirm = exportPasswordConfirm
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            guard password.count >= TicketStore.minBackupPasswordLength else {
-                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
-                return
-            }
-            guard password == passwordConfirm else {
-                exportPasswordError = "Passwörter stimmen nicht überein."
-                return
-            }
-
-            switch store.exportBackup(password: password) {
-            case .success(let url):
-                showExportPasswordSheet = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    exportShareItem = ShareURLItem(url: url, isTicketsBackup: true)
-                }
-            case .failure(.passwordTooShort):
-                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
-            case .failure(.archiveFailed):
-                exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
-            }
-        }
-    }
-
-    private func performBackupImport() {
-        importPasswordFieldFocused = false
-        #if canImport(UIKit)
-        UIApplication.shared.sendAction(
-            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        #endif
-
-        let password = importPassword
-        let url = pendingImportURL
-        let mergeMode = importMerge
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            guard let url else { return }
-            switch store.importBackup(from: url, password: password, merge: mergeMode) {
-            case .success:
-                showImportPasswordSheet = false
-                showImportPasswordReveal = false
-                pendingImportURL = nil
-                showImportSuccess = true
-            case .failure(.fileAccessDenied):
-                importErrorMessage = "Kein Zugriff auf die Datei. Bitte erneut auswählen."
-                showImportError = true
-            case .failure(.manifestInvalid):
-                importErrorMessage = "Backup-Datei beschädigt (manifest.json ungültig)."
-                showImportError = true
-            case .failure(.wrongPasswordOrCorrupt):
-                importErrorMessage = "Falsches Passwort oder beschädigte Datei."
-                showImportError = true
-            case .failure(.invalidBackupFile):
-                importErrorMessage = "Keine gültige Arca-Tickets-Backup-Datei (.arcaticketsbackup)."
-                showImportError = true
-            }
-        }
-    }
-
-    private func moveTab(from source: IndexSet, to destination: Int) {
-        tabOrder.move(fromOffsets: source, toOffset: destination)
-        TabOrderPreferences.save(tabOrder)
-        leadTab = TabOrderPreferences.leadTab
-    }
-
-    private func tabIconColor(for tab: ArcaTicketsTab) -> Color {
-        switch tab {
-        case .notfall: return .red
-        case .settings: return .secondary
-        default: return ArcaTicketsDesign.travelOcean
         }
     }
 }

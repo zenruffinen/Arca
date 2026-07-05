@@ -315,18 +315,24 @@ Für Live-Sync (Vater fügt Hotel-Ticket hinzu → erscheint bei allen): CloudKi
 | **Löschen** | Rot mit „Löschen"-Label; Bestätigung für wichtige Tickets (gepinnt, Reisedetails, Ablauf, Mehrfachkarte) |
 | **Barrierefreiheit** | Mindestens 44 pt Tap-Targets, Dynamic Type wo möglich |
 
-### Zwei Tabs — Reise-UX (v2)
+### Vier Tabs — Reise-UX (v2)
 
-> **Tab-Leiste:** `airplane.departure` · **Unterwegs** | `ticket.fill` · **Alle Tickets**
+> **Tab-Leiste:** `airplane.departure` · **Unterwegs** | `ticket.fill` · **Alle Tickets** | `phone.circle.fill` · **Notfall** | `gearshape.fill` · **Einstellungen** (immer unten)
 
 | Tab | Zweck |
 |-----|--------|
-| **Unterwegs** | Gepinnte + bald anstehende Tickets als Boarding-Pass-Karten; **Wichtige Nummern** nach Kategorie (Notfall, Flug, Hotel, Event, Familie) |
+| **Unterwegs** | Gepinnte + bald anstehende Tickets als Boarding-Pass-Karten |
 | **Alle Tickets** | Ordnerstruktur (Bahn, Abos, Berge, Sonstiges + eigene) → Ticketliste |
+| **Notfall** | Wichtige Nummern nach Kategorie, persönliche Ausweisdaten — ein Tap zum Anrufen |
+| **Einstellungen** | Über Arca Tickets, iCloud, Backup, Wusstest du?, Tab-Reihenfolge, Organisation |
+
+**Einstellungen (Arca-Stil):** Oben **Über Arca Tickets** (Version, Entwickler Hans zen Ruffinen, Bewertung), darunter **iCloud-Status**, **Sichern und Wiederherstellen** (verschlüsseltes `.arcaticketsbackup`), **Wusstest du?**-Tipps in Glas-Karte, Tab-Reihenfolge (Einstellungen bleiben fix unten), Ordner & Nummern verwalten, Familien-Import.
 
 **Onboarding (3 Screens):** „Alles dabei. Sorglos reisen." → Ticket importieren → Unterwegs & Nummern. Letzter Screen bietet „Erstes Ticket hinzufügen" und „Wichtige Nummern einrichten".
 
-**Unterwegs:** Nutzer heftet Tickets per Pin-Icon an („Auf Unterwegs anheften"). Reisefelder sind auf der Karte tippbar. FAB „Hinzufügen" mit Reise-Gradient. **Wichtige Nummern:** Gruppierte Karten mit Kategorie-Farben, prominentes Telefon-Icon, ein Tap zum Anrufen.
+**Unterwegs:** Nutzer heftet Tickets per Pin-Icon an („Auf Unterwegs anheften"). Reisefelder sind auf der Karte tippbar. FAB „Hinzufügen" mit Reise-Gradient.
+
+**Notfall:** Gruppierte Kontaktkarten mit Kategorie-Farben, prominentes Telefon-Icon, ein Tap zum Anrufen (`tel:`). Persönliche Ausweisdaten optional hinterlegbar.
 
 **Alle Tickets:** FAB „Hinzufügen". Wischen → „Löschen" (rot). Pin-Icon in der Liste.
 
@@ -429,7 +435,7 @@ Arca/
 │   ├── ContentView.swift, HomeView.swift, UnderwegsView.swift, FolderView.swift
 │   ├── TicketDetailView.swift, QRFullscreenView.swift, AddTicketView.swift
 │   ├── LockView.swift, KeychainManager.swift
-│   ├── OnboardingView.swift, NotificationManager.swift, SettingsView.swift
+│   ├── OnboardingView.swift, NotificationManager.swift, SettingsView.swift, TicketsBackup.swift
 │   ├── WidgetDataUpdater.swift, TicketsHaptics.swift
 │   ├── ArcaTicketsDesign.swift, Assets.xcassets, ArcaTicketsInfo.plist
 │   └── ArcaTickets.entitlements
