@@ -44,6 +44,9 @@ final class TicketStore: ObservableObject {
     @Published var opaSouvenirs: [SouvenirItem] = [] {
         didSet { guard !isLoadingData else { return }; saveOpaSouvenirs() }
     }
+    @Published var kofferPIN: String? {
+        didSet { guard !isLoadingData else { return }; saveKofferPIN() }
+    }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
@@ -125,7 +128,7 @@ final class TicketStore: ObservableObject {
     static let sharedFolderSuffix = " (geteilt)"
 
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf", "notes"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf", "notes", "koffer_pin", "opa_souvenirs"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -355,6 +358,9 @@ final class TicketStore: ObservableObject {
         if let decoded = loadJSON([SouvenirItem].self, key: "opa_souvenirs") {
             opaSouvenirs = decoded
         }
+        if let decoded = loadJSON(String.self, key: "koffer_pin") {
+            kofferPIN = decoded.isEmpty ? nil : decoded
+        }
     }
 
     private static let taxiQuickContactLabel = "Taxi"
@@ -495,6 +501,14 @@ final class TicketStore: ObservableObject {
         saveJSON(opaSouvenirs, key: "opa_souvenirs")
     }
 
+    private func saveKofferPIN() {
+        if let pin = kofferPIN, !pin.isEmpty {
+            saveJSON(pin, key: "koffer_pin")
+        } else {
+            try? FileManager.default.removeItem(at: dataURL("koffer_pin"))
+        }
+    }
+
     private func persistAllData() {
         saveTickets()
         saveFolders()
@@ -505,6 +519,7 @@ final class TicketStore: ObservableObject {
         saveGolfContact()
         saveTravelNotes()
         saveOpaSouvenirs()
+        saveKofferPIN()
     }
 
     func updateTaxiContact(_ contact: TaxiContact) {
@@ -536,6 +551,17 @@ final class TicketStore: ObservableObject {
 
     func deleteOpaSouvenir(id: UUID) {
         opaSouvenirs.removeAll { $0.id == id }
+    }
+
+    func updateKofferPIN(_ pin: String?) {
+        let trimmed = pin?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmed.isEmpty {
+            kofferPIN = nil
+        } else {
+            let digits = trimmed.filter(\.isNumber)
+            guard (3...4).contains(digits.count), digits.count == trimmed.count else { return }
+            kofferPIN = digits
+        }
     }
 
     var insuranceContacts: [QuickContact] {
@@ -825,6 +851,7 @@ final class TicketStore: ObservableObject {
         golfContact = .empty
         travelNotes = .empty
         opaSouvenirs = []
+        kofferPIN = nil
         KeychainManager.shared.delete(key: Self.pinHashKey)
     }
 
@@ -1002,7 +1029,8 @@ final class TicketStore: ObservableObject {
             taxiContact: taxiContact,
             golfContact: golfContact,
             travelNotes: travelNotes,
-            opaSouvenirs: opaSouvenirs
+            opaSouvenirs: opaSouvenirs,
+            kofferPIN: kofferPIN
         )
         return TicketsBackupArchive.exportBackup(
             manifest: manifest,
@@ -1091,6 +1119,9 @@ final class TicketStore: ObservableObject {
             if opaSouvenirs.isEmpty, let importedSouvenirs = manifest.opaSouvenirs, !importedSouvenirs.isEmpty {
                 opaSouvenirs = importedSouvenirs
             }
+            if kofferPIN == nil, let importedPIN = manifest.kofferPIN, !importedPIN.isEmpty {
+                kofferPIN = importedPIN
+            }
         } else {
             for ticket in tickets {
                 try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
@@ -1104,6 +1135,7 @@ final class TicketStore: ObservableObject {
             golfContact = manifest.golfContact ?? .empty
             travelNotes = manifest.travelNotes ?? .empty
             opaSouvenirs = manifest.opaSouvenirs ?? []
+            kofferPIN = manifest.kofferPIN
         }
 
         isLoadingData = false
