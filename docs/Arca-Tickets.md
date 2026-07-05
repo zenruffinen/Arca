@@ -209,6 +209,48 @@ Vier Standard-Ordner — bewusst wenig, aber passend für den Alltag in der Schw
 | 12 | **Filter Aktiv/Abgelaufen** | ✅ | Segment-Filter in Ordneransicht |
 | 13 | **Haptik** | ✅ | Beim Speichern und „Am Schalter zeigen" |
 | 14 | **Teilen-Import** | ✅ | PDF/Bild per Teilen-Sheet + URL-Scheme `arcatickets://` |
+| 15 | **Wichtige Nummern** | ✅ | Notruf, Hotel, Fluggesellschaft, Familie — gruppiert auf Tab „Unterwegs", ein Tap zum Anrufen (`tel:`) |
+| 16 | **Familien-Ordner teilen** | ✅ | Export als `.arcaticketsfolder` (AirDrop/Nachrichten), Import per „Öffnen mit Arca Tickets", geteilte Ordner mit `person.2`-Symbol |
+
+---
+
+## Familien-Ordner teilen (MVP)
+
+> [!note] Einmal teilen, nicht live synchronisieren
+> Der Vater legt die Reise an und teilt den Ordner einmalig — Mutter und Kinder erhalten alle Tickets in ihrer eigenen Arca-Tickets-App. **Kein Live-Sync:** Neue Tickets nach dem Teilen müssen erneut exportiert werden.
+
+### Flow
+
+1. **Vater:** Reise-Ordner (z. B. „Reise Zermatt") → Symbol **person.2** oben rechts → Share Sheet → AirDrop an Familie
+2. **Empfänger:** Datei antippen → „Öffnen mit Arca Tickets" (oder Einstellungen → Geteilten Ordner importieren)
+3. **Ergebnis:** Neuer Ordner „Reise Zermatt (geteilt)" mit allen Tickets und PDFs/Fotos
+
+### Dateiformat
+
+| Eigenschaft | Wert |
+|-------------|------|
+| Endung | `.arcaticketsfolder` |
+| UTI | `com.hansruffin.arca.ticketsfolder` |
+| Inhalt | Apple-Archiv mit `manifest.json` + `files/` (Metadaten + Ticket-Dateien) |
+| Verschlüsselung | Nein (MVP) — optional in v2 |
+
+### UI-Texte
+
+- **Teilen:** „Reise teilen — Familie erhält alle Tickets"
+- **Erklärung:** „Einmal teilen, jeder hat Flug, Hotel, Eintritt griffbereit"
+- **Import:** Ordner erscheint als „… (geteilt)" mit Familien-Symbol
+
+### Technische Entscheidung
+
+| Option | MVP | Begründung |
+|--------|-----|------------|
+| **B: Export/Import-Paket** | ✅ gewählt | Kein Backend, funktioniert sofort per AirDrop, analog zu Arca `.arcafolder` |
+| A: CloudKit CKShare | v2 | Live-Sync wenn Vater später Tickets hinzufügt — erfordert CloudKit + Apple-ID-Einladung |
+| C: iCloud Shared Folder | — | Weniger Kontrolle über App-Datenmodell |
+
+### Zukunft: CloudKit CKShare
+
+Für Live-Sync (Vater fügt Hotel-Ticket hinzu → erscheint bei allen): CloudKit `CKShare` auf Ordner-Record, Familie per Apple-ID eingeladen. Erfordert CloudKit-Capability statt nur iCloud Documents.
 
 ---
 
@@ -253,7 +295,7 @@ Vier Standard-Ordner — bewusst wenig, aber passend für den Alltag in der Schw
 - ❌ Automatische Kalender-Synchronisation (v2)
 - ❌ iPad-optimiertes Split-View-Layout (v1 nur iPhone-first)
 - ❌ Android / Web
-- ❌ Teilen von Tickets mit anderen Nutzern
+- ⚠️ Live-Sync geteilter Ordner (CloudKit CKShare — v2; MVP: einmaliger Export/Import)
 - ❌ OCR / automatische Felderkennung (Reisedatum, Sitzplatz) — v2
 
 ---
@@ -266,10 +308,10 @@ Vier Standard-Ordner — bewusst wenig, aber passend für den Alltag in der Schw
 
 | Tab | Zweck |
 |-----|--------|
-| **Unterwegs** | Gepinnte + bald anstehende Tickets als Boarding-Pass-Karten mit Vorschau, Flugnummer, Sitz, Boarding, Gate |
+| **Unterwegs** | Gepinnte + bald anstehende Tickets als Boarding-Pass-Karten; **Wichtige Nummern** nach Kategorie (Notfall, Flug, Hotel, Event, Familie) |
 | **Alle Tickets** | Ordnerstruktur (Bahn, Abos, Berge, Sonstiges + eigene) → Ticketliste |
 
-**Unterwegs:** Nutzer pinnt Tickets per Pin-Icon („Aktuell"). Reisefelder sind auf der Karte tippbar und im Bearbeiten-Formular editierbar. „Am Schalter zeigen" öffnet QR-Vollbild. Leerer Zustand: *Pinne ein Ticket oder füge deine Reise hinzu*.
+**Unterwegs:** Nutzer pinnt Tickets per Pin-Icon („Aktuell"). Reisefelder sind auf der Karte tippbar und im Bearbeiten-Formular editierbar. „Am Schalter zeigen" öffnet QR-Vollbild. **Wichtige Nummern:** Schweizer Notrufe (117, 118, 144, 112) vorausgefüllt; Vorlagen für Fluggesellschaft, Veranstalter, Reiseunternehmen, Hotel, Reiseversicherung, Mutter, Vater, Anwalt — Nummern eintragen, tippen zum Anrufen. Verwaltung unter Einstellungen → Wichtige Nummern.
 
 **Alle Tickets:** Wischen nach links → Löschen mit Bestätigung. Pin-Icon in der Liste für schnelles Pinnen.
 
@@ -381,7 +423,7 @@ flowchart LR
     STORE["TicketStore"] --> TE["TicketEntry<br/>Titel, Ablauf, QR-Pfad"]
     STORE --> TF["TicketFolder<br/>Name, Farbe, Icon"]
     TF --> TE
-    STORE --> P1["iCloud Drive<br/>JSON + Dateien"]
+    STORE --> P1["iCloud Drive<br/>JSON + Dateien<br/>tickets, folders, contacts"]
     STORE --> P2["Keychain<br/>PIN"]
     STORE --> P3["UserDefaults<br/>Einstellungen"]
     STORE --> P4["Lokale Dateien<br/>PDF, JPEG, PNG"]
@@ -494,8 +536,10 @@ Arca Tickets ist die schlanke Schwester von Arca: nur Tickets, nichts Überflüs
 3. **Schnell hinzufügen:** FAB „Hinzufügen" → Foto/PDF wählen, Ablaufdatum setzen → speichern
 4. **Teilen-Import:** PDF oder Screenshot in einer anderen App → „Teilen" → „Arca Tickets" (erscheint bei registrierten Dokumenttypen)
 5. **Nächstes Ticket:** Homescreen zeigt Hero-Karte mit Countdown („Noch X Tage gültig")
-6. **Am Schalter:** Hero-Karte oder Ticket-Detail → „Am Schalter zeigen" → Vollbild, Helligkeit max → nach unten wischen zum Schließen
-7. **Erinnerung:** Ticket mit Ablauf morgen oder übermorgen anlegen → Benachrichtigung erlauben → Erinnerung 1 Tag vorher
+6. **Familien-Ordner:** Ordner mit Tickets → person.2-Symbol → AirDrop an zweites Gerät → Datei öffnen → Ordner „… (geteilt)" erscheint unter Alle Tickets
+7. **Am Schalter:** Hero-Karte oder Ticket-Detail → „Am Schalter zeigen" → Vollbild, Helligkeit max → nach unten wischen zum Schließen
+8. **Erinnerung:** Ticket mit Ablauf morgen oder übermorgen anlegen → Benachrichtigung erlauben → Erinnerung 1 Tag vorher
+8. **Wichtige Nummern:** Tab „Unterwegs" → Notruf 117 antippen → Telefon-App öffnet sich; Fluggesellschaft/Hotel bearbeiten → Nummer speichern → erneut tippen zum Anrufen
 
 ---
 

@@ -254,7 +254,7 @@ private struct QuickContactListRow: View {
                     .font(.body.weight(.medium))
                 Text(contact.displayPhoneNumber)
                     .font(.caption)
-                    .foregroundStyle(contact.hasPhoneNumber ? .secondary : .orange)
+                    .foregroundStyle(contact.hasPhoneNumber ? .secondary : Color.orange)
             }
             Spacer()
             Image(systemName: "chevron.right")
