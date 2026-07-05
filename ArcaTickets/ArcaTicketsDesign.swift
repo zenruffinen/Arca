@@ -16,6 +16,10 @@ enum ArcaTicketsDesign {
     static let travelSand = Color(red: 0.98, green: 0.94, blue: 0.86)
     static let travelOcean = Color(red: 0.10, green: 0.38, blue: 0.72)
     static let travelSunset = Color(red: 1.0, green: 0.62, blue: 0.38)
+    static let travelGlassCyan = Color(red: 0.20, green: 0.85, blue: 0.95)
+    static let travelGlassPurple = Color(red: 0.55, green: 0.35, blue: 0.95)
+    static let travelSunYellow = Color(red: 1.0, green: 0.82, blue: 0.25)
+    static let travelSunOrange = Color(red: 1.0, green: 0.55, blue: 0.20)
 
     static var travelGradient: LinearGradient {
         LinearGradient(
@@ -44,6 +48,8 @@ enum ArcaTicketsDesign {
         case "purple": return .purple
         case "orange": return .orange
         case "indigo": return .indigo
+        case "green": return .green
+        case "red": return .red
         default: return .secondary
         }
     }
@@ -74,13 +80,22 @@ extension View {
     }
 
     func travelScreenBackground() -> some View {
-        background {
-            ZStack {
-                Color(.systemGroupedBackground)
-                ArcaTicketsDesign.travelGradient
-                    .ignoresSafeArea()
-            }
-        }
+        background { TravelGlassBackground() }
+    }
+
+    @ViewBuilder
+    func ticketsGlass(
+        tint: Color? = nil,
+        interactive: Bool = false,
+        in shape: some Shape = RoundedRectangle(cornerRadius: ArcaTicketsDesign.cornerRadius, style: .continuous)
+    ) -> some View {
+        let glass: Glass = {
+            var base = Glass.regular
+            if let tint { base = base.tint(tint) }
+            if interactive { base = base.interactive() }
+            return base
+        }()
+        glassEffect(glass, in: shape)
     }
 
     func ticketsIconTile(tint: Color, size: CGFloat = ArcaTicketsDesign.iconTileSize) -> some View {
@@ -341,6 +356,122 @@ struct FolderShareGuideView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .ticketsCardBackground(tint: tint, cornerRadius: ArcaTicketsDesign.chipRadius)
+    }
+}
+
+// MARK: - Travel glass scenery
+
+struct TravelGlassBackground: View {
+    var body: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+
+            LinearGradient(
+                colors: [
+                    ArcaTicketsDesign.travelGlassCyan.opacity(0.22),
+                    ArcaTicketsDesign.travelGlassPurple.opacity(0.16),
+                    ArcaTicketsDesign.travelSand.opacity(0.38)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Circle()
+                .fill(ArcaTicketsDesign.travelGlassCyan.opacity(0.14))
+                .frame(width: 260, height: 260)
+                .blur(radius: 48)
+                .offset(x: -90, y: -140)
+
+            Circle()
+                .fill(ArcaTicketsDesign.travelGlassPurple.opacity(0.12))
+                .frame(width: 220, height: 220)
+                .blur(radius: 40)
+                .offset(x: 110, y: 60)
+
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .fill(.ultraThinMaterial.opacity(0.35))
+                .frame(width: 180, height: 120)
+                .rotationEffect(.degrees(-14))
+                .offset(x: -70, y: 280)
+                .blur(radius: 1)
+
+            Image(systemName: "suitcase.fill")
+                .font(.system(size: 190, weight: .ultraLight))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            ArcaTicketsDesign.travelOcean.opacity(0.10),
+                            ArcaTicketsDesign.travelGlassPurple.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .offset(x: 70, y: 200)
+                .rotationEffect(.degrees(-10))
+                .accessibilityHidden(true)
+
+            Image(systemName: "suitcase.fill")
+                .font(.system(size: 110, weight: .ultraLight))
+                .foregroundStyle(ArcaTicketsDesign.travelSky.opacity(0.06))
+                .offset(x: -110, y: 340)
+                .rotationEffect(.degrees(12))
+                .accessibilityHidden(true)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+struct TravelSunDecoration: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.travelSunYellow.opacity(0.55),
+                            ArcaTicketsDesign.travelSunOrange.opacity(0.22),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 50
+                    )
+                )
+                .frame(width: 92, height: 92)
+                .blur(radius: 6)
+
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 58, height: 58)
+                .overlay {
+                    Circle()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    ArcaTicketsDesign.travelSunYellow.opacity(0.7),
+                                    ArcaTicketsDesign.travelSunOrange.opacity(0.45)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                }
+                .shadow(color: ArcaTicketsDesign.travelSunOrange.opacity(0.25), radius: 10, y: 3)
+
+            Image(systemName: "sun.max.fill")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [ArcaTicketsDesign.travelSunYellow, ArcaTicketsDesign.travelSunOrange],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .symbolRenderingMode(.multicolor)
+        }
+        .accessibilityHidden(true)
     }
 }
 

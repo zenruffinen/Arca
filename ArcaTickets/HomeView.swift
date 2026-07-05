@@ -10,7 +10,6 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var store: TicketStore
     @Binding var showAddTicket: Bool
-    @Binding var showSettings: Bool
 
     var body: some View {
         ScrollView {
@@ -55,16 +54,6 @@ struct HomeView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Alle Tickets")
         .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .accessibilityLabel("Einstellungen")
-                }
-            }
-        }
         .overlay(alignment: .bottom) {
             TicketsFAB(title: "Hinzufügen") {
                 showAddTicket = true

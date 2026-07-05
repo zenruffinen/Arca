@@ -14,11 +14,11 @@ struct ContentView: View {
     @Binding var pendingFolderImportURL: URL?
     @Binding var pendingTicketID: UUID?
     @State private var showAddTicket = false
-    @State private var showSettings = false
     @State private var importURL: URL?
     @State private var unterwegsPath = NavigationPath()
     @State private var alleTicketsPath = NavigationPath()
-    @State private var selectedTab = 0
+    @State private var selectedTab: ArcaTicketsTab = TabOrderPreferences.defaultTab
+    @State private var tabOrder = TabOrderPreferences.tabOrder
     @State private var importedFolderName: String?
     @State private var showFolderImportSuccess = false
     @State private var showFolderImportError = false
@@ -26,42 +26,18 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack(path: $unterwegsPath) {
-                UnderwegsView(showAddTicket: $showAddTicket, showSettings: $showSettings)
-                    .navigationDestination(for: TicketEntry.self) { ticket in
-                        TicketDetailView(ticket: ticket)
+            ForEach(tabOrder) { tab in
+                tabRoot(for: tab)
+                    .tabItem {
+                        Label(tab.title, systemImage: tab.icon)
                     }
+                    .tag(tab)
             }
-            .tabItem {
-                Label("Unterwegs", systemImage: "airplane.departure")
-            }
-            .tag(0)
-
-            NavigationStack(path: $alleTicketsPath) {
-                HomeView(showAddTicket: $showAddTicket, showSettings: $showSettings)
-                    .navigationDestination(for: String.self) { folder in
-                        if folder == "__all__" {
-                            AllTicketsView()
-                        } else {
-                            FolderView(folder: folder)
-                        }
-                    }
-                    .navigationDestination(for: TicketEntry.self) { ticket in
-                        TicketDetailView(ticket: ticket)
-                    }
-            }
-            .tabItem {
-                Label("Alle Tickets", systemImage: "ticket.fill")
-            }
-            .tag(1)
         }
         .ticketsToastOverlay()
         .sheet(isPresented: $showAddTicket) {
             AddTicketView(importURL: importURL)
                 .onDisappear { importURL = nil }
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
         }
         .sheet(isPresented: $showContactsSheet) {
             QuickContactsManagementView()
@@ -88,7 +64,11 @@ struct ContentView: View {
             navigateToTicket(id: id)
             pendingTicketID = nil
         }
+        .onReceive(NotificationCenter.default.publisher(for: .arcaTicketsTabOrderDidChange)) { _ in
+            reloadTabOrder()
+        }
         .onAppear {
+            reloadTabOrder()
             handlePostOnboardingActions()
             if let url = pendingFolderImportURL {
                 handleIncomingFolderURL(url)
@@ -104,7 +84,7 @@ struct ContentView: View {
         .alert("Reise importiert", isPresented: $showFolderImportSuccess) {
             Button("Ordner öffnen") {
                 if let name = importedFolderName {
-                    selectedTab = 1
+                    selectedTab = .alleTickets
                     alleTicketsPath.append(name)
                 }
                 importedFolderName = nil
@@ -121,6 +101,47 @@ struct ContentView: View {
             Button("Nochmal versuchen", role: .cancel) {}
         } message: {
             Text("Die Datei konnte nicht gelesen werden. Bitte eine gültige .arcaticketsfolder-Datei wählen.")
+        }
+    }
+
+    @ViewBuilder
+    private func tabRoot(for tab: ArcaTicketsTab) -> some View {
+        switch tab {
+        case .unterwegs:
+            NavigationStack(path: $unterwegsPath) {
+                UnderwegsView(showAddTicket: $showAddTicket)
+                    .navigationDestination(for: TicketEntry.self) { ticket in
+                        TicketDetailView(ticket: ticket)
+                    }
+            }
+        case .alleTickets:
+            NavigationStack(path: $alleTicketsPath) {
+                HomeView(showAddTicket: $showAddTicket)
+                    .navigationDestination(for: String.self) { folder in
+                        if folder == "__all__" {
+                            AllTicketsView()
+                        } else {
+                            FolderView(folder: folder)
+                        }
+                    }
+                    .navigationDestination(for: TicketEntry.self) { ticket in
+                        TicketDetailView(ticket: ticket)
+                    }
+            }
+        case .notfall:
+            NavigationStack {
+                NotfallView()
+            }
+        case .settings:
+            SettingsView()
+        }
+    }
+
+    private func reloadTabOrder() {
+        let order = TabOrderPreferences.tabOrder
+        tabOrder = order
+        if !order.contains(selectedTab) {
+            selectedTab = TabOrderPreferences.defaultTab
         }
     }
 
@@ -184,10 +205,10 @@ struct ContentView: View {
     private func navigateToTicket(id: UUID) {
         guard let ticket = store.tickets.first(where: { $0.id == id }) else { return }
         if ticket.isPinned || store.unterwegsTickets().contains(where: { $0.id == id }) {
-            selectedTab = 0
+            selectedTab = .unterwegs
             unterwegsPath.append(ticket)
         } else {
-            selectedTab = 1
+            selectedTab = .alleTickets
             alleTicketsPath.append(ticket)
         }
     }

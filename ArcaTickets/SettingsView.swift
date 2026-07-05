@@ -10,7 +10,6 @@ import StoreKit
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.requestReview) private var requestReview
     @EnvironmentObject private var store: TicketStore
 
@@ -20,6 +19,8 @@ struct SettingsView: View {
     @State private var folderImportResult: String?
     @State private var showFolderImportAlert = false
     @State private var folderImportFailed = false
+    @State private var tabOrder = TabOrderPreferences.reorderableTabOrder
+    @State private var leadTab = TabOrderPreferences.leadTab
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -30,6 +31,46 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Picker(selection: $leadTab) {
+                        ForEach(TabOrderPreferences.LeadTab.allCases) { option in
+                            Text(option.label).tag(option)
+                        }
+                    } label: {
+                        Label("Startseite", systemImage: "house.fill")
+                    }
+                    .onChange(of: leadTab) { _, tab in
+                        TabOrderPreferences.setLeadTab(tab)
+                        tabOrder = TabOrderPreferences.reorderableTabOrder
+                    }
+
+                    if tabOrder.count > 1 {
+                        List {
+                            ForEach(tabOrder) { tab in
+                                HStack(spacing: 12) {
+                                    Image(systemName: tab.icon)
+                                        .foregroundStyle(tabIconColor(for: tab))
+                                        .frame(width: 24)
+                                    Text(tab.label)
+                                    Spacer()
+                                    Image(systemName: "line.3.horizontal")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .onMove(perform: moveTab)
+                        }
+                        .listStyle(.plain)
+                        .frame(minHeight: CGFloat(tabOrder.count) * 46)
+                        .scrollDisabled(true)
+                        .environment(\.editMode, .constant(.active))
+                    }
+                } header: {
+                    Text("Tab-Reihenfolge")
+                } footer: {
+                    Text("Lege fest, welche Registerkarte beim Öffnen zuerst erscheint. Unten kannst du Unterwegs, Alle Tickets und Notfall per Drag umsortieren.")
+                }
+
                 Section {
                     HStack {
                         Label("iCloud", systemImage: "icloud.fill")
@@ -84,7 +125,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Organisation")
                 } footer: {
-                    Text("Notrufnummern, Hotel, Fluggesellschaft und Familie — auf dem Tab „Unterwegs“ griffbereit. Ordner z. B. „Reise Zermatt“ für die ganze Familie.")
+                    Text("Notrufnummern, Hotel, Fluggesellschaft und Familie — auf dem Tab „Notfall“ griffbereit. Ordner z. B. „Reise Zermatt“ für die ganze Familie.")
                 }
 
                 Section {
@@ -119,11 +160,10 @@ struct SettingsView: View {
                 aboutSection
             }
             .navigationTitle("Einstellungen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { dismiss() }
-                }
+            .navigationBarTitleDisplayMode(.large)
+            .onAppear {
+                tabOrder = TabOrderPreferences.reorderableTabOrder
+                leadTab = TabOrderPreferences.leadTab
             }
             .sheet(isPresented: $showFolderManagement) {
                 FolderManagementView()
@@ -162,6 +202,20 @@ struct SettingsView: View {
             } message: {
                 Text("Die Datei ist kein gültiger geteilter Arca-Tickets-Ordner.")
             }
+        }
+    }
+
+    private func moveTab(from source: IndexSet, to destination: Int) {
+        tabOrder.move(fromOffsets: source, toOffset: destination)
+        TabOrderPreferences.save(tabOrder)
+        leadTab = TabOrderPreferences.leadTab
+    }
+
+    private func tabIconColor(for tab: ArcaTicketsTab) -> Color {
+        switch tab {
+        case .notfall: return .red
+        case .settings: return .secondary
+        default: return ArcaTicketsDesign.travelOcean
         }
     }
 

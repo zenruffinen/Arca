@@ -123,6 +123,11 @@ struct QuickContactRow: View {
                     Text(contact.label)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.primary)
+                    if let policy = contact.displayPolicyNumber {
+                        Text("Polizzen-Nr. \(policy)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Text(contact.displayPhoneNumber)
                         .font(.subheadline)
                         .foregroundStyle(contact.hasPhoneNumber ? .secondary : tint)
@@ -255,6 +260,11 @@ private struct QuickContactListRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(contact.label)
                     .font(.body.weight(.medium))
+                if let policy = contact.displayPolicyNumber {
+                    Text("Polizzen-Nr. \(policy)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text(contact.displayPhoneNumber)
                     .font(.caption)
                     .foregroundStyle(contact.hasPhoneNumber ? .secondary : Color.orange)
@@ -276,12 +286,16 @@ struct QuickContactEditorView: View {
     @State private var label: String
     @State private var phoneNumber: String
     @State private var category: QuickContactCategory
+    @State private var policyNumber: String
+    @State private var insuranceType: InsuranceType?
 
     init(contact: QuickContact?) {
         existingID = contact?.id
         _label = State(initialValue: contact?.label ?? "")
         _phoneNumber = State(initialValue: contact?.phoneNumber ?? "")
         _category = State(initialValue: contact?.category ?? .sonstiges)
+        _policyNumber = State(initialValue: contact?.policyNumber ?? "")
+        _insuranceType = State(initialValue: contact?.insuranceType)
     }
 
     private var isEditing: Bool { existingID != nil }
@@ -310,6 +324,24 @@ struct QuickContactEditorView: View {
                 } footer: {
                     Text("Notfall-Nummern wie Polizei (117) und Rettung (144) sind vorausgefüllt.")
                 }
+
+                if category == .versicherung {
+                    Section {
+                        Picker("Versicherungsart", selection: $insuranceType) {
+                            Text("Keine Angabe").tag(InsuranceType?.none)
+                            ForEach(InsuranceType.allCases) { type in
+                                Label(type.rawValue, systemImage: type.icon)
+                                    .tag(Optional(type))
+                            }
+                        }
+                        TextField("Polizzen-Nummer", text: $policyNumber)
+                            .textInputAutocapitalization(.characters)
+                    } header: {
+                        Text("Versicherung")
+                    } footer: {
+                        Text("Polizzen-Nummer für den Notfall griffbereit — z. B. auf dem Tab „Notfall“.")
+                    }
+                }
             }
             .navigationTitle(isEditing ? "Kontakt bearbeiten" : "Neuer Kontakt")
             .navigationBarTitleDisplayMode(.inline)
@@ -332,19 +364,27 @@ struct QuickContactEditorView: View {
     private func save() {
         let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPolicy = policyNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedLabel.isEmpty else { return }
+
+        let resolvedPolicy = trimmedPolicy.isEmpty ? nil : trimmedPolicy
+        let resolvedInsuranceType = category == .versicherung ? insuranceType : nil
 
         if let existingID,
            var existing = store.quickContacts.first(where: { $0.id == existingID }) {
             existing.label = trimmedLabel
             existing.phoneNumber = trimmedPhone
             existing.category = category
+            existing.policyNumber = resolvedPolicy
+            existing.insuranceType = resolvedInsuranceType
             store.updateQuickContact(existing)
         } else {
             store.addQuickContact(QuickContact(
                 label: trimmedLabel,
                 phoneNumber: trimmedPhone,
-                category: category
+                category: category,
+                policyNumber: resolvedPolicy,
+                insuranceType: resolvedInsuranceType
             ))
         }
         TicketsHaptics.lightImpact()

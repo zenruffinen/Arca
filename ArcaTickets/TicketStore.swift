@@ -28,6 +28,9 @@ final class TicketStore: ObservableObject {
     @Published var quickContacts: [QuickContact] = [] {
         didSet { guard !isLoadingData else { return }; saveQuickContacts() }
     }
+    @Published var personalIDCard: PersonalIDCard = .empty {
+        didSet { guard !isLoadingData else { return }; savePersonalIDCard() }
+    }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
 
@@ -104,7 +107,7 @@ final class TicketStore: ObservableObject {
     static let sharedFolderSuffix = " (geteilt)"
 
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders", "sharedFolders", "contacts"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -309,11 +312,31 @@ final class TicketStore: ObservableObject {
             sharedFolders = Set(decoded)
         }
         if let decoded = loadJSON([QuickContact].self, key: "contacts") {
-            quickContacts = decoded
+            quickContacts = migrateQuickContacts(decoded)
         } else if !hasPendingCloudDataDownloads(),
                   !FileManager.default.fileExists(atPath: dataURL("contacts").path),
                   !hasCloudPlaceholder(at: dataURL("contacts")) {
             quickContacts = QuickContactDefaults.seedContacts()
+        }
+        if let decoded = loadJSON(PersonalIDCard.self, key: "personal_card") {
+            personalIDCard = decoded
+        }
+    }
+
+    private func migrateQuickContacts(_ contacts: [QuickContact]) -> [QuickContact] {
+        contacts.map { contact in
+            var migrated = contact
+            if contact.label.caseInsensitiveCompare("Reiseversicherung") == .orderedSame,
+               contact.category == .sonstiges || contact.insuranceType == nil {
+                migrated.category = .versicherung
+                migrated.insuranceType = .reiseversicherung
+            }
+            if contact.label.caseInsensitiveCompare("Auslandskrankenversicherung") == .orderedSame,
+               contact.insuranceType == nil {
+                migrated.category = .versicherung
+                migrated.insuranceType = .auslandskrankenversicherung
+            }
+            return migrated
         }
     }
 
@@ -331,6 +354,18 @@ final class TicketStore: ObservableObject {
 
     private func saveQuickContacts() {
         saveJSON(quickContacts, key: "contacts")
+    }
+
+    private func savePersonalIDCard() {
+        saveJSON(personalIDCard, key: "personal_card")
+    }
+
+    func updatePersonalIDCard(_ card: PersonalIDCard) {
+        personalIDCard = card
+    }
+
+    var insuranceContacts: [QuickContact] {
+        quickContacts.filter { $0.category == .versicherung }
     }
 
     // MARK: - Wichtige Nummern
@@ -369,8 +404,18 @@ final class TicketStore: ObservableObject {
         addQuickContact(QuickContact(
             label: template.label,
             phoneNumber: template.phoneNumber,
-            category: template.category
+            category: template.category,
+            insuranceType: insuranceType(for: template)
         ))
+    }
+
+    private func insuranceType(for template: QuickContactTemplate) -> InsuranceType? {
+        guard template.category == .versicherung else { return nil }
+        switch template.label {
+        case "Reiseversicherung": return .reiseversicherung
+        case "Auslandskrankenversicherung": return .auslandskrankenversicherung
+        default: return nil
+        }
     }
 
     var availableQuickContactTemplates: [QuickContactTemplate] {
@@ -601,6 +646,7 @@ final class TicketStore: ObservableObject {
         folders = Self.defaultFolders
         sharedFolders = []
         quickContacts = QuickContactDefaults.seedContacts()
+        personalIDCard = .empty
         KeychainManager.shared.delete(key: Self.pinHashKey)
     }
 

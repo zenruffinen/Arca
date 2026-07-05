@@ -7,6 +7,10 @@
 
 import Foundation
 
+extension Notification.Name {
+    static let arcaTicketsTabOrderDidChange = Notification.Name("arcaTicketsTabOrderDidChange")
+}
+
 enum TicketExpiryFilter: String, CaseIterable, Identifiable {
     case active = "Aktiv"
     case expired = "Abgelaufen"
@@ -150,12 +154,27 @@ struct TicketEntry: Identifiable, Codable, Hashable {
     }
 }
 
+enum InsuranceType: String, Codable, CaseIterable, Identifiable {
+    case reiseversicherung = "Reiseversicherung"
+    case auslandskrankenversicherung = "Auslandskrankenversicherung"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .reiseversicherung: return "suitcase.fill"
+        case .auslandskrankenversicherung: return "cross.case.fill"
+        }
+    }
+}
+
 enum QuickContactCategory: String, Codable, CaseIterable, Identifiable {
     case notfall = "Notfall"
     case flug = "Flug"
     case hotel = "Hotel"
     case event = "Event"
     case familie = "Familie"
+    case versicherung = "Versicherung"
     case sonstiges = "Sonstiges"
 
     var id: String { rawValue }
@@ -167,6 +186,7 @@ enum QuickContactCategory: String, Codable, CaseIterable, Identifiable {
         case .hotel: return "bed.double.fill"
         case .event: return "ticket.fill"
         case .familie: return "person.2.fill"
+        case .versicherung: return "shield.lefthalf.filled"
         case .sonstiges: return "phone.fill"
         }
     }
@@ -178,6 +198,7 @@ enum QuickContactCategory: String, Codable, CaseIterable, Identifiable {
         case .hotel: return "indigo"
         case .event: return "purple"
         case .familie: return "teal"
+        case .versicherung: return "green"
         case .sonstiges: return "gray"
         }
     }
@@ -189,7 +210,8 @@ enum QuickContactCategory: String, Codable, CaseIterable, Identifiable {
         case .hotel: return 2
         case .event: return 3
         case .familie: return 4
-        case .sonstiges: return 5
+        case .versicherung: return 5
+        case .sonstiges: return 6
         }
     }
 }
@@ -200,21 +222,46 @@ struct QuickContact: Identifiable, Codable, Hashable {
     var phoneNumber: String
     var category: QuickContactCategory
     var sortOrder: Int
+    var policyNumber: String?
+    var insuranceType: InsuranceType?
+    var linkedContactID: UUID?
 
     init(id: UUID = UUID(),
          label: String,
          phoneNumber: String,
          category: QuickContactCategory,
-         sortOrder: Int = 0) {
+         sortOrder: Int = 0,
+         policyNumber: String? = nil,
+         insuranceType: InsuranceType? = nil,
+         linkedContactID: UUID? = nil) {
         self.id = id
         self.label = label
         self.phoneNumber = phoneNumber
         self.category = category
         self.sortOrder = sortOrder
+        self.policyNumber = policyNumber
+        self.insuranceType = insuranceType
+        self.linkedContactID = linkedContactID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        label = try c.decode(String.self, forKey: .label)
+        phoneNumber = try c.decode(String.self, forKey: .phoneNumber)
+        category = try c.decode(QuickContactCategory.self, forKey: .category)
+        sortOrder = try c.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
+        policyNumber = try c.decodeIfPresent(String.self, forKey: .policyNumber)
+        insuranceType = try c.decodeIfPresent(InsuranceType.self, forKey: .insuranceType)
+        linkedContactID = try c.decodeIfPresent(UUID.self, forKey: .linkedContactID)
     }
 
     var hasPhoneNumber: Bool {
         !phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasPolicyNumber: Bool {
+        !(policyNumber?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
     var telURL: URL? {
@@ -227,6 +274,62 @@ struct QuickContact: Identifiable, Codable, Hashable {
         let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Nummer eintragen" : trimmed
     }
+
+    var displayPolicyNumber: String? {
+        guard let policy = policyNumber?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !policy.isEmpty else { return nil }
+        return policy
+    }
+
+    var insuranceSubtitle: String? {
+        guard hasPolicyNumber, let policy = displayPolicyNumber else { return nil }
+        return "Polizzen-Nr.: \(policy) — antippen zum Anrufen"
+    }
+}
+
+struct PersonalIDCard: Codable, Hashable {
+    var name: String
+    var passportNumber: String
+    var ahvNumber: String
+    var nationality: String?
+    var birthDate: Date?
+    var bloodType: String?
+
+    static let empty = PersonalIDCard(
+        name: "",
+        passportNumber: "",
+        ahvNumber: ""
+    )
+
+    var isConfigured: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !passportNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !ahvNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var displayName: String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Deine Visitenkarte" : trimmed
+    }
+}
+
+struct SwissEmergencyNumber: Identifiable {
+    let id: String
+    let label: String
+    let number: String
+    let icon: String
+
+    var telURL: URL? {
+        URL(string: "tel://\(number)")
+    }
+}
+
+enum SwissEmergencyDefaults {
+    static let numbers: [SwissEmergencyNumber] = [
+        SwissEmergencyNumber(id: "police", label: "Polizei", number: "117", icon: "shield.fill"),
+        SwissEmergencyNumber(id: "rescue", label: "Rettung", number: "144", icon: "cross.case.fill"),
+        SwissEmergencyNumber(id: "eu", label: "EU-Notruf", number: "112", icon: "phone.circle.fill"),
+    ]
 }
 
 struct QuickContactTemplate: Identifiable {
@@ -248,7 +351,8 @@ enum QuickContactDefaults {
         QuickContactTemplate(label: "Reiseunternehmen", phoneNumber: "", category: .sonstiges),
         QuickContactTemplate(label: "Reisebüro", phoneNumber: "", category: .sonstiges),
         QuickContactTemplate(label: "Hotel", phoneNumber: "", category: .hotel),
-        QuickContactTemplate(label: "Reiseversicherung", phoneNumber: "", category: .sonstiges),
+        QuickContactTemplate(label: "Reiseversicherung", phoneNumber: "", category: .versicherung),
+        QuickContactTemplate(label: "Auslandskrankenversicherung", phoneNumber: "", category: .versicherung),
         QuickContactTemplate(label: "Mutter", phoneNumber: "", category: .familie),
         QuickContactTemplate(label: "Vater", phoneNumber: "", category: .familie),
         QuickContactTemplate(label: "Anwalt", phoneNumber: "", category: .sonstiges),
@@ -256,12 +360,125 @@ enum QuickContactDefaults {
 
     static func seedContacts() -> [QuickContact] {
         templates.enumerated().map { index, template in
-            QuickContact(
+            let insuranceType: InsuranceType? = {
+                guard template.category == .versicherung else { return nil }
+                switch template.label {
+                case "Reiseversicherung": return .reiseversicherung
+                case "Auslandskrankenversicherung": return .auslandskrankenversicherung
+                default: return nil
+                }
+            }()
+            return QuickContact(
                 label: template.label,
                 phoneNumber: template.phoneNumber,
                 category: template.category,
-                sortOrder: index
+                sortOrder: index,
+                insuranceType: insuranceType
             )
+        }
+    }
+}
+
+enum ArcaTicketsTab: String, CaseIterable, Identifiable, Hashable {
+    case unterwegs
+    case alleTickets
+    case notfall
+    case settings
+
+    static let reorderableCases: [ArcaTicketsTab] = [.unterwegs, .alleTickets, .notfall]
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .unterwegs: return "Unterwegs"
+        case .alleTickets: return "Alle Tickets"
+        case .notfall: return "Notfall"
+        case .settings: return "Einstellungen"
+        }
+    }
+
+    var title: String { label }
+
+    var icon: String {
+        switch self {
+        case .unterwegs: return "airplane.departure"
+        case .alleTickets: return "ticket.fill"
+        case .notfall: return "phone.circle.fill"
+        case .settings: return "gearshape.fill"
+        }
+    }
+}
+
+enum TabOrderPreferences {
+    private static let orderKey = "arcaTicketsTabOrder"
+    private static let leadTabKey = "arcaTicketsLeadTab"
+
+    enum LeadTab: String, CaseIterable, Identifiable {
+        case unterwegsFirst = "unterwegs"
+        case alleTicketsFirst = "alleTickets"
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .unterwegsFirst: return "Unterwegs zuerst"
+            case .alleTicketsFirst: return "Alle Tickets zuerst"
+            }
+        }
+    }
+
+    static var leadTab: LeadTab {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: leadTabKey),
+                  let value = LeadTab(rawValue: raw) else { return .unterwegsFirst }
+            return value
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: leadTabKey)
+        }
+    }
+
+    static func loadReorderable() -> [ArcaTicketsTab] {
+        if let raw = UserDefaults.standard.stringArray(forKey: orderKey),
+           !raw.isEmpty {
+            let tabs = raw.compactMap(ArcaTicketsTab.init(rawValue:))
+            if Set(tabs) == Set(ArcaTicketsTab.reorderableCases) {
+                return tabs
+            }
+        }
+        return orderFromLeadTab(leadTab)
+    }
+
+    static func save(_ order: [ArcaTicketsTab]) {
+        let reorderable = order.filter { ArcaTicketsTab.reorderableCases.contains($0) }
+        guard Set(reorderable) == Set(ArcaTicketsTab.reorderableCases) else { return }
+        UserDefaults.standard.set(reorderable.map(\.rawValue), forKey: orderKey)
+        if let first = reorderable.first {
+            leadTab = first == .alleTickets ? .alleTicketsFirst : .unterwegsFirst
+        }
+        NotificationCenter.default.post(name: .arcaTicketsTabOrderDidChange, object: nil)
+    }
+
+    static func setLeadTab(_ tab: LeadTab) {
+        leadTab = tab
+        save(orderFromLeadTab(tab))
+    }
+
+    static var reorderableTabOrder: [ArcaTicketsTab] { loadReorderable() }
+
+    static var tabOrder: [ArcaTicketsTab] { loadReorderable() + [.settings] }
+
+    static var defaultTab: ArcaTicketsTab {
+        loadReorderable().first ?? .unterwegs
+    }
+
+    private static func orderFromLeadTab(_ lead: LeadTab) -> [ArcaTicketsTab] {
+        switch lead {
+        case .unterwegsFirst:
+            return [.unterwegs, .alleTickets, .notfall]
+        case .alleTicketsFirst:
+            return [.alleTickets, .unterwegs, .notfall]
         }
     }
 }

@@ -10,58 +10,56 @@ import SwiftUI
 struct UnderwegsView: View {
     @EnvironmentObject private var store: TicketStore
     @Binding var showAddTicket: Bool
-    @Binding var showSettings: Bool
 
     private var unterwegsTickets: [TicketEntry] {
         store.unterwegsTickets()
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                header
+        ZStack(alignment: .topTrailing) {
+            TravelGlassBackground()
 
-                if store.isCloudSyncPending {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                        Text(store.iCloudStatus.rawValue)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+
+                    if store.isCloudSyncPending {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text(store.iCloudStatus.rawValue)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal, 4)
-                }
 
-                QuickContactsSection()
+                    PersonalIDCardView()
 
-                if unterwegsTickets.isEmpty {
-                    emptyState
-                } else {
-                    ForEach(unterwegsTickets) { ticket in
-                        BoardingPassCard(ticket: ticket)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .opacity
-                            ))
+                    if unterwegsTickets.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach(unterwegsTickets) { ticket in
+                            BoardingPassCard(ticket: ticket)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                                    removal: .opacity
+                                ))
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 100)
+                .animation(.spring(response: 0.4, dampingFraction: 0.82), value: unterwegsTickets.map(\.id))
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 100)
-            .animation(.spring(response: 0.4, dampingFraction: 0.82), value: unterwegsTickets.map(\.id))
+
+            TravelSunDecoration()
+                .padding(.top, 6)
+                .padding(.trailing, 20)
+                .allowsHitTesting(false)
         }
-        .travelScreenBackground()
         .navigationTitle("Unterwegs")
         .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .accessibilityLabel("Einstellungen")
-                }
-            }
-        }
         .overlay(alignment: .bottom) {
             TicketsFAB(title: "Hinzufügen", useTravelGradient: true) {
                 showAddTicket = true
