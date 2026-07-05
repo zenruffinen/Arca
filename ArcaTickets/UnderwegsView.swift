@@ -57,6 +57,11 @@ struct UnderwegsView: View {
                 .padding(.top, 6)
                 .padding(.trailing, 20)
                 .allowsHitTesting(false)
+
+            SwissGlassFlag(size: 36, style: .decoration)
+                .padding(.top, 10)
+                .padding(.leading, 20)
+                .allowsHitTesting(false)
         }
         .navigationTitle("Unterwegs")
         .navigationBarTitleDisplayMode(.large)
@@ -73,8 +78,11 @@ struct UnderwegsView: View {
             HStack(spacing: 12) {
                 TicketsAppIcon(size: 40)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Alles dabei, sorglos")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                    HStack(spacing: 7) {
+                        Text("Sorglos reisen")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                        SwissGlassFlag(size: 18, style: .badge)
+                    }
                     Text(unterwegsTickets.isEmpty
                          ? "Deine Reise beginnt hier ✈️"
                          : "\(unterwegsTickets.count) Ticket\(unterwegsTickets.count == 1 ? "" : "s") griffbereit")

@@ -475,6 +475,145 @@ struct TravelSunDecoration: View {
     }
 }
 
+// MARK: - Swiss glass flag
+
+struct SwissCrossShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        let arm = side / 5
+        let origin = CGPoint(x: rect.midX - side / 2, y: rect.midY - side / 2)
+        var path = Path()
+        path.addRect(CGRect(x: origin.x, y: origin.y + (side - arm) / 2, width: side, height: arm))
+        path.addRect(CGRect(x: origin.x + (side - arm) / 2, y: origin.y, width: arm, height: side))
+        return path
+    }
+}
+
+struct SwissGlassFlag: View {
+    enum Style {
+        case decoration
+        case badge
+    }
+
+    var size: CGFloat = 40
+    var style: Style = .decoration
+
+    private var swissRed: Color { Color(red: 0.91, green: 0.11, blue: 0.15) }
+    private var swissRedDeep: Color { Color(red: 0.74, green: 0.07, blue: 0.11) }
+
+    var body: some View {
+        let corner = size * 0.18
+        ZStack {
+            RoundedRectangle(cornerRadius: corner, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [swissRed.opacity(0.78), swissRedDeep.opacity(0.9)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            RoundedRectangle(cornerRadius: corner, style: .continuous)
+                .fill(.ultraThinMaterial.opacity(style == .badge ? 0.35 : 0.5))
+
+            SwissCrossShape()
+                .fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.96), .white.opacity(0.8)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .padding(size * 0.1)
+                .shadow(color: .white.opacity(0.25), radius: 1, y: -0.5)
+
+            RoundedRectangle(cornerRadius: corner, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.5), .white.opacity(0.12)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: style == .badge ? 0.75 : 1
+                )
+        }
+        .frame(width: size, height: size)
+        .shadow(color: swissRed.opacity(style == .badge ? 0.15 : 0.2), radius: style == .badge ? 3 : 7, y: style == .badge ? 1 : 3)
+        .accessibilityLabel("Schweizer Flagge")
+        .accessibilityHidden(style == .decoration)
+    }
+}
+
+// MARK: - Wusstest du?
+
+struct TicketsTip {
+    let icon: String
+    let text: String
+    let tint: Color
+}
+
+struct TicketsDidYouKnowCard: View {
+    private static let tips: [TicketsTip] = [
+        TicketsTip(icon: "pin.fill", text: "Pinne Tickets auf „Unterwegs“, damit Bordkarte und Hotelbestätigung beim Reisen oben bleiben.", tint: ArcaTicketsDesign.travelOcean),
+        TicketsTip(icon: "person.2.fill", text: "Teile einen Reiseordner per AirDrop — die ganze Familie hat Flug, Hotel und Eintritt auf dem Handy.", tint: .teal),
+        TicketsTip(icon: "folder.badge.plus", text: "Lege Ordner wie „Reise Zermatt“ an und sammle alle Tickets der Reise an einem Ort.", tint: .purple),
+        TicketsTip(icon: "bell.badge.fill", text: "Abos und Saisonkarten erinnern dich 30 Tage vor Ablauf — normale Tickets einen Tag vorher.", tint: .orange),
+        TicketsTip(icon: "phone.circle.fill", text: "Unter Notfall findest du wichtige Nummern und deine Ausweisdaten — auch offline.", tint: .red),
+        TicketsTip(icon: "square.and.arrow.up.fill", text: "Sichere alle Tickets regelmäßig — so behältst du sie auch bei Gerätewechsel.", tint: .indigo),
+        TicketsTip(icon: "icloud.fill", text: "Mit iCloud synchronisieren sich Tickets automatisch zwischen iPhone und iPad.", tint: .cyan),
+        TicketsTip(icon: "qrcode", text: "QR-Codes und PDFs lassen sich direkt als Ticket importieren — einfach teilen und öffnen.", tint: ArcaTicketsDesign.travelSky),
+        TicketsTip(icon: "airplane.departure", text: "Sortiere die Tabs in den Einstellungen — Unterwegs oder Alle Tickets als Startseite.", tint: ArcaTicketsDesign.travelSunset),
+        TicketsTip(icon: "lock.shield.fill", text: "PIN und Face ID schützen deine Tickets — am Gate zeigst du nur das, was nötig ist.", tint: .green),
+    ]
+
+    @State private var index = Int.random(in: 0..<TicketsDidYouKnowCard.tips.count)
+
+    private var tip: TicketsTip { Self.tips[index] }
+
+    var body: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                var next = index
+                while next == index && Self.tips.count > 1 {
+                    next = Int.random(in: 0..<Self.tips.count)
+                }
+                index = next
+            }
+            TicketsHaptics.lightImpact()
+        } label: {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: tip.icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(tip.tint)
+                    .frame(width: 44, height: 44)
+                    .background(tip.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Wusstest du?")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(tip.tint)
+                    Text(tip.text)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .ticketsGlass(tint: tip.tint.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(10)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct TicketsAppIcon: View {
     var size: CGFloat = 96
 
