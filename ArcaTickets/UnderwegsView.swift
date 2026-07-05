@@ -229,7 +229,7 @@ struct BoardingPassCard: View {
             }
             .buttonStyle(.plain)
             .ticketsMinTapTarget()
-            .accessibilityLabel(localTicket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs anheften")
+            .accessibilityLabel(localTicket.isPinned ? "Von Unterwägs lösen" : "Auf Unterwägs anheften")
         }
         .padding(16)
     }

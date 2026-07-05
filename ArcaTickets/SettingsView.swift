@@ -594,7 +594,7 @@ struct SettingsView: View {
                     Text(mode.label).tag(mode)
                 }
             } label: {
-                Label("Spruch auf Underwegs", systemImage: "textformat")
+                Label("Spruch auf Unterwägs", systemImage: "textformat")
             }
             .onChange(of: dialectMode) { _, mode in
                 SwissDialectPreferences.rotationMode = mode
@@ -613,9 +613,9 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("Underwegs")
+            Text("Unterwägs")
         } footer: {
-            Text("Schweizer Dialekt-Sprüche mit verspielter Schrift — im Tab bleibt es kurz „Underwegs“.")
+            Text("Schweizer Dialekt-Sprüche mit verspielter Schrift — im Tab bleibt es kurz „Unterwägs“.")
         }
     }
 

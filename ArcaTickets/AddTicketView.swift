@@ -105,7 +105,7 @@ struct AddTicketView: View {
                             Text(name).tag(name)
                         }
                     }
-                    Toggle("Auf Unterwegs anheften", isOn: $pinOnAdd)
+                    Toggle("Auf Unterwägs anheften", isOn: $pinOnAdd)
                     Toggle("Ablaufdatum", isOn: $hasExpiry)
                     if hasExpiry {
                         DatePicker("Gültig bis", selection: $expiryDate, displayedComponents: [.date, .hourAndMinute])
@@ -292,7 +292,7 @@ struct AddTicketView: View {
         TicketsHaptics.success()
         let hasFlight = !(saved.flightNumber?.isEmpty ?? true)
         if pinOnAdd {
-            store.showToast("Auf Unterwegs angehefixt ✈️")
+            store.showToast("Auf Unterwägs angehefixt ✈️")
         } else if hasFlight {
             store.showToast("Guten Flug! ✈️")
         } else if isRenewal {

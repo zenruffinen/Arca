@@ -86,9 +86,9 @@ struct GolfContactEditorView: View {
                     Text("Golf")
                 } footer: {
                     if bergeTicketCount > 0 {
-                        Text("Du hast \(bergeTicketCount) Ticket\(bergeTicketCount == 1 ? "" : "s") im Ordner „Berge“. Pinne Greenfee oder Saisonkarten dort — ein Tap auf „Unterwegs“ genügt zum Anrufen.")
+                        Text("Du hast \(bergeTicketCount) Ticket\(bergeTicketCount == 1 ? "" : "s") im Ordner „Berge“. Pinne Greenfee oder Saisonkarten dort — ein Tap auf „Unterwägs“ genügt zum Anrufen.")
                     } else {
-                        Text("Dein Golfclub im Wallis — Greenfee oder Pro-Shop, ein Tap auf „Unterwegs“ genügt zum Anrufen.")
+                        Text("Dein Golfclub im Wallis — Greenfee oder Pro-Shop, ein Tap auf „Unterwägs“ genügt zum Anrufen.")
                     }
                 }
             }

@@ -83,7 +83,7 @@ struct TicketDetailView: View {
                         Image(systemName: ticket.isPinned ? "pin.fill" : "pin")
                             .foregroundStyle(ticket.isPinned ? ArcaTicketsDesign.travelSunset : .primary)
                     }
-                    .accessibilityLabel(ticket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs anheften")
+                    .accessibilityLabel(ticket.isPinned ? "Von Unterwägs lösen" : "Auf Unterwägs anheften")
 
                     Button("Bearbeiten") { isEditing = true }
                 }
@@ -236,7 +236,7 @@ struct EditTicketView: View {
                             Text(name).tag(name)
                         }
                     }
-                    Toggle("Auf Unterwegs anheften", isOn: $isPinned)
+                    Toggle("Auf Unterwägs anheften", isOn: $isPinned)
                 }
                 Section("Reise") {
                     TextField("Flugnummer", text: $flightNumber)

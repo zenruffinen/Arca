@@ -476,7 +476,7 @@ enum TabOrderPreferences {
 
         var label: String {
             switch self {
-            case .unterwegsFirst: return "Unterwegs zuerst"
+            case .unterwegsFirst: return "Unterwägs zuerst"
             case .alleTicketsFirst: return "Alle Tickets zuerst"
             }
         }

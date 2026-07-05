@@ -45,10 +45,10 @@ enum SwissDialectPhrases {
         SwissDialectPhrase(id: "onderwaegs", text: "Onderwägs", design: .serif, weight: .black, rotationDegrees: 1),
         SwissDialectPhrase(id: "ungerwegs", text: "Ungerwegs", design: .rounded, weight: .semibold, rotationDegrees: 1.5),
         SwissDialectPhrase(id: "druf-dra", text: "Druf & dra", design: .serif, weight: .bold, isItalic: true, rotationDegrees: -1),
-        SwissDialectPhrase(id: "underwegs", text: "Underwegs", design: .rounded, weight: .bold),
+        SwissDialectPhrase(id: "underwegs", text: "Unterwägs", design: .rounded, weight: .bold),
     ]
 
-    static let tabLabel = "Underwegs"
+    static let tabLabel = "Unterwägs"
 }
 
 enum SwissDialectRotationMode: String, CaseIterable, Identifiable {

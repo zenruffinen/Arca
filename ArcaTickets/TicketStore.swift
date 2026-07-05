@@ -685,10 +685,10 @@ final class TicketStore: ObservableObject {
         tickets[idx].isPinned.toggle()
         if tickets[idx].isPinned {
             TicketsHaptics.pin()
-            showToast("Auf Unterwegs angehefixt ✈️")
+            showToast("Auf Unterwägs angehefixt ✈️")
         } else {
             TicketsHaptics.lightImpact()
-            showToast("Von Unterwegs gelöst")
+            showToast("Von Unterwägs gelöst")
         }
     }
 
@@ -698,7 +698,7 @@ final class TicketStore: ObservableObject {
         tickets[idx].isPinned = pinned
         if pinned && !wasPinned {
             TicketsHaptics.pin()
-            showToast("Auf Unterwegs angehefixt ✈️")
+            showToast("Auf Unterwägs angehefixt ✈️")
         }
     }
 

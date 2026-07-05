@@ -60,7 +60,7 @@ struct OnboardingView: View {
         ),
         (
             "pin.fill",
-            "Unterwegs griffbereit",
+            "Unterwägs griffbereit",
             "Pinne dein nächstes Ticket, trage Flug & Sitz ein — und halte wichtige Nummern parat.",
             "unterwegs"
         )

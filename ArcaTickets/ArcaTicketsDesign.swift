@@ -760,7 +760,7 @@ struct TicketsTip {
 
 struct TicketsDidYouKnowCard: View {
     private static let tips: [TicketsTip] = [
-        TicketsTip(icon: "pin.fill", text: "Pinne Tickets auf „Unterwegs“, damit Bordkarte und Hotelbestätigung beim Reisen oben bleiben.", tint: ArcaTicketsDesign.travelOcean),
+        TicketsTip(icon: "pin.fill", text: "Pinne Tickets auf „Unterwägs“, damit Bordkarte und Hotelbestätigung beim Reisen oben bleiben.", tint: ArcaTicketsDesign.travelOcean),
         TicketsTip(icon: "person.2.fill", text: "Teile einen Reiseordner per AirDrop — die ganze Familie hat Flug, Hotel und Eintritt auf dem Handy.", tint: .teal),
         TicketsTip(icon: "folder.badge.plus", text: "Lege Ordner wie „Reise Zermatt“ an und sammle alle Tickets der Reise an einem Ort.", tint: .purple),
         TicketsTip(icon: "bell.badge.fill", text: "Abos und Saisonkarten erinnern dich 30 Tage vor Ablauf — normale Tickets einen Tag vorher.", tint: .orange),
@@ -768,7 +768,7 @@ struct TicketsDidYouKnowCard: View {
         TicketsTip(icon: "square.and.arrow.up.fill", text: "Sichere alle Tickets regelmäßig — so behältst du sie auch bei Gerätewechsel.", tint: .indigo),
         TicketsTip(icon: "icloud.fill", text: "Mit iCloud synchronisieren sich Tickets automatisch zwischen iPhone und iPad.", tint: .cyan),
         TicketsTip(icon: "qrcode", text: "QR-Codes und PDFs lassen sich direkt als Ticket importieren — einfach teilen und öffnen.", tint: ArcaTicketsDesign.travelSky),
-        TicketsTip(icon: "airplane.departure", text: "Sortiere die Tabs in den Einstellungen — Unterwegs oder Alle Tickets als Startseite.", tint: ArcaTicketsDesign.travelSunset),
+        TicketsTip(icon: "airplane.departure", text: "Sortiere die Tabs in den Einstellungen — Unterwägs oder Alle Tickets als Startseite.", tint: ArcaTicketsDesign.travelSunset),
         TicketsTip(icon: "lock.shield.fill", text: "PIN und Face ID schützen deine Tickets — am Gate zeigst du nur das, was nötig ist.", tint: .green),
     ]
 

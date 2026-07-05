@@ -244,7 +244,7 @@ struct TicketRow: View {
                 }
                 .buttonStyle(.plain)
                 .ticketsMinTapTarget()
-                .accessibilityLabel(ticket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs anheften")
+                .accessibilityLabel(ticket.isPinned ? "Von Unterwägs lösen" : "Auf Unterwägs anheften")
             }
         }
         .padding(.vertical, 2)
