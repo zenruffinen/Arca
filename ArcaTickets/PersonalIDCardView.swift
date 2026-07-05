@@ -7,6 +7,235 @@
 
 import SwiftUI
 
+// MARK: - Klecks blob shape
+
+struct KlecksBlobShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        var path = Path()
+        path.move(to: CGPoint(x: w * 0.54, y: h * 0.03))
+        path.addCurve(
+            to: CGPoint(x: w * 0.97, y: h * 0.36),
+            control1: CGPoint(x: w * 0.84, y: h * -0.04),
+            control2: CGPoint(x: w * 1.03, y: h * 0.16)
+        )
+        path.addCurve(
+            to: CGPoint(x: w * 0.70, y: h * 0.94),
+            control1: CGPoint(x: w * 0.94, y: h * 0.60),
+            control2: CGPoint(x: w * 0.90, y: h * 1.02)
+        )
+        path.addCurve(
+            to: CGPoint(x: w * 0.14, y: h * 0.76),
+            control1: CGPoint(x: w * 0.52, y: h * 0.88),
+            control2: CGPoint(x: w * 0.26, y: h * 0.96)
+        )
+        path.addCurve(
+            to: CGPoint(x: w * 0.54, y: h * 0.03),
+            control1: CGPoint(x: w * -0.03, y: h * 0.52),
+            control2: CGPoint(x: w * 0.20, y: h * 0.06)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+// MARK: - Floating Klecks (Unterwegs)
+
+struct VisitenkarteFloatingDecoration: View {
+    @EnvironmentObject private var store: TicketStore
+    @State private var showDetailSheet = false
+
+    private var card: PersonalIDCard { store.personalIDCard }
+    private let tilt: Double = 12
+
+    var body: some View {
+        Button {
+            TicketsHaptics.lightImpact()
+            showDetailSheet = true
+        } label: {
+            klecksGraphic
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(card.isConfigured
+            ? "Visitenkarte, \(card.displayName)"
+            : "Visitenkarte, Daten eintragen")
+        .accessibilityHint("Tippen zum Öffnen")
+        .sheet(isPresented: $showDetailSheet) {
+            PersonalIDCardDetailSheet()
+        }
+    }
+
+    private var klecksGraphic: some View {
+        ZStack {
+            KlecksBlobShape()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.travelOcean.opacity(0.18),
+                            ArcaTicketsDesign.travelSky.opacity(0.08),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 44
+                    )
+                )
+                .frame(width: 82, height: 78)
+                .blur(radius: 4)
+
+            KlecksBlobShape()
+                .fill(.ultraThinMaterial)
+                .frame(width: 72, height: 68)
+                .overlay {
+                    KlecksBlobShape()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    ArcaTicketsDesign.travelOcean.opacity(0.65),
+                                    ArcaTicketsDesign.travelSky.opacity(0.35)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                }
+                .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.22), radius: 8, y: 3)
+
+            VStack(spacing: 3) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .symbolRenderingMode(.hierarchical)
+
+                Text("Visitenkarte")
+                    .font(.system(size: 9, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .rotationEffect(.degrees(tilt))
+        }
+        .frame(width: 78, height: 74)
+        .rotationEffect(.degrees(tilt))
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Detail sheet (Unterwegs tap)
+
+struct PersonalIDCardDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: TicketStore
+    @State private var showEditor = false
+
+    private var card: PersonalIDCard { store.personalIDCard }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                PersonalIDCardFieldsView(card: card) {
+                    showEditor = true
+                }
+                .padding(20)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Meine Visitenkarte")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Bearbeiten") { showEditor = true }
+                }
+            }
+            .sheet(isPresented: $showEditor) {
+                PersonalIDCardEditorView(card: card)
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+// MARK: - Shared field content
+
+struct PersonalIDCardFieldsView: View {
+    let card: PersonalIDCard
+    var onEdit: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            idFieldRow(label: "Name", value: card.name, icon: "person.fill")
+            idFieldRow(label: "Passnummer", value: card.passportNumber, icon: "airplane.departure")
+            idFieldRow(label: "AHV-Nummer", value: card.ahvNumber, icon: "number")
+
+            if let nationality = card.nationality, !nationality.isEmpty {
+                idFieldRow(label: "Nationalität", value: nationality, icon: "globe")
+            }
+            if let birthDate = card.birthDate {
+                idFieldRow(
+                    label: "Geburtsdatum",
+                    value: birthDate.formatted(date: .abbreviated, time: .omitted),
+                    icon: "calendar"
+                )
+            }
+            if let bloodType = card.bloodType, !bloodType.isEmpty {
+                idFieldRow(label: "Blutgruppe", value: bloodType, icon: "drop.fill")
+            }
+
+            if !card.isConfigured {
+                Text("Trage deine wichtigsten Daten ein — im Notfall schnell vorzeigen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+
+            if let onEdit {
+                Button(action: onEdit) {
+                    Label("Bearbeiten", systemImage: "pencil")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                        .background(ArcaTicketsDesign.travelOcean.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func idFieldRow(label: String, value: String, icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label.uppercased())
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.6)
+                Text(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "—" : value)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(value.isEmpty ? .tertiary : .primary)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+// MARK: - Inline card (Notfall)
+
 struct PersonalIDCardView: View {
     @EnvironmentObject private var store: TicketStore
     @State private var isExpanded = false
@@ -97,66 +326,10 @@ struct PersonalIDCardView: View {
         VStack(spacing: 0) {
             perforatedDivider
 
-            VStack(alignment: .leading, spacing: 14) {
-                idFieldRow(label: "Name", value: card.name, icon: "person.fill")
-                idFieldRow(label: "Passnummer", value: card.passportNumber, icon: "airplane.departure")
-                idFieldRow(label: "AHV-Nummer", value: card.ahvNumber, icon: "number")
-
-                if let nationality = card.nationality, !nationality.isEmpty {
-                    idFieldRow(label: "Nationalität", value: nationality, icon: "globe")
-                }
-                if let birthDate = card.birthDate {
-                    idFieldRow(
-                        label: "Geburtsdatum",
-                        value: birthDate.formatted(date: .abbreviated, time: .omitted),
-                        icon: "calendar"
-                    )
-                }
-                if let bloodType = card.bloodType, !bloodType.isEmpty {
-                    idFieldRow(label: "Blutgruppe", value: bloodType, icon: "drop.fill")
-                }
-
-                if !card.isConfigured {
-                    Text("Trage deine wichtigsten Daten ein — im Notfall schnell vorzeigen.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Button {
-                    showEditor = true
-                } label: {
-                    Label("Bearbeiten", systemImage: "pencil")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                        .background(ArcaTicketsDesign.travelOcean.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
+            PersonalIDCardFieldsView(card: card) {
+                showEditor = true
             }
             .padding(16)
-        }
-    }
-
-    private func idFieldRow(label: String, value: String, icon: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                .frame(width: 22)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label.uppercased())
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .tracking(0.6)
-                Text(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "—" : value)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(value.isEmpty ? .tertiary : .primary)
-            }
-
-            Spacer(minLength: 0)
         }
     }
 

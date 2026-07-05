@@ -23,8 +23,6 @@ struct UnderwegsView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
 
-                    UnterwegsQuickActionsRow()
-
                     if store.isCloudSyncPending {
                         HStack(spacing: 8) {
                             ProgressView()
@@ -34,8 +32,6 @@ struct UnderwegsView: View {
                         }
                         .padding(.horizontal, 4)
                     }
-
-                    PersonalIDCardView()
 
                     if unterwegsTickets.isEmpty {
                         emptyState
@@ -65,13 +61,23 @@ struct UnderwegsView: View {
                 .padding(.leading, 20)
                 .allowsHitTesting(false)
         }
-        .navigationTitle("Unterwegs")
-        .navigationBarTitleDisplayMode(.large)
-        .overlay(alignment: .bottomTrailing) {
+        .overlay(alignment: .topLeading) {
+            VisitenkarteFloatingDecoration()
+                .padding(.top, 58)
+                .padding(.leading, 10)
+        }
+        .overlay(alignment: .leading) {
             TaxiButtonView()
-                .padding(.trailing, 20)
+                .padding(.leading, 14)
+                .padding(.top, 200)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            GolfButtonView()
+                .padding(.trailing, 18)
                 .padding(.bottom, 108)
         }
+        .navigationTitle("Unterwegs")
+        .navigationBarTitleDisplayMode(.large)
         .overlay(alignment: .bottom) {
             TicketsFAB(title: "Hinzufügen", useTravelGradient: true) {
                 showAddTicket = true

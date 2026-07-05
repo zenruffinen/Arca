@@ -549,6 +549,138 @@ struct TravelSunDecoration: View {
     }
 }
 
+struct TravelTaxiDecoration: View {
+    private let tilt: Double = -10
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.taxiYellow.opacity(0.5),
+                            ArcaTicketsDesign.taxiYellowDeep.opacity(0.2),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 48
+                    )
+                )
+                .frame(width: 88, height: 88)
+                .blur(radius: 6)
+
+            VStack(spacing: 2) {
+                Text("Taxi")
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
+                    .shadow(color: .white.opacity(0.55), radius: 0, y: 1)
+
+                Image(systemName: "car.side.fill")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [ArcaTicketsDesign.taxiYellow, ArcaTicketsDesign.taxiYellowDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.14), radius: 2, y: 2)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        ArcaTicketsDesign.taxiYellow.opacity(0.7),
+                                        ArcaTicketsDesign.taxiYellowDeep.opacity(0.4)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    }
+                    .shadow(color: ArcaTicketsDesign.taxiYellowDeep.opacity(0.25), radius: 10, y: 3)
+            }
+            .rotationEffect(.degrees(tilt))
+        }
+        .frame(width: 84, height: 78)
+        .accessibilityHidden(true)
+    }
+}
+
+struct TravelGolfDecoration: View {
+    private let tilt: Double = 8
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            ArcaTicketsDesign.golfCyan.opacity(0.45),
+                            ArcaTicketsDesign.golfFairway.opacity(0.2),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 6,
+                        endRadius: 48
+                    )
+                )
+                .frame(width: 88, height: 88)
+                .blur(radius: 6)
+
+            VStack(spacing: 2) {
+                Text("Golf")
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep)
+                    .shadow(color: .white.opacity(0.55), radius: 0, y: 1)
+
+                Image(systemName: "figure.golf")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [ArcaTicketsDesign.golfCyan, ArcaTicketsDesign.golfFairwayDeep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.14), radius: 2, y: 2)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Circle()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        ArcaTicketsDesign.golfCyan.opacity(0.65),
+                                        ArcaTicketsDesign.golfFairwayDeep.opacity(0.4)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    }
+                    .shadow(color: ArcaTicketsDesign.golfFairwayDeep.opacity(0.22), radius: 10, y: 3)
+            }
+            .rotationEffect(.degrees(tilt))
+        }
+        .frame(width: 78, height: 78)
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Swiss glass flag
 
 struct SwissCrossShape: Shape {
