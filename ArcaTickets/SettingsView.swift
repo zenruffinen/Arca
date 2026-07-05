@@ -68,7 +68,7 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Tickets gespeichert", value: "\(store.tickets.count)")
-                    Text("Du wirst einen Tag vor Ablauf an gültige Tickets erinnert.")
+                    Text("Abos und Saisonkarten: Erinnerung 30 Tage vor Ablauf. Alle anderen Tickets: 1 Tag vorher.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } header: {

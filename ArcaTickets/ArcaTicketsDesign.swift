@@ -18,6 +18,7 @@ enum ArcaTicketsDesign {
         case "teal": return .teal
         case "purple": return .purple
         case "orange": return .orange
+        case "indigo": return .indigo
         default: return .secondary
         }
     }

@@ -276,6 +276,12 @@ struct TicketRow: View {
                         Text(countdown)
                             .font(.caption)
                             .foregroundStyle(ticket.daysUntilExpiry == 0 ? .orange : .secondary)
+                    } else if let uses = ticket.usesCountdownText {
+                        Text("·")
+                            .foregroundStyle(.secondary)
+                        Text(uses)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     } else if let expiry = ticket.expiryDate {
                         Text("·")
                             .foregroundStyle(.secondary)

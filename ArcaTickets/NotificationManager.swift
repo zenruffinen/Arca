@@ -9,13 +9,35 @@ import Foundation
 import UserNotifications
 
 enum NotificationManager {
-    private static let reminderDaysBefore = 1
+    private static let standardReminderDays = 1
+    private static let longTermReminderDays = 30
+
+    private static let aboKeywords = [
+        "halbtax", "halb tax", "ga ", " ga", "generalabonnement", "general-abo",
+        "öv-abo", "oev-abo", "abo", "vignette", "fitness", "museumspass",
+        "museums-pass", "swiss pass", "swisspass"
+    ]
+
+    private static let seasonKeywords = [
+        "saisonkarte", "saison", "jahreskarte", "jahrespass", "jahres-skipass",
+        "jahresskipass", "winterpass", "sommerpass"
+    ]
 
     static func requestAuthorizationIfNeeded() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             guard settings.authorizationStatus == .notDetermined else { return }
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
         }
+    }
+
+    static func reminderDaysBefore(for ticket: TicketEntry) -> Int {
+        if ticket.folder == "Abos" || matchesAboKeywords(ticket.title) {
+            return longTermReminderDays
+        }
+        if ticket.folder == "Berge", matchesSeasonKeywords(ticket.title) {
+            return longTermReminderDays
+        }
+        return standardReminderDays
     }
 
     static func rescheduleAll(for tickets: [TicketEntry]) {
@@ -31,7 +53,7 @@ enum NotificationManager {
                     }
                 center.removePendingNotificationRequests(withIdentifiers: stale)
 
-                for ticket in tickets {
+                for ticket in tickets where !ticket.isArchived {
                     scheduleReminder(for: ticket)
                 }
             }
@@ -40,15 +62,20 @@ enum NotificationManager {
 
     private static func scheduleReminder(for ticket: TicketEntry) {
         guard let expiry = ticket.expiryDate, expiry > Date() else { return }
+        let daysBefore = reminderDaysBefore(for: ticket)
         guard let fireDate = Calendar.current.date(
             byAdding: .day,
-            value: -reminderDaysBefore,
+            value: -daysBefore,
             to: expiry
         ), fireDate > Date() else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "Ticket läuft bald ab"
-        content.body = "\(ticket.title) läuft morgen ab — rechtzeitig vorzeigen oder erneuern."
+        content.title = daysBefore > 1 ? "Abo läuft bald ab" : "Ticket läuft bald ab"
+        if daysBefore > 1 {
+            content.body = "\(ticket.title) läuft in 30 Tagen ab — rechtzeitig erneuern."
+        } else {
+            content.body = "\(ticket.title) läuft morgen ab — rechtzeitig vorzeigen oder erneuern."
+        }
         content.sound = .default
 
         let components = Calendar.current.dateComponents(
@@ -68,5 +95,15 @@ enum NotificationManager {
         UNUserNotificationCenter.current().removePendingNotificationRequests(
             withIdentifiers: ["expiry-\(ticket.id.uuidString)"]
         )
+    }
+
+    private static func matchesAboKeywords(_ title: String) -> Bool {
+        let normalized = title.lowercased()
+        return aboKeywords.contains { normalized.contains($0) }
+    }
+
+    private static func matchesSeasonKeywords(_ title: String) -> Bool {
+        let normalized = title.lowercased()
+        return seasonKeywords.contains { normalized.contains($0) }
     }
 }

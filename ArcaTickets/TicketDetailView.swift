@@ -13,6 +13,7 @@ struct TicketDetailView: View {
     @State private var ticket: TicketEntry
     @State private var showQRFullscreen = false
     @State private var isEditing = false
+    @State private var showRenewal = false
     @State private var fileMissing = false
 
     init(ticket: TicketEntry) {
@@ -27,9 +28,27 @@ struct TicketDetailView: View {
         ticket.fileKind == .image
     }
 
+    private var canRenew: Bool {
+        ticket.isExpired && !ticket.isArchived
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if canRenew {
+                    Button {
+                        showRenewal = true
+                    } label: {
+                        Label("Erneuern", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(.white)
+                            .background(Color.orange, in: RoundedRectangle(cornerRadius: ArcaTicketsDesign.cornerRadius, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 if canShowQR {
                     TicketsPrimaryButton(title: "Am Schalter zeigen", icon: "qrcode.viewfinder") {
                         TicketsHaptics.mediumImpact()
@@ -37,8 +56,16 @@ struct TicketDetailView: View {
                     }
                 }
 
-                previewSection
+                if ticket.isArchived {
+                    Label("Archiviert — durch Erneuerung ersetzt", systemImage: "archivebox.fill")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .ticketsCardBackground(tint: .gray, cornerRadius: 12)
+                }
 
+                previewSection
                 metadataSection
             }
             .padding(16)
@@ -54,15 +81,28 @@ struct TicketDetailView: View {
         .sheet(isPresented: $isEditing) {
             EditTicketView(ticket: $ticket)
         }
+        .sheet(isPresented: $showRenewal) {
+            AddTicketView(preselectedFolder: ticket.folder, renewalSource: ticket)
+        }
         .fullScreenCover(isPresented: $showQRFullscreen) {
             QRFullscreenView(imageURL: fileURL)
         }
         .onAppear {
             fileMissing = !store.ensureFileDownloaded(ticket.fileName)
                 && !FileManager.default.fileExists(atPath: fileURL.path)
+            syncTicketFromStore()
         }
         .onChange(of: ticket) { _, updated in
             store.updateTicket(updated)
+        }
+        .onChange(of: store.tickets) { _, _ in
+            syncTicketFromStore()
+        }
+    }
+
+    private func syncTicketFromStore() {
+        if let current = store.tickets.first(where: { $0.id == ticket.id }) {
+            ticket = current
         }
     }
 
@@ -95,9 +135,14 @@ struct TicketDetailView: View {
                 detailRow(title: "Gültig bis", value: expiry.formatted(date: .long, time: .shortened))
                 if let countdown = ticket.expiryCountdownText {
                     detailRow(title: "Status", value: countdown)
+                } else if ticket.isExpired {
+                    detailRow(title: "Status", value: "Abgelaufen")
                 }
             } else {
                 detailRow(title: "Gültig bis", value: "Nicht gesetzt")
+            }
+            if let usesText = ticket.usesCountdownText {
+                detailRow(title: "Eintritte", value: usesText)
             }
             detailRow(title: "Hinzugefügt", value: ticket.createdAt.formatted(date: .abbreviated, time: .shortened))
             if let notes = ticket.notes, !notes.isEmpty {
@@ -139,6 +184,9 @@ struct EditTicketView: View {
     @State private var folder: String = ""
     @State private var hasExpiry = false
     @State private var expiryDate = Date()
+    @State private var hasUses = false
+    @State private var remainingUses = 10
+    @State private var totalUses = 10
 
     var body: some View {
         NavigationStack {
@@ -155,6 +203,13 @@ struct EditTicketView: View {
                     Toggle("Ablaufdatum", isOn: $hasExpiry)
                     if hasExpiry {
                         DatePicker("Gültig bis", selection: $expiryDate, displayedComponents: [.date, .hourAndMinute])
+                    }
+                }
+                Section("Mehrfachkarte") {
+                    Toggle("Eintritte zählen", isOn: $hasUses)
+                    if hasUses {
+                        Stepper("Verbleibend: \(remainingUses)", value: $remainingUses, in: 0...999)
+                        Stepper("Gesamt: \(totalUses)", value: $totalUses, in: 1...999)
                     }
                 }
                 Section("Notizen") {
@@ -180,6 +235,11 @@ struct EditTicketView: View {
                     hasExpiry = true
                     expiryDate = expiry
                 }
+                if ticket.remainingUses != nil {
+                    hasUses = true
+                    remainingUses = ticket.remainingUses ?? 0
+                    totalUses = ticket.totalUses ?? remainingUses
+                }
             }
         }
     }
@@ -190,6 +250,13 @@ struct EditTicketView: View {
         ticket.expiryDate = hasExpiry ? expiryDate : nil
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         ticket.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
+        if hasUses {
+            ticket.remainingUses = remainingUses
+            ticket.totalUses = totalUses
+        } else {
+            ticket.remainingUses = nil
+            ticket.totalUses = nil
+        }
         store.updateTicket(ticket)
         dismiss()
     }

@@ -15,12 +15,16 @@ struct AddTicketView: View {
 
     var preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges"
     var importURL: URL?
+    var renewalSource: TicketEntry?
 
     @State private var title = ""
     @State private var folder: String
     @State private var notes = ""
     @State private var hasExpiry = false
     @State private var expiryDate = Date().addingTimeInterval(86400)
+    @State private var hasUses = false
+    @State private var remainingUses = 10
+    @State private var totalUses = 10
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showDocumentPicker = false
     @State private var showCamera = false
@@ -29,15 +33,37 @@ struct AddTicketView: View {
     @State private var pendingExtension = "jpg"
     @State private var errorMessage = ""
 
-    init(preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges", importURL: URL? = nil) {
+    init(
+        preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges",
+        importURL: URL? = nil,
+        renewalSource: TicketEntry? = nil
+    ) {
         self.preselectedFolder = preselectedFolder
         self.importURL = importURL
-        _folder = State(initialValue: preselectedFolder)
+        self.renewalSource = renewalSource
+        _folder = State(initialValue: renewalSource?.folder ?? preselectedFolder)
+        _title = State(initialValue: renewalSource?.title ?? "")
+        _notes = State(initialValue: renewalSource?.notes ?? "")
+        if let source = renewalSource {
+            _hasUses = State(initialValue: source.remainingUses != nil)
+            _remainingUses = State(initialValue: source.remainingUses ?? 10)
+            _totalUses = State(initialValue: source.totalUses ?? source.remainingUses ?? 10)
+        }
     }
+
+    private var isRenewal: Bool { renewalSource != nil }
 
     var body: some View {
         NavigationStack {
             Form {
+                if isRenewal {
+                    Section {
+                        Label("Erneuertes Ticket — neues Dokument und neues Ablaufdatum wählen.", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Quelle") {
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
                         Label("Aus Fotos wählen", systemImage: "photo.on.rectangle")
@@ -71,6 +97,11 @@ struct AddTicketView: View {
                     if hasExpiry {
                         DatePicker("Gültig bis", selection: $expiryDate, displayedComponents: [.date, .hourAndMinute])
                     }
+                    Toggle("Mehrfachkarte", isOn: $hasUses)
+                    if hasUses {
+                        Stepper("Verbleibend: \(remainingUses)", value: $remainingUses, in: 0...999)
+                        Stepper("Gesamt: \(totalUses)", value: $totalUses, in: 1...999)
+                    }
                     TextField("Notizen (optional)", text: $notes, axis: .vertical)
                         .lineLimit(2...4)
                 }
@@ -83,14 +114,14 @@ struct AddTicketView: View {
                     }
                 }
             }
-            .navigationTitle("Ticket hinzufügen")
+            .navigationTitle(isRenewal ? "Ticket erneuern" : "Ticket hinzufügen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Abbrechen") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { saveTicket() }
+                    Button(isRenewal ? "Erneuern" : "Speichern") { saveTicket() }
                         .disabled(!canSave)
                 }
             }
@@ -205,7 +236,16 @@ struct AddTicketView: View {
         saved.expiryDate = hasExpiry ? expiryDate : nil
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         saved.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
+        if hasUses {
+            saved.remainingUses = remainingUses
+            saved.totalUses = totalUses
+        }
         store.updateTicket(saved)
+
+        if let source = renewalSource {
+            store.archiveTicket(source)
+        }
+
         TicketsHaptics.success()
         dismiss()
     }

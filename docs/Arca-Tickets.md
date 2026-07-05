@@ -119,7 +119,29 @@ Arca Tickets ist bewusst **klein und fokussiert**: keine Reiseplanung, kein Wall
 
 **Alle Fahrkarten und Tickets an einem Ort — schnell abrufbar, sicher gespeichert, rechtzeitig erinnert.**
 
-Arca Tickets ist eine dedizierte iOS-App für Reisende und Eventbesucher: Foto oder PDF importieren, in Ordner sortieren, QR-Code im Vollbild vorzeigen — ohne den Overhead der vollständigen [[Arca]]-Produktivitäts-Suite.
+Arca Tickets ist eine dedizierte iOS-App für Reisende und Eventbesucher in der Schweiz: Foto oder PDF importieren, in Ordner sortieren, QR-Code im Vollbild vorzeigen — ohne den Overhead der vollständigen [[Arca]]-Produktivitäts-Suite.
+
+### Schweizer Ordnerstruktur (Neuinstallation)
+
+Vier Standard-Ordner — bewusst wenig, aber passend für den Alltag in der Schweiz:
+
+| Ordner | Icon | Typische Inhalte | Erinnerung |
+|--------|------|------------------|------------|
+| **Bahn** | `train.side.front.car` | Einzelbillette, Sparbillette SBB, Tageskarten | 1 Tag vorher |
+| **Abos** | `creditcard.fill` | Halbtax, GA, ÖV-Abo, Fitness, Vignette | **30 Tage** vorher |
+| **Berge** | `mountain.2.fill` | Skipass, Saisonkarte, Skitageskarten, Bergbahn | 1 Tag (Saisonkarten: **30 Tage**) |
+| **Sonstiges** | `ticket.fill` | Parktickets, Events, Mehrfachkarten, Boarding Pass, MFK | 1 Tag vorher |
+
+> [!tip] Bestehende Nutzer
+> Wer die App schon nutzt, behält seine Ordner unverändert. Nur bei einer frischen Installation werden die vier Standard-Ordner angelegt. Eigene Ordner (z. B. ÖV, Events, Parken) lassen sich jederzeit unter **Einstellungen → Ordner verwalten** hinzufügen.
+
+### Kernflows
+
+**Erneuern:** Abgelaufenes Ticket → Button „Erneuern" im Detail → Formular mit vorausgefülltem Titel, Ordner und Notizen → neues Dokument importieren → altes Ticket wird archiviert und erscheint unter „Abgelaufen".
+
+**Mehrfachkarten:** Optionale Felder `remainingUses` / `totalUses` — Anzeige „Noch X von Y Eintritten" in Detail und Liste.
+
+**Leere Ordner:** Schweizfreundliche Beispiel-Chips pro Ordner (z. B. Halbtax, GA, Skipass) als Orientierungshilfe.
 
 ---
 
@@ -130,15 +152,17 @@ Arca Tickets ist eine dedizierte iOS-App für Reisende und Eventbesucher: Foto o
 | 1 | **QR/Barcode Vollbild** | ✅ | Vision-Erkennung (QR, Aztec, Code128 …), Helligkeit 100 %, Wisch nach unten zum Schließen, Button „Am Schalter zeigen" prominent im Detail |
 | 2 | **Schnell hinzufügen** | ✅ | Prominenter FAB „Hinzufügen", Dokumenttypen (PDF/Bild) für Import aus anderen Apps, `.onOpenURL`-Handler |
 | 3 | **Nächstes Ticket** | ✅ | Hero-Karte auf dem Homescreen — baldigst ablaufendes gültiges Ticket oben |
-| 4 | **Ablauf-Erinnerung** | ✅ | Lokale Push 1 Tag vor Ablauf (`UserNotifications`) |
-| 5 | **Deutsche UI** | ✅ | Durchgängig deutsche, freundliche Texte |
-| 6 | **Onboarding** | ✅ | 3 Screens beim ersten Start (überspringbar): Speichern → QR zeigen → Fertig |
-| 7 | **App Icon** | ✅ | Arca-Familien-Icon: Glass-Ticket mit A-Logo, QR-Motiv & Dark-Mode-Variante |
-| 8 | **Homescreen-Widget** | ✅ | Nächstes gültiges Ticket — Titel, Ordner, Countdown, QR-Hinweis |
-| 9 | **Ordner verwalten** | ✅ | Eigene Ordner anlegen, umbenennen, löschen |
-| 10 | **Filter Aktiv/Abgelaufen** | ✅ | Segment-Filter in Ordneransicht |
-| 11 | **Haptik** | ✅ | Beim Speichern und „Am Schalter zeigen" |
-| 12 | **Teilen-Import** | ✅ | PDF/Bild per Teilen-Sheet + URL-Scheme `arcatickets://` |
+| 4 | **Ablauf-Erinnerung** | ✅ | Abos & Saisonkarten: 30 Tage vorher; sonst 1 Tag (`UserNotifications`) |
+| 5 | **Erneuern-Flow** | ✅ | Abgelaufene Tickets erneuern — altes Ticket archiviert |
+| 6 | **Mehrfachkarten** | ✅ | Optionale Eintritts-Zähler (noch X von Y) |
+| 7 | **Deutsche UI** | ✅ | Durchgängig deutsche, freundliche Texte |
+| 8 | **Onboarding** | ✅ | 2 Screens beim ersten Start (überspringbar): Speichern → QR zeigen |
+| 9 | **App Icon** | ✅ | Arca-Familien-Icon: Glass-Ticket mit A-Logo, QR-Motiv & Dark-Mode-Variante |
+| 10 | **Homescreen-Widget** | ✅ | Nächstes gültiges Ticket — Titel, Ordner, Countdown, QR-Hinweis |
+| 11 | **Ordner verwalten** | ✅ | Eigene Ordner anlegen, umbenennen, löschen |
+| 12 | **Filter Aktiv/Abgelaufen** | ✅ | Segment-Filter in Ordneransicht |
+| 13 | **Haptik** | ✅ | Beim Speichern und „Am Schalter zeigen" |
+| 14 | **Teilen-Import** | ✅ | PDF/Bild per Teilen-Sheet + URL-Scheme `arcatickets://` |
 
 ---
 
@@ -347,13 +371,13 @@ Speichere Fahrkarten und Event-Tickets als Foto oder PDF. QR-Code im Vollbild, A
 Arca Tickets hält deine digitalen Fahrkarten und Event-Tickets an einem Ort — ohne Wallet-Overhead, ohne Reiseplaner, ohne Schnickschnack.
 
 **Speichern in Sekunden**
-Foto, PDF oder Screenshot importieren. Per Teilen aus Mail oder Safari direkt in Arca Tickets. Ordner für Bahn, ÖV, Events und eigene Kategorien.
+Foto, PDF oder Screenshot importieren. Per Teilen aus Mail oder Safari direkt in Arca Tickets. Ordner für Bahn, Abos, Berge und eigene Kategorien.
 
 **Am Schalter sofort bereit**
 QR-Code im Vollbild mit maximaler Helligkeit. Ein Tap — fertig. Kein Zoomen, kein Suchen in der Galerie.
 
 **Rechtzeitig erinnert**
-Push-Benachrichtigung einen Tag vor Ablauf. Dein Ticket vergisst du nicht — dein Geld auch nicht.
+Push-Benachrichtigung einen Tag vor Ablauf — bei Abos und Saisonkarten bereits 30 Tage vorher. Dein Ticket vergisst du nicht — dein Geld auch nicht.
 
 **Sicher & synchron**
 PIN oder Face ID schützen deine Tickets. iCloud synchronisiert alles zwischen deinen Geräten.

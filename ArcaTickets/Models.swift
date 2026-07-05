@@ -28,6 +28,9 @@ struct TicketEntry: Identifiable, Codable, Hashable {
     var fileName: String
     var createdAt: Date
     var notes: String?
+    var isArchived: Bool
+    var remainingUses: Int?
+    var totalUses: Int?
 
     init(id: UUID = UUID(),
          title: String,
@@ -35,7 +38,10 @@ struct TicketEntry: Identifiable, Codable, Hashable {
          expiryDate: Date? = nil,
          fileName: String,
          createdAt: Date = Date(),
-         notes: String? = nil) {
+         notes: String? = nil,
+         isArchived: Bool = false,
+         remainingUses: Int? = nil,
+         totalUses: Int? = nil) {
         self.id = id
         self.title = title
         self.folder = folder
@@ -43,6 +49,23 @@ struct TicketEntry: Identifiable, Codable, Hashable {
         self.fileName = fileName
         self.createdAt = createdAt
         self.notes = notes
+        self.isArchived = isArchived
+        self.remainingUses = remainingUses
+        self.totalUses = totalUses
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        folder = try c.decode(String.self, forKey: .folder)
+        expiryDate = try c.decodeIfPresent(Date.self, forKey: .expiryDate)
+        fileName = try c.decode(String.self, forKey: .fileName)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        isArchived = try c.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
+        remainingUses = try c.decodeIfPresent(Int.self, forKey: .remainingUses)
+        totalUses = try c.decodeIfPresent(Int.self, forKey: .totalUses)
     }
 
     var fileKind: TicketFileKind {
@@ -56,6 +79,7 @@ struct TicketEntry: Identifiable, Codable, Hashable {
     }
 
     var isValid: Bool {
+        guard !isArchived else { return false }
         guard let expiryDate else { return true }
         return expiryDate >= Date()
     }
@@ -75,6 +99,14 @@ struct TicketEntry: Identifiable, Codable, Hashable {
         default: return "Noch \(days) Tage gültig"
         }
     }
+
+    var usesCountdownText: String? {
+        guard let remaining = remainingUses else { return nil }
+        if let total = totalUses {
+            return "Noch \(remaining) von \(total) Eintritten"
+        }
+        return "Noch \(remaining) Eintritte"
+    }
 }
 
 struct TicketFolderStyle {
@@ -84,34 +116,74 @@ struct TicketFolderStyle {
     static func style(for name: String) -> TicketFolderStyle {
         switch name {
         case "Bahn":
-            return TicketFolderStyle(icon: "tram.fill", tintName: "blue")
+            return TicketFolderStyle(icon: "train.side.front.car", tintName: "blue")
+        case "Abos":
+            return TicketFolderStyle(icon: "creditcard.fill", tintName: "indigo")
+        case "Berge":
+            return TicketFolderStyle(icon: "mountain.2.fill", tintName: "orange")
+        case "Sonstiges":
+            return TicketFolderStyle(icon: "ticket.fill", tintName: "gray")
         case "ÖV":
             return TicketFolderStyle(icon: "bus.fill", tintName: "teal")
         case "Events":
             return TicketFolderStyle(icon: "ticket.fill", tintName: "purple")
         case "Parken":
             return TicketFolderStyle(icon: "parkingsign.circle.fill", tintName: "orange")
-        case "Sonstiges":
-            return TicketFolderStyle(icon: "folder.fill", tintName: "gray")
         default:
             return TicketFolderStyle(icon: "folder.fill", tintName: "gray")
         }
     }
 
-    static func emptyStateMessage(for name: String) -> (title: String, description: String) {
+    static func emptyStateMessage(for name: String) -> (title: String, description: String, examples: [String]) {
         switch name {
         case "Bahn":
-            return ("Noch keine Zugtickets", "Speichere deine SBB- oder Bahn-Fahrkarten hier — per Foto, PDF oder Teilen.")
-        case "ÖV":
-            return ("ÖV-Tickets fehlen noch", "Bus, Tram und Metro: Importiere dein Ticket und zeig den QR-Code am Schalter.")
-        case "Events":
-            return ("Keine Event-Tickets", "Konzert, Sport oder Festival — lege dein Ticket ab, bevor du losgehst.")
-        case "Parken":
-            return ("Keine Parktickets", "Parkschein oder Parkhaus-Ticket? Hier landet alles für die Ausfahrt.")
+            return (
+                "Noch keine Zugtickets",
+                "Speichere SBB-Fahrkarten hier — per Foto, PDF oder Teilen aus der SBB-App.",
+                ["Einzelbillette", "Sparbillette", "Tageskarten"]
+            )
+        case "Abos":
+            return (
+                "Noch keine Abos",
+                "Jahres- und Monatsabos mit längerer Laufzeit — wir erinnern dich 30 Tage vor Ablauf.",
+                ["Halbtax", "GA", "ÖV-Abo", "Fitness", "Vignette"]
+            )
+        case "Berge":
+            return (
+                "Noch keine Bergtickets",
+                "Skipässe und Bergbahnen — Saisonkarten erinnern wir 30 Tage vor Ablauf.",
+                ["Skipass", "Saisonkarte", "Skitageskarte", "Bergbahn"]
+            )
         case "Sonstiges":
-            return ("Noch nichts hier", "ÖV, Parken und mehr — unter Einstellungen eigene Ordner anlegen oder hier ablegen.")
+            return (
+                "Noch nichts hier",
+                "Alles, was in keine andere Kategorie passt — oder eigene Ordner unter Einstellungen.",
+                ["Parktickets", "Events", "Mehrfachkarten", "Boarding Pass", "MFK"]
+            )
+        case "ÖV":
+            return (
+                "ÖV-Tickets fehlen noch",
+                "Bus, Tram und Metro: Importiere dein Ticket und zeig den QR-Code am Schalter.",
+                ["Bus", "Tram", "Metro"]
+            )
+        case "Events":
+            return (
+                "Keine Event-Tickets",
+                "Konzert, Sport oder Festival — lege dein Ticket ab, bevor du losgehst.",
+                ["Konzert", "Sport", "Festival"]
+            )
+        case "Parken":
+            return (
+                "Keine Parktickets",
+                "Parkschein oder Parkhaus-Ticket? Hier landet alles für die Ausfahrt.",
+                ["Parkschein", "Parkhaus"]
+            )
         default:
-            return ("Ordner ist leer", "Füge ein Ticket hinzu — per Kamera, Galerie, PDF oder Teilen aus einer anderen App.")
+            return (
+                "Ordner ist leer",
+                "Füge ein Ticket hinzu — per Kamera, Galerie, PDF oder Teilen aus einer anderen App.",
+                []
+            )
         }
     }
 }

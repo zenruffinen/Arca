@@ -33,7 +33,7 @@ final class TicketStore: ObservableObject {
 
     @Published private(set) var iCloudStatus: ICloudStatus = .unavailable
 
-    static let defaultFolders = ["Bahn", "Events", "Sonstiges"]
+    static let defaultFolders = ["Bahn", "Abos", "Berge", "Sonstiges"]
     static let pinHashKey = "arcatickets_pin_hash"
 
     private static let cloudSyncTimeout: TimeInterval = 30
@@ -327,7 +327,7 @@ final class TicketStore: ObservableObject {
     private func matchesFilter(_ ticket: TicketEntry, filter: TicketExpiryFilter) -> Bool {
         switch filter {
         case .active: return ticket.isValid
-        case .expired: return ticket.isExpired
+        case .expired: return ticket.isExpired || ticket.isArchived
         case .all: return true
         }
     }
@@ -372,6 +372,12 @@ final class TicketStore: ObservableObject {
     }
 
     /// Nächstes gültiges Ticket — zuerst mit baldigem Ablauf, sonst zuletzt hinzugefügt.
+    func archiveTicket(_ entry: TicketEntry) {
+        guard let idx = tickets.firstIndex(where: { $0.id == entry.id }) else { return }
+        tickets[idx].isArchived = true
+        NotificationManager.removeReminder(for: tickets[idx])
+    }
+
     var nextTicket: TicketEntry? {
         let valid = tickets.filter(\.isValid)
         let withExpiry = valid
