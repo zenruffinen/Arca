@@ -10,9 +10,20 @@ import SwiftUI
 struct UnderwegsView: View {
     @EnvironmentObject private var store: TicketStore
     @Binding var showAddTicket: Bool
+    @AppStorage(TicketsTravelTips.swissKnifeDismissKey) private var swissKnifeTipDismissed = false
 
     private var unterwegsTickets: [TicketEntry] {
         store.unterwegsTickets()
+    }
+
+    private var hasFlightTickets: Bool {
+        unterwegsTickets.contains { ticket in
+            !(ticket.flightNumber?.isEmpty ?? true) || ticket.boardingTime != nil
+        }
+    }
+
+    private var showSwissKnifeTip: Bool {
+        !swissKnifeTipDismissed && (hasFlightTickets || !unterwegsTickets.isEmpty)
     }
 
     var body: some View {
@@ -22,6 +33,18 @@ struct UnderwegsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
+
+                    if showSwissKnifeTip {
+                        TravelGlassTipBanner(
+                            tip: TicketsTravelTips.swissKnife,
+                            title: "Tipp ✈️"
+                        ) {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                swissKnifeTipDismissed = true
+                            }
+                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
 
                     if store.isCloudSyncPending {
                         HStack(spacing: 8) {

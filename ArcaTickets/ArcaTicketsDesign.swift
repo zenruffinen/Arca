@@ -756,14 +756,33 @@ struct SwissGlassFlag: View {
 
 // MARK: - Wusstest du?
 
-struct TicketsTip {
+struct TicketsTip: Identifiable {
+    let id: String
     let icon: String
     let text: String
     let tint: Color
+
+    init(id: String = UUID().uuidString, icon: String, text: String, tint: Color) {
+        self.id = id
+        self.icon = icon
+        self.text = text
+        self.tint = tint
+    }
 }
 
-struct TicketsDidYouKnowCard: View {
-    private static let tips: [TicketsTip] = [
+enum TicketsTravelTips {
+    static let swissKnifeDismissKey = "travelTip.swissKnife.dismissed"
+
+    static let swissKnife = TicketsTip(
+        id: "swissKnife",
+        icon: "airplane",
+        text: "Schweizer Messer dürfen nicht ins Handgepäck — auch kleine Klingen gehören ins aufgegebene Gepäck oder bleiben zu Hause.",
+        tint: ArcaTicketsDesign.travelGlassCyan
+    )
+
+    static let all: [TicketsTip] = [
+        swissKnife,
+        TicketsTip(icon: "airplane.departure", text: "Schweizer Messer dürfen nicht ins Handgepäck — lieber im aufgegebenen Gepäck oder zu Hause lassen.", tint: ArcaTicketsDesign.travelGlassCyan),
         TicketsTip(icon: "pin.fill", text: "Pinne Tickets auf „Unterwägs“, damit Bordkarte und Hotelbestätigung beim Reisen oben bleiben.", tint: ArcaTicketsDesign.travelOcean),
         TicketsTip(icon: "person.2.fill", text: "Teile einen Reiseordner per AirDrop — die ganze Familie hat Flug, Hotel und Eintritt auf dem Handy.", tint: .teal),
         TicketsTip(icon: "folder.badge.plus", text: "Lege Ordner wie „Reise Zermatt“ an und sammle alle Tickets der Reise an einem Ort.", tint: .purple),
@@ -775,17 +794,71 @@ struct TicketsDidYouKnowCard: View {
         TicketsTip(icon: "airplane.departure", text: "Sortiere die Tabs in den Einstellungen — Unterwägs oder Alle Tickets als Startseite.", tint: ArcaTicketsDesign.travelSunset),
         TicketsTip(icon: "lock.shield.fill", text: "PIN und Face ID schützen deine Tickets — am Gate zeigst du nur das, was nötig ist.", tint: .green),
     ]
+}
 
-    @State private var index = Int.random(in: 0..<TicketsDidYouKnowCard.tips.count)
+struct TravelGlassTipBanner: View {
+    let tip: TicketsTip
+    var title: String = "Reisetipp"
+    var onDismiss: (() -> Void)?
 
-    private var tip: TicketsTip { Self.tips[index] }
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: tip.icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(tip.tint)
+                .frame(width: 36, height: 36)
+                .background(tip.tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(tip.tint)
+                Text(tip.text)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            if let onDismiss {
+                Button {
+                    TicketsHaptics.lightImpact()
+                    onDismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color(.tertiarySystemFill), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Hinweis schliessen")
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(ArcaTicketsDesign.travelGlassCyan.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: ArcaTicketsDesign.travelGlassCyan.opacity(0.08), radius: 8, y: 3)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct TicketsDidYouKnowCard: View {
+    @State private var index = Int.random(in: 0..<TicketsTravelTips.all.count)
+
+    private var tip: TicketsTip { TicketsTravelTips.all[index] }
 
     var body: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.25)) {
                 var next = index
-                while next == index && Self.tips.count > 1 {
-                    next = Int.random(in: 0..<Self.tips.count)
+                while next == index && TicketsTravelTips.all.count > 1 {
+                    next = Int.random(in: 0..<TicketsTravelTips.all.count)
                 }
                 index = next
             }
@@ -799,9 +872,7 @@ struct TicketsDidYouKnowCard: View {
                     .background(tip.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Wusstest du?")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(tip.tint)
+                    ComicCurvedText(text: "Wusstest du?", style: .compact, foreground: tip.tint)
                     Text(tip.text)
                         .font(.system(size: 14))
                         .foregroundStyle(.primary)
