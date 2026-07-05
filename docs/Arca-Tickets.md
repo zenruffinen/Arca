@@ -4,6 +4,7 @@ tags:
   - Arca
   - ArcaTickets
   - Produkt
+  - Roadmap
 date: 2026-07-05
 status: Killer App MVP
 ---
@@ -112,6 +113,51 @@ Arca Tickets ist bewusst **klein und fokussiert**: keine Reiseplanung, kein Wall
 | **Vor Ablauf** | Lokale Erinnerung 1 Tag vorher | Ticket vergessen = Geld verloren |
 
 **Differenzierung gegenüber Wallet & Konkurrenz:** PDF-Tickets, Screenshots und Fremdanbieter-QR-Codes, die Apple Wallet nicht kennt — plus schneller Import per Teilen und PIN/Face-ID-Schutz.
+
+---
+
+## Killer-App-Roadmap
+
+> [!quote] Killer-Satz
+> **Wiederkehrende Tickets merken, rechtzeitig erinnern, am Schalter in 1 Tap zeigen.**
+
+### Jetzt (v1.0 — implementiert)
+
+| Bereich | Was drin ist |
+|---------|--------------|
+| **Erneuern-Flow** | Abgelaufenes Ticket → „Erneuern" → neues Dokument, altes archiviert |
+| **30-Tage-Erinnerung** | Abos & Saisonkarten (Berge) — rechtzeitig vor Verlängerung |
+| **4 Schweizer Ordner** | Bahn, Abos, Berge, Sonstiges — bei Neuinstallation vorkonfiguriert |
+| **Mehrfachkarten-Zähler** | Noch X von Y Eintritten in Liste und Detail |
+| **Am Schalter zeigen** | QR/Barcode-Vollbild, max. Helligkeit, Wisch zum Schliessen |
+| **Widget** | Nächstes gültiges Ticket auf dem Homescreen |
+| **Teilen-Import** | PDF/Bild per Teilen-Sheet + URL-Scheme `arcatickets://` |
+| **iCloud** | Tickets und Metadaten geräteübergreifend synchron |
+
+### Später (v1.1+)
+
+| Kategorie | Idee / Nutzen |
+|-----------|---------------|
+| **Event-Serien** | FC Sion, Konzert-Abo, Theater — wiederkehrende Eintritte als Serie, nicht nur Einzelticket |
+| **Flug-Boardingpässe** | Boarding Pass als eigener Flow (Wallet-Ergänzung, schneller QR-Zugriff) |
+| **Pendler-Reservationen** | Sitzplatz-/Zug-Reservationen neben dem eigentlichen Ticket |
+| **MFK / Serviceheft** | Termine für Motorfahrzeugkontrolle, Service — Erinnerung wie bei Abos |
+| **Share Extension (dediziert)** | Eigenes Teilen-Ziel in iOS, ohne Umweg über Dokumenttypen |
+| **Mehrfachkarten erweitert** | Verbrauch pro Besuch, Ablauf der Karte, Verlängerungs-Hinweis |
+| **App Store Screenshots & ASO** | Store-Listing, Keywords, Screenshots für Schweizer Zielgruppe |
+
+### Ticket-Typen (Produkt-Hinweise)
+
+Orientierung für Ordner, Erinnerungslogik und Copy — nicht jedes Beispiel braucht ein eigenes Feature in v1.1.
+
+| Typ | Merkmale | Erinnerung | Beispiele |
+|-----|----------|------------|-----------|
+| **Abos** | Lange Laufzeit, jährlich erneuern, hoher Schaden bei Vergessen | **30 Tage** vorher | Halbtax, GA, ÖV-Abo, Fitness, Vignette |
+| **Kurzlebig** | Einmalige Fahrt oder Besuch, oft 1 Tag gültig | **1 Tag** vorher | SBB-Einzelbillett, Sparbillett, Parkticket, Tages-Skipass |
+| **Periodisch** | Wiederkehrend oder begrenzte Nutzungen über Zeit | **1 Tag** (Saison: **30 Tage**) | Saison-Skipass, 10er-Karte, Konzert-Abo, Theater-Serie |
+
+> [!tip] Mapping auf Ordner
+> **Bahn** → kurzlebig · **Abos** → Abos · **Berge** → periodisch (Saison) / kurzlebig (Tageskarte) · **Sonstiges** → Park, Events, Boarding Pass, MFK, Mehrfachkarten
 
 ---
 
