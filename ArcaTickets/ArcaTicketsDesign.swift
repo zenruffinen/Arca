@@ -21,6 +21,8 @@ enum ArcaTicketsDesign {
     static let travelGlassPurple = Color(red: 0.55, green: 0.35, blue: 0.95)
     static let travelSunYellow = Color(red: 1.0, green: 0.82, blue: 0.25)
     static let travelSunOrange = Color(red: 1.0, green: 0.55, blue: 0.20)
+    static let taxiYellow = Color(red: 1.0, green: 0.84, blue: 0.08)
+    static let taxiYellowDeep = Color(red: 0.92, green: 0.72, blue: 0.0)
 
     static var travelGradient: LinearGradient {
         LinearGradient(

@@ -287,6 +287,33 @@ struct QuickContact: Identifiable, Codable, Hashable {
     }
 }
 
+struct TaxiContact: Codable, Hashable {
+    var companyName: String
+    var phoneNumber: String
+
+    static let empty = TaxiContact(companyName: "", phoneNumber: "")
+
+    var hasPhoneNumber: Bool {
+        !phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var telURL: URL? {
+        let cleaned = phoneNumber.filter { $0.isNumber || $0 == "+" }
+        guard !cleaned.isEmpty else { return nil }
+        return URL(string: "tel://\(cleaned)")
+    }
+
+    var displayCompanyName: String {
+        let trimmed = companyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Taxi" : trimmed
+    }
+
+    var displayPhoneNumber: String {
+        let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Taxinummer eintragen" : trimmed
+    }
+}
+
 struct PersonalIDCard: Codable, Hashable {
     var name: String
     var passportNumber: String

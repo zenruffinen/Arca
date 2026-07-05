@@ -32,6 +32,9 @@ final class TicketStore: ObservableObject {
     @Published var personalIDCard: PersonalIDCard = .empty {
         didSet { guard !isLoadingData else { return }; savePersonalIDCard() }
     }
+    @Published var taxiContact: TaxiContact = .empty {
+        didSet { guard !isLoadingData else { return }; saveTaxiContact() }
+    }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
@@ -113,7 +116,7 @@ final class TicketStore: ObservableObject {
     static let sharedFolderSuffix = " (geteilt)"
 
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -327,6 +330,53 @@ final class TicketStore: ObservableObject {
         if let decoded = loadJSON(PersonalIDCard.self, key: "personal_card") {
             personalIDCard = decoded
         }
+        if let decoded = loadJSON(TaxiContact.self, key: "taxi") {
+            taxiContact = decoded
+        } else {
+            taxiContact = taxiContactFromQuickContacts()
+        }
+    }
+
+    private static let taxiQuickContactLabel = "Taxi"
+
+    /// Liest gespeicherte Taxi-Daten aus QuickContacts (Migration / iCloud-Sync mit Kontakten).
+    private func taxiContactFromQuickContacts() -> TaxiContact {
+        if let contact = quickContacts.first(where: {
+            $0.label.caseInsensitiveCompare(Self.taxiQuickContactLabel) == .orderedSame
+        }) {
+            return TaxiContact(companyName: contact.label, phoneNumber: contact.phoneNumber)
+        }
+        if let contact = quickContacts.first(where: {
+            $0.category == .sonstiges && $0.label.localizedCaseInsensitiveContains("taxi")
+        }) {
+            return TaxiContact(companyName: contact.label, phoneNumber: contact.phoneNumber)
+        }
+        return .empty
+    }
+
+    private func syncTaxiToQuickContacts() {
+        let label = taxiContact.companyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedLabel = label.isEmpty ? Self.taxiQuickContactLabel : label
+        let phone = taxiContact.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let idx = quickContacts.firstIndex(where: {
+            $0.label.caseInsensitiveCompare(Self.taxiQuickContactLabel) == .orderedSame
+                || $0.label.caseInsensitiveCompare(resolvedLabel) == .orderedSame
+        }) {
+            if phone.isEmpty && label.isEmpty {
+                quickContacts.remove(at: idx)
+            } else {
+                quickContacts[idx].label = resolvedLabel
+                quickContacts[idx].phoneNumber = phone
+                quickContacts[idx].category = .sonstiges
+            }
+        } else if !phone.isEmpty {
+            addQuickContact(QuickContact(
+                label: resolvedLabel,
+                phoneNumber: phone,
+                category: .sonstiges
+            ))
+        }
     }
 
     private func migrateQuickContacts(_ contacts: [QuickContact]) -> [QuickContact] {
@@ -366,12 +416,22 @@ final class TicketStore: ObservableObject {
         saveJSON(personalIDCard, key: "personal_card")
     }
 
+    private func saveTaxiContact() {
+        saveJSON(taxiContact, key: "taxi")
+        syncTaxiToQuickContacts()
+    }
+
     private func persistAllData() {
         saveTickets()
         saveFolders()
         saveSharedFolders()
         saveQuickContacts()
         savePersonalIDCard()
+        saveTaxiContact()
+    }
+
+    func updateTaxiContact(_ contact: TaxiContact) {
+        taxiContact = contact
     }
 
     func updatePersonalIDCard(_ card: PersonalIDCard) {
@@ -661,6 +721,7 @@ final class TicketStore: ObservableObject {
         sharedFolders = []
         quickContacts = QuickContactDefaults.seedContacts()
         personalIDCard = .empty
+        taxiContact = .empty
         KeychainManager.shared.delete(key: Self.pinHashKey)
     }
 
@@ -834,7 +895,8 @@ final class TicketStore: ObservableObject {
             folders: folders,
             sharedFolders: sharedFolders,
             quickContacts: quickContacts,
-            personalIDCard: personalIDCard
+            personalIDCard: personalIDCard,
+            taxiContact: taxiContact
         )
         return TicketsBackupArchive.exportBackup(
             manifest: manifest,
@@ -911,6 +973,9 @@ final class TicketStore: ObservableObject {
             if personalIDCard == .empty {
                 personalIDCard = manifest.personalIDCard
             }
+            if taxiContact == .empty, let importedTaxi = manifest.taxiContact {
+                taxiContact = importedTaxi
+            }
         } else {
             for ticket in tickets {
                 try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
@@ -920,6 +985,7 @@ final class TicketStore: ObservableObject {
             sharedFolders = Set(manifest.sharedFolders)
             quickContacts = manifest.quickContacts
             personalIDCard = manifest.personalIDCard
+            taxiContact = manifest.taxiContact ?? .empty
         }
 
         isLoadingData = false
