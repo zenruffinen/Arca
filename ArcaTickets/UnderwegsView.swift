@@ -76,7 +76,7 @@ struct UnderwegsView: View {
                 .padding(.trailing, 18)
                 .padding(.bottom, 108)
         }
-        .navigationTitle("Unterwegs")
+        .navigationTitle(SwissDialectPhrases.tabLabel)
         .navigationBarTitleDisplayMode(.large)
         .overlay(alignment: .bottom) {
             TicketsFAB(title: "Hinzufügen", useTravelGradient: true) {
@@ -92,8 +92,7 @@ struct UnderwegsView: View {
                 TicketsAppIcon(size: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 7) {
-                        Text("Sorglos reisen")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                        SwissDialectHeaderPhrase()
                         SwissGlassFlag(size: 18, style: .badge)
                     }
                     Text(unterwegsTickets.isEmpty

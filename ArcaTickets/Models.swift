@@ -445,7 +445,7 @@ enum ArcaTicketsTab: String, CaseIterable, Identifiable, Hashable {
 
     var label: String {
         switch self {
-        case .unterwegs: return "Unterwegs"
+        case .unterwegs: return SwissDialectPhrases.tabLabel
         case .alleTickets: return "Alle Tickets"
         case .notfall: return "Notfall"
         case .settings: return "Einstellungen"

@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var tabOrder = TabOrderPreferences.reorderableTabOrder
     @State private var leadTab = TabOrderPreferences.leadTab
     @State private var showReleaseNotes = false
+    @State private var dialectMode = SwissDialectPreferences.rotationMode
+    @State private var dialectFavoriteID = SwissDialectPreferences.favoritePhraseID
 
     // Backup export
     @State private var showExportPasswordSheet = false
@@ -109,6 +111,7 @@ struct SettingsView: View {
                 }
 
                 tabOrderSection
+                unterwegsDialectSection
                 organisationSection
                 familySection
                 remindersSection
@@ -580,6 +583,39 @@ struct SettingsView: View {
             Text("Tab-Reihenfolge")
         } footer: {
             Text("Lege fest, welche Registerkarte beim Öffnen zuerst erscheint. Einstellungen bleiben immer als letzter Tab unten.")
+        }
+    }
+
+    @ViewBuilder
+    private var unterwegsDialectSection: some View {
+        Section {
+            Picker(selection: $dialectMode) {
+                ForEach(SwissDialectRotationMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            } label: {
+                Label("Spruch auf Underwegs", systemImage: "textformat")
+            }
+            .onChange(of: dialectMode) { _, mode in
+                SwissDialectPreferences.rotationMode = mode
+            }
+
+            if dialectMode == .locked {
+                Picker(selection: $dialectFavoriteID) {
+                    ForEach(SwissDialectPhrases.all) { phrase in
+                        Text(phrase.text).tag(phrase.id)
+                    }
+                } label: {
+                    Label("Lieblingsspruch", systemImage: "heart.fill")
+                }
+                .onChange(of: dialectFavoriteID) { _, id in
+                    SwissDialectPreferences.favoritePhraseID = id
+                }
+            }
+        } header: {
+            Text("Underwegs")
+        } footer: {
+            Text("Schweizer Dialekt-Sprüche mit verspielter Schrift — im Tab bleibt es kurz „Underwegs“.")
         }
     }
 
