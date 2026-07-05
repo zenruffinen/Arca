@@ -11,12 +11,14 @@ struct ContentView: View {
     let isUnlocked: Bool
     @EnvironmentObject private var store: TicketStore
     @Binding var pendingImportURL: URL?
+    @Binding var pendingTicketID: UUID?
     @State private var showAddTicket = false
     @State private var showSettings = false
     @State private var importURL: URL?
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             HomeView(showAddTicket: $showAddTicket, showSettings: $showSettings)
                 .navigationDestination(for: String.self) { folder in
                     if folder == "__all__" {
@@ -38,17 +40,47 @@ struct ContentView: View {
         }
         .disabled(!isUnlocked)
         .onChange(of: pendingImportURL) { _, url in
-            guard let url, isUnlocked else { return }
+            handleIncomingURL(url)
+        }
+        .onChange(of: pendingTicketID) { _, id in
+            guard let id, isUnlocked else { return }
+            navigateToTicket(id: id)
+            pendingTicketID = nil
+        }
+        .onAppear {
+            if let url = pendingImportURL {
+                handleIncomingURL(url)
+            }
+            if let id = pendingTicketID, isUnlocked {
+                navigateToTicket(id: id)
+                pendingTicketID = nil
+            }
+        }
+    }
+
+    private func handleIncomingURL(_ url: URL?) {
+        guard let url else { return }
+        guard isUnlocked else { return }
+
+        if url.scheme == "arcatickets" {
+            pendingImportURL = nil
+            if url.host == "ticket",
+               let idString = url.pathComponents.dropFirst().first,
+               let id = UUID(uuidString: idString) {
+                navigateToTicket(id: id)
+            }
+            return
+        }
+
+        if url.isFileURL || url.scheme == "file" {
             importURL = url
             showAddTicket = true
             pendingImportURL = nil
         }
-        .onAppear {
-            if let url = pendingImportURL, isUnlocked {
-                importURL = url
-                showAddTicket = true
-                pendingImportURL = nil
-            }
-        }
+    }
+
+    private func navigateToTicket(id: UUID) {
+        guard let ticket = store.tickets.first(where: { $0.id == id }) else { return }
+        navigationPath.append(ticket)
     }
 }

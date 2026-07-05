@@ -55,7 +55,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Alternate</string>
+			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.adobe.pdf</string>
@@ -63,6 +63,18 @@
 				<string>public.jpeg</string>
 				<string>public.png</string>
 				<string>public.heic</string>
+				<string>public.data</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.hansruffin.ArcaTickets</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>arcatickets</string>
 			</array>
 		</dict>
 	</array>

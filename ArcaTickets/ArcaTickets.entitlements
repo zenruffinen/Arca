@@ -14,5 +14,9 @@
 	<array>
 		<string>iCloud.com.hansruffin.ArcaTickets</string>
 	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.hansruffin.ArcaTickets</string>
+	</array>
 </dict>
 </plist>

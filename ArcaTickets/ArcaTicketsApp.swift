@@ -13,6 +13,7 @@ struct ArcaTicketsApp: App {
     @State private var isUnlocked = false
     @State private var showOnboarding = !OnboardingStorage.hasCompleted
     @State private var pendingImportURL: URL?
+    @State private var pendingTicketID: UUID?
     @Environment(\.scenePhase) private var scenePhase
     @State private var backgroundedAt: Date?
     private let autoLockTimeout: TimeInterval = 60
@@ -20,7 +21,11 @@ struct ArcaTicketsApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                ContentView(isUnlocked: isUnlocked, pendingImportURL: $pendingImportURL)
+                ContentView(
+                    isUnlocked: isUnlocked,
+                    pendingImportURL: $pendingImportURL,
+                    pendingTicketID: $pendingTicketID
+                )
                     .environmentObject(store)
 
                 if showOnboarding {
@@ -53,7 +58,13 @@ struct ArcaTicketsApp: App {
             .animation(.easeInOut(duration: 0.2), value: isUnlocked)
             .animation(.easeInOut(duration: 0.25), value: showOnboarding)
             .onOpenURL { url in
-                pendingImportURL = url
+                if url.scheme == "arcatickets", url.host == "ticket",
+                   let idString = url.pathComponents.dropFirst().first,
+                   let id = UUID(uuidString: idString) {
+                    pendingTicketID = id
+                } else {
+                    pendingImportURL = url
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in

@@ -42,7 +42,60 @@ Arca/
 
 **Scheme fehlt?** Scheme-Dropdown → **Manage Schemes…** → **ArcaTickets** aktivieren (Häkchen „Shared“).
 
-**Build auf echtem iPhone schlägt fehl?** iCloud-Container `iCloud.com.hansruffin.ArcaTickets` muss in [developer.apple.com](https://developer.apple.com) für die App-ID `com.hansruffin.ArcaTickets` angelegt sein. Im **Simulator** funktioniert der Build ohne dieses Setup.
+**Build auf echtem iPhone schlägt fehl?** Siehe Abschnitt [iCloud Developer Portal](#icloud-developer-portal-echtes-gerät) unten. Im **Simulator** funktioniert der Build ohne dieses Setup.
+
+---
+
+## iCloud Developer Portal (echtes Gerät)
+
+> [!important] Pflicht für Geräte-Build
+> Ohne diese Schritte schlägt der Build auf einem echten iPhone fehl (Provisioning / Entitlements).
+
+### 1. App-ID anlegen
+
+1. [developer.apple.com](https://developer.apple.com) → **Certificates, Identifiers & Profiles** → **Identifiers**
+2. **+** → **App IDs** → **App**
+3. **Description:** `Arca Tickets`
+4. **Bundle ID:** `com.hansruffin.ArcaTickets` (Explicit)
+5. Capabilities aktivieren:
+   - **iCloud** → Include CloudKit support: **nein** → nur **iCloud Documents**
+   - Container: `iCloud.com.hansruffin.ArcaTickets` (neu anlegen oder bestehend wählen)
+   - **App Groups** → `group.com.hansruffin.ArcaTickets` (für Widget)
+6. **Register**
+
+### 2. Widget Extension App-ID
+
+1. Weitere App-ID: `com.hansruffin.ArcaTickets.ArcaTicketsWidget`
+2. Capabilities: **App Groups** → dieselbe Gruppe `group.com.hansruffin.ArcaTickets`
+3. **Register**
+
+### 3. iCloud Container
+
+1. **Identifiers** → Filter **iCloud Containers**
+2. Container `iCloud.com.hansruffin.ArcaTickets` anlegen (falls noch nicht vorhanden)
+3. In der App-ID `com.hansruffin.ArcaTickets` unter iCloud diesem Container zuweisen
+
+### 4. App Group
+
+1. **Identifiers** → Filter **App Groups**
+2. Gruppe `group.com.hansruffin.ArcaTickets` anlegen
+3. Sowohl Haupt-App als auch Widget-Extension dieser Gruppe zuweisen
+
+### 5. Provisioning in Xcode
+
+1. `Arca.xcodeproj` öffnen → Target **ArcaTickets** → **Signing & Capabilities**
+2. Team **LE6TQB8QE5** wählen, **Automatically manage signing** aktiv
+3. Prüfen: iCloud Container + App Group erscheinen ohne Fehler
+4. Gleiches für Target **ArcaTicketsWidget**
+5. iPhone verbinden, Scheme **ArcaTickets**, **⌘R**
+
+### 6. Häufige Fehler
+
+| Fehler | Lösung |
+|--------|--------|
+| „iCloud container not found" | Container im Portal anlegen und App-ID zuweisen |
+| Widget zeigt keine Daten | App Group in beiden Targets identisch; App einmal öffnen |
+| „Failed to register bundle identifier" | Bundle ID im Portal exakt wie in Xcode |
 
 ---
 
@@ -81,6 +134,11 @@ Arca Tickets ist eine dedizierte iOS-App für Reisende und Eventbesucher: Foto o
 | 5 | **Deutsche UI** | ✅ | Durchgängig deutsche, freundliche Texte |
 | 6 | **Onboarding** | ✅ | 3 Screens beim ersten Start (überspringbar): Speichern → QR zeigen → Fertig |
 | 7 | **App Icon** | ✅ | Arca-Familien-Icon: Glass-Ticket mit A-Logo, QR-Motiv & Dark-Mode-Variante |
+| 8 | **Homescreen-Widget** | ✅ | Nächstes gültiges Ticket — Titel, Ordner, Countdown, QR-Hinweis |
+| 9 | **Ordner verwalten** | ✅ | Eigene Ordner anlegen, umbenennen, löschen |
+| 10 | **Filter Aktiv/Abgelaufen** | ✅ | Segment-Filter in Ordneransicht |
+| 11 | **Haptik** | ✅ | Beim Speichern und „Am Schalter zeigen" |
+| 12 | **Teilen-Import** | ✅ | PDF/Bild per Teilen-Sheet + URL-Scheme `arcatickets://` |
 
 ---
 
@@ -215,7 +273,7 @@ flowchart TD
 Arca Tickets ist ein **Target in `Arca.xcodeproj`**, kein eigenes Xcode-Projekt.
 
 ```
-Arca.xcodeproj
+Arca/
 ├── arca/                        ← Arca Haupt-App
 ├── ArcaTickets/                 ← Arca Tickets App (Target: ArcaTickets)
 │   ├── ArcaTicketsApp.swift
@@ -223,14 +281,14 @@ Arca.xcodeproj
 │   ├── Models.swift
 │   ├── ContentView.swift, HomeView.swift, FolderView.swift
 │   ├── TicketDetailView.swift, QRFullscreenView.swift, AddTicketView.swift
-│   ├── LockView.swift, KeychainManager.swift   ← lokal kopiert (ArcaCore noch nicht extrahiert)
+│   ├── LockView.swift, KeychainManager.swift
 │   ├── OnboardingView.swift, NotificationManager.swift, SettingsView.swift
+│   ├── WidgetDataUpdater.swift, TicketsHaptics.swift
 │   ├── ArcaTicketsDesign.swift, Assets.xcassets, ArcaTicketsInfo.plist
 │   └── ArcaTickets.entitlements
-└── ArcaWidget/                  ← nur für Arca, nicht für Tickets
+├── ArcaTicketsWidget/           ← Homescreen-Widget
+└── ArcaWidget/                  ← nur für Arca
 ```
-
-**Noch nicht umgesetzt (Roadmap):** `ArcaCore`-Framework, `ArcaTicketsWidget/`, `ArcaTicketsTests/`, separates `ArcaTickets.xcodeproj`.
 
 ### Datenmodell (v1)
 
@@ -269,17 +327,41 @@ flowchart TD
 
 ## App Store Positionierung
 
-| Feld | Inhalt (Entwurf) |
-|------|------------------|
+### Metadaten
+
+| Feld | Inhalt |
+|------|--------|
 | **Name** | Arca Tickets |
 | **Untertitel** | Fahrkarten & Tickets griffbereit |
-| **Kategorie** | Reisen (`public.app-category.travel`) |
+| **Kategorie** | Reisen |
 | **Keywords** | ticket,fahrkarte,bahn,flug,qr,reise,zug,event,konzert,wallet,boarding pass |
-| **Kurzbeschreibung** | Speichere Fahrkarten und Event-Tickets als Foto oder PDF. QR-Code im Vollbild, Ablauf-Erinnerungen und iCloud-Sync — sicher und übersichtlich. |
-| **Langbeschreibung** | Arca Tickets hält deine digitalen Tickets an einem Ort: Import per Foto oder PDF, Sortierung in Ordnern, QR-Code-Vollbild für schnelles Vorzeigen am Schalter, Push-Erinnerungen vor Ablauf und Synchronisation über iCloud. Mit PIN oder Face ID geschützt. Die schlanke Schwester von Arca — nur Tickets, nichts Überflüssiges. |
 
-> [!tip] ASO-Hinweis
-> „Fahrkarte" und „QR" sind starke deutsche Suchbegriffe; englische Keywords (`boarding pass`, `travel`) für internationale Sichtbarkeit mischen.
+### Kurzbeschreibung (DE)
+
+Speichere Fahrkarten und Event-Tickets als Foto oder PDF. QR-Code im Vollbild, Ablauf-Erinnerungen und iCloud-Sync — sicher und übersichtlich.
+
+### App Store Beschreibung (DE)
+
+**Das schnellste Ticket in der Tasche.**
+
+Arca Tickets hält deine digitalen Fahrkarten und Event-Tickets an einem Ort — ohne Wallet-Overhead, ohne Reiseplaner, ohne Schnickschnack.
+
+**Speichern in Sekunden**
+Foto, PDF oder Screenshot importieren. Per Teilen aus Mail oder Safari direkt in Arca Tickets. Ordner für Bahn, ÖV, Events und eigene Kategorien.
+
+**Am Schalter sofort bereit**
+QR-Code im Vollbild mit maximaler Helligkeit. Ein Tap — fertig. Kein Zoomen, kein Suchen in der Galerie.
+
+**Rechtzeitig erinnert**
+Push-Benachrichtigung einen Tag vor Ablauf. Dein Ticket vergisst du nicht — dein Geld auch nicht.
+
+**Sicher & synchron**
+PIN oder Face ID schützen deine Tickets. iCloud synchronisiert alles zwischen deinen Geräten.
+
+**Widget auf dem Homescreen**
+Das nächste gültige Ticket immer im Blick — mit Countdown und Schnellzugriff.
+
+Arca Tickets ist die schlanke Schwester von Arca: nur Tickets, nichts Überflüssiges. Perfekt für Pendler, Vielflieger und alle, die unterwegs schnell vorzeigen müssen.
 
 ---
 
@@ -301,7 +383,8 @@ flowchart TD
 - [x] Onboarding (3 Screens)
 - [x] LockView + Keychain
 - [x] iCloud Sync
-- [ ] Homescreen-Widget (nächstes Ticket)
+- [x] Homescreen-Widget (nächstes Ticket)
+- [x] Ordner verwalten & Filter
 - [ ] TestFlight Beta
 
 ### Phase 2 — v1.x
@@ -322,6 +405,7 @@ flowchart TD
 ## Killer-Flow testen
 
 1. **Build:** `xcodebuild -scheme ArcaTickets -destination 'platform=iOS Simulator,name=iPhone 17' build`
+2. **Widget:** `xcodebuild -scheme ArcaTicketsWidget -destination 'platform=iOS Simulator,name=iPhone 17' build`
 2. **Onboarding:** App neu installieren → 3 Screens durchlaufen oder überspringen → PIN setzen
 3. **Schnell hinzufügen:** FAB „Hinzufügen" → Foto/PDF wählen, Ablaufdatum setzen → speichern
 4. **Teilen-Import:** PDF oder Screenshot in einer anderen App → „Teilen" → „Arca Tickets" (erscheint bei registrierten Dokumenttypen)

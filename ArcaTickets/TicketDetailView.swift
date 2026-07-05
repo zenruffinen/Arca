@@ -32,6 +32,7 @@ struct TicketDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 if canShowQR {
                     TicketsPrimaryButton(title: "Am Schalter zeigen", icon: "qrcode.viewfinder") {
+                        TicketsHaptics.mediumImpact()
                         showQRFullscreen = true
                     }
                 }

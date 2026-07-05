@@ -206,6 +206,7 @@ struct AddTicketView: View {
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         saved.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
         store.updateTicket(saved)
+        TicketsHaptics.success()
         dismiss()
     }
 }

@@ -16,6 +16,7 @@ final class TicketStore: ObservableObject {
             guard !isLoadingData else { return }
             saveTickets()
             NotificationManager.rescheduleAll(for: tickets)
+            WidgetDataUpdater.update(from: tickets)
         }
     }
     @Published var folders: [String] = [] {
@@ -259,6 +260,7 @@ final class TicketStore: ObservableObject {
         updateCloudSyncState()
         beginCloudSyncMonitoringIfNeeded()
         NotificationManager.rescheduleAll(for: tickets)
+        WidgetDataUpdater.update(from: tickets)
     }
 
     private func persistFreshInstallDefaults() {
@@ -308,9 +310,10 @@ final class TicketStore: ObservableObject {
         tickets.filter { $0.folder == folder }.count
     }
 
-    func tickets(in folder: String) -> [TicketEntry] {
+    func tickets(in folder: String, filter: TicketExpiryFilter = .active) -> [TicketEntry] {
         tickets
             .filter { $0.folder == folder }
+            .filter { matchesFilter($0, filter: filter) }
             .sorted { lhs, rhs in
                 switch (lhs.expiryDate, rhs.expiryDate) {
                 case let (l?, r?): return l < r
@@ -319,6 +322,42 @@ final class TicketStore: ObservableObject {
                 case (nil, nil): return lhs.createdAt > rhs.createdAt
                 }
             }
+    }
+
+    private func matchesFilter(_ ticket: TicketEntry, filter: TicketExpiryFilter) -> Bool {
+        switch filter {
+        case .active: return ticket.isValid
+        case .expired: return ticket.isExpired
+        case .all: return true
+        }
+    }
+
+    func addFolder(named name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !folders.contains(trimmed) else { return false }
+        folders.append(trimmed)
+        return true
+    }
+
+    func renameFolder(from oldName: String, to newName: String) -> Bool {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != oldName, !folders.contains(trimmed) else { return false }
+        guard let idx = folders.firstIndex(of: oldName) else { return false }
+        folders[idx] = trimmed
+        for i in tickets.indices where tickets[i].folder == oldName {
+            tickets[i].folder = trimmed
+        }
+        return true
+    }
+
+    func deleteFolder(_ name: String, moveTicketsTo fallback: String = "Sonstiges") -> Bool {
+        guard folders.contains(name), folders.count > 1 else { return false }
+        let target = folders.contains(fallback) ? fallback : folders.first { $0 != name } ?? fallback
+        for i in tickets.indices where tickets[i].folder == name {
+            tickets[i].folder = target
+        }
+        folders.removeAll { $0 == name }
+        return true
     }
 
     func allTicketsSorted() -> [TicketEntry] {

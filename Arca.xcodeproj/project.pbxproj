@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		90EC922B50484CB6A3EA38EC /* ArcaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B2C3D4E5F6A7488990ABCDE2 /* ArcaTicketsWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7488990ABCDE1 /* ArcaTicketsWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BA9694F72F8D782200FEB0F9 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */; };
 /* End PBXBuildFile section */
 
@@ -33,6 +34,13 @@
 			remoteGlobalIDString = C91BAF9212454029914B1B98;
 			remoteInfo = ArcaWidget;
 		};
+		B2C3D4E5F6A7488990ABCDE9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA7C67022F8CEAE0001B326B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B2C3D4E5F6A7488990ABCDE4;
+			remoteInfo = ArcaTicketsWidget;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -47,28 +55,57 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B2C3D4E5F6A7488990ABCDE8 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B2C3D4E5F6A7488990ABCDE2 /* ArcaTicketsWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A1C2D3E4F5A64B88C9D0E1F3 /* ArcaTickets.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ArcaTickets.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ArcaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B2C3D4E5F6A7488990ABCDE1 /* ArcaTicketsWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ArcaTicketsWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA7C670A2F8CEAE0001B326B /* Arca.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Arca.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA7C67172F8CEAE1001B326B /* ArcaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArcaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA7C67212F8CEAE1001B326B /* ArcaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArcaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A1C2D3E4F5A64B88C9D0E1FB /* Exceptions for "ArcaTickets" folder in "ArcaTickets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ArcaTickets.entitlements,
+				ArcaTicketsInfo.plist,
+				PrivacyInfo.xcprivacy,
+			);
+			target = A1C2D3E4F5A64B88C9D0E1F4 /* ArcaTickets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		0208819E7FBF46249079CF50 /* ArcaWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ArcaWidget;
+			sourceTree = "<group>";
+		};
+		B2C3D4E5F6A7488990ABCDE3 /* ArcaTicketsWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ArcaTicketsWidget;
+			sourceTree = "<group>";
+		};
 		A1C2D3E4F5A64B88C9D0E1F2 /* ArcaTickets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				A1C2D3E4F5A64B88C9D0E1FB /* Exceptions for "ArcaTickets" folder in "ArcaTickets" target */,
 			);
 			path = ArcaTickets;
-			sourceTree = "<group>";
-		};
-		0208819E7FBF46249079CF50 /* ArcaWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ArcaWidget;
 			sourceTree = "<group>";
 		};
 		BA7C670C2F8CEAE0001B326B /* arca */ = {
@@ -88,19 +125,14 @@
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A1C2D3E4F5A64B88C9D0E1FB /* Exceptions for "ArcaTickets" folder in "ArcaTickets" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				ArcaTickets.entitlements,
-				ArcaTicketsInfo.plist,
-				PrivacyInfo.xcprivacy,
-			);
-			target = A1C2D3E4F5A64B88C9D0E1F4 /* ArcaTickets */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFrameworksBuildPhase section */
+		A1C2D3E4F5A64B88C9D0E1F6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BA7C67072F8CEAE0001B326B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -123,14 +155,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A1C2D3E4F5A64B88C9D0E1F6 /* Frameworks */ = {
+		EA8DD82F41B74E29B6FF4EDE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		EA8DD82F41B74E29B6FF4EDE /* Frameworks */ = {
+		B2C3D4E5F6A7488990ABCDE7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -150,6 +182,7 @@
 				BA9694F52F8D782200FEB0F9 /* Frameworks */,
 				BA7C670B2F8CEAE0001B326B /* Products */,
 				0208819E7FBF46249079CF50 /* ArcaWidget */,
+				B2C3D4E5F6A7488990ABCDE3 /* ArcaTicketsWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -161,6 +194,7 @@
 				BA7C67172F8CEAE1001B326B /* ArcaTests.xctest */,
 				BA7C67212F8CEAE1001B326B /* ArcaUITests.xctest */,
 				AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */,
+				B2C3D4E5F6A7488990ABCDE1 /* ArcaTicketsWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -175,6 +209,30 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A1C2D3E4F5A64B88C9D0E1F4 /* ArcaTickets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1C2D3E4F5A64B88C9D0E1F8 /* Build configuration list for PBXNativeTarget "ArcaTickets" */;
+			buildPhases = (
+				A1C2D3E4F5A64B88C9D0E1F5 /* Sources */,
+				A1C2D3E4F5A64B88C9D0E1F6 /* Frameworks */,
+				A1C2D3E4F5A64B88C9D0E1F7 /* Resources */,
+				B2C3D4E5F6A7488990ABCDE8 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B2C3D4E5F6A7488990ABCDEF /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A1C2D3E4F5A64B88C9D0E1F2 /* ArcaTickets */,
+			);
+			name = ArcaTickets;
+			packageProductDependencies = (
+			);
+			productName = ArcaTickets;
+			productReference = A1C2D3E4F5A64B88C9D0E1F3 /* ArcaTickets.app */;
+			productType = "com.apple.product-type.application";
+		};
 		BA7C67092F8CEAE0001B326B /* Arca */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BA7C672B2F8CEAE1001B326B /* Build configuration list for PBXNativeTarget "Arca" */;
@@ -246,28 +304,6 @@
 			productReference = BA7C67212F8CEAE1001B326B /* ArcaUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		A1C2D3E4F5A64B88C9D0E1F4 /* ArcaTickets */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = A1C2D3E4F5A64B88C9D0E1F8 /* Build configuration list for PBXNativeTarget "ArcaTickets" */;
-			buildPhases = (
-				A1C2D3E4F5A64B88C9D0E1F5 /* Sources */,
-				A1C2D3E4F5A64B88C9D0E1F6 /* Frameworks */,
-				A1C2D3E4F5A64B88C9D0E1F7 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				A1C2D3E4F5A64B88C9D0E1F2 /* ArcaTickets */,
-			);
-			name = ArcaTickets;
-			packageProductDependencies = (
-			);
-			productName = ArcaTickets;
-			productReference = A1C2D3E4F5A64B88C9D0E1F3 /* ArcaTickets.app */;
-			productType = "com.apple.product-type.application";
-		};
 		C91BAF9212454029914B1B98 /* ArcaWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6FA0281850864DC3800D0690 /* Build configuration list for PBXNativeTarget "ArcaWidget" */;
@@ -290,6 +326,28 @@
 			productReference = AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		B2C3D4E5F6A7488990ABCDE4 /* ArcaTicketsWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B2C3D4E5F6A7488990ABCDF0 /* Build configuration list for PBXNativeTarget "ArcaTicketsWidget" */;
+			buildPhases = (
+				B2C3D4E5F6A7488990ABCDE5 /* Sources */,
+				B2C3D4E5F6A7488990ABCDE7 /* Frameworks */,
+				B2C3D4E5F6A7488990ABCDE6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B2C3D4E5F6A7488990ABCDE3 /* ArcaTicketsWidget */,
+			);
+			name = ArcaTicketsWidget;
+			packageProductDependencies = (
+			);
+			productName = ArcaTicketsWidget;
+			productReference = B2C3D4E5F6A7488990ABCDE1 /* ArcaTicketsWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -301,6 +359,9 @@
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					A1C2D3E4F5A64B88C9D0E1F4 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					B2C3D4E5F6A7488990ABCDE4 = {
 						CreatedOnToolsVersion = 26.4;
 					};
 					BA7C67092F8CEAE0001B326B = {
@@ -338,19 +399,20 @@
 				BA7C67162F8CEAE1001B326B /* ArcaTests */,
 				BA7C67202F8CEAE1001B326B /* ArcaUITests */,
 				C91BAF9212454029914B1B98 /* ArcaWidget */,
+				B2C3D4E5F6A7488990ABCDE4 /* ArcaTicketsWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A1C2D3E4F5A64B88C9D0E1F7 /* Resources */ = {
+		833BE8A805454E6991B7C6EF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		833BE8A805454E6991B7C6EF /* Resources */ = {
+		A1C2D3E4F5A64B88C9D0E1F7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -378,17 +440,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B2C3D4E5F6A7488990ABCDE6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A1C2D3E4F5A64B88C9D0E1F5 /* Sources */ = {
+		851488A8D8444E89B59BB639 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		851488A8D8444E89B59BB639 /* Sources */ = {
+		A1C2D3E4F5A64B88C9D0E1F5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -416,6 +485,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B2C3D4E5F6A7488990ABCDE5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -423,6 +499,11 @@
 			isa = PBXTargetDependency;
 			target = C91BAF9212454029914B1B98 /* ArcaWidget */;
 			targetProxy = F538C0CA2988422BB26C21D6 /* PBXContainerItemProxy */;
+		};
+		B2C3D4E5F6A7488990ABCDEF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B2C3D4E5F6A7488990ABCDE4 /* ArcaTicketsWidget */;
+			targetProxy = B2C3D4E5F6A7488990ABCDE9 /* PBXContainerItemProxy */;
 		};
 		BA7C67192F8CEAE1001B326B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -437,6 +518,32 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		349479FB0C0D47A998055E60 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ArcaWidget/ArcaWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 33;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ArcaWidgetInfo.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.4.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.Arca.ArcaWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		A1C2D3E4F5A64B88C9D0E1F9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -496,32 +603,6 @@
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
-		};
-		349479FB0C0D47A998055E60 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = ArcaWidget/ArcaWidget.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 33;
-				DEVELOPMENT_TEAM = LE6TQB8QE5;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = ArcaWidgetInfo.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 2.4.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.Arca.ArcaWidget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
 		};
 		BA7C67292F8CEAE1001B326B /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -816,23 +897,84 @@
 			};
 			name = Release;
 		};
+		B2C3D4E5F6A7488990ABCDF1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ArcaTicketsWidget/ArcaTicketsWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ArcaTicketsWidgetInfo.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaTickets.ArcaTicketsWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B2C3D4E5F6A7488990ABCDF2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ArcaTicketsWidget/ArcaTicketsWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ArcaTicketsWidgetInfo.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaTickets.ArcaTicketsWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1C2D3E4F5A64B88C9D0E1F8 /* Build configuration list for PBXNativeTarget "ArcaTickets" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A1C2D3E4F5A64B88C9D0E1F9 /* Debug */,
-				A1C2D3E4F5A64B88C9D0E1FA /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		6FA0281850864DC3800D0690 /* Build configuration list for PBXNativeTarget "ArcaWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				349479FB0C0D47A998055E60 /* Debug */,
 				ECC672B4EE384B068B55E9A4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B2C3D4E5F6A7488990ABCDF0 /* Build configuration list for PBXNativeTarget "ArcaTicketsWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2C3D4E5F6A7488990ABCDF1 /* Debug */,
+				B2C3D4E5F6A7488990ABCDF2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1C2D3E4F5A64B88C9D0E1F8 /* Build configuration list for PBXNativeTarget "ArcaTickets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1C2D3E4F5A64B88C9D0E1F9 /* Debug */,
+				A1C2D3E4F5A64B88C9D0E1FA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

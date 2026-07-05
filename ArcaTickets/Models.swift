@@ -7,6 +7,14 @@
 
 import Foundation
 
+enum TicketExpiryFilter: String, CaseIterable, Identifiable {
+    case active = "Aktiv"
+    case expired = "Abgelaufen"
+    case all = "Alle"
+
+    var id: String { rawValue }
+}
+
 enum TicketFileKind: String, Codable {
     case image
     case pdf
@@ -85,6 +93,21 @@ struct TicketFolderStyle {
             return TicketFolderStyle(icon: "parkingsign.circle.fill", tintName: "orange")
         default:
             return TicketFolderStyle(icon: "folder.fill", tintName: "gray")
+        }
+    }
+
+    static func emptyStateMessage(for name: String) -> (title: String, description: String) {
+        switch name {
+        case "Bahn":
+            return ("Noch keine Zugtickets", "Speichere deine SBB- oder Bahn-Fahrkarten hier — per Foto, PDF oder Teilen.")
+        case "ÖV":
+            return ("ÖV-Tickets fehlen noch", "Bus, Tram und Metro: Importiere dein Ticket und zeig den QR-Code am Schalter.")
+        case "Events":
+            return ("Keine Event-Tickets", "Konzert, Sport oder Festival — lege dein Ticket ab, bevor du losgehst.")
+        case "Parken":
+            return ("Keine Parktickets", "Parkschein oder Parkhaus-Ticket? Hier landet alles für die Ausfahrt.")
+        default:
+            return ("Ordner ist leer", "Füge ein Ticket hinzu — per Kamera, Galerie, PDF oder Teilen aus einer anderen App.")
         }
     }
 }

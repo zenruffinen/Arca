@@ -209,6 +209,7 @@ struct NextTicketHeroCard: View {
 
             if ticket.fileKind == .image {
                 Button {
+                    TicketsHaptics.mediumImpact()
                     showQRFullscreen = true
                 } label: {
                     Label("Am Schalter zeigen", systemImage: "qrcode.viewfinder")
