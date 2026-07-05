@@ -233,9 +233,14 @@ struct UnterwegsComicNavigationTitleConfigurator: UIViewControllerRepresentable 
         private func applyComicLargeTitle() {
             guard let nav = navigationController else { return }
             let appearance = nav.navigationBar.standardAppearance.copy()
+            let shadow = NSShadow()
+            shadow.shadowOffset = CGSize(width: 0, height: 1)
+            shadow.shadowBlurRadius = 2.5
+            shadow.shadowColor = UIColor.black.withAlphaComponent(0.12)
             appearance.largeTitleTextAttributes = [
-                .font: SwissDialectComicStyle.uiFont(size: 34, weight: .black),
-                .foregroundColor: UIColor.label
+                .font: SwissDialectComicStyle.uiFont(size: 30, weight: .black),
+                .foregroundColor: UIColor.label,
+                .shadow: shadow
             ]
             nav.navigationBar.standardAppearance = appearance
             nav.navigationBar.scrollEdgeAppearance = appearance
@@ -350,11 +355,12 @@ struct SwissDialectHeaderPhrase: View {
         style.design = phrase.design
         style.italic = phrase.isItalic || phrase.design == .rounded
         style.baselineRotation = appeared
-            ? phrase.rotationDegrees * (isHero ? 1.6 : 1.4)
+            ? phrase.rotationDegrees * (isHero ? 1.1 : 1.15)
             : phrase.rotationDegrees * 0.3
         if isHero {
-            style.waveAmplitude = 4.5
-            style.waveRotation = 7.5
+            style.waveAmplitude = 2.4
+            style.waveRotation = 4.0
+            style.size = max(phrase.fontSize, 26)
         }
         return style
     }
@@ -363,7 +369,7 @@ struct SwissDialectHeaderPhrase: View {
         ComicCurvedText(text: phrase.text, style: curvedStyle)
             .lineLimit(isHero ? 2 : 1)
             .minimumScaleFactor(isHero ? 0.75 : 0.85)
-            .scaleEffect(appeared ? (isHero ? 1.04 : 1) : 0.9)
+            .scaleEffect(appeared ? (isHero ? 1.0 : 1) : 0.92)
             .opacity(appeared ? 1 : 0.55)
             .animation(.spring(response: 0.45, dampingFraction: isHero ? 0.62 : 0.72), value: appeared)
             .onAppear {

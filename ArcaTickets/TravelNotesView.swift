@@ -32,74 +32,13 @@ struct NotizenFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ArcaTicketsDesign.travelSunset.opacity(0.22),
-                            ArcaTicketsDesign.travelSand.opacity(0.14),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 82, height: 78)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 72, height: 68)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.travelSunset.opacity(0.65),
-                                    ArcaTicketsDesign.travelSand.opacity(0.45)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: ArcaTicketsDesign.travelSunset.opacity(0.2), radius: 8, y: 3)
-
-            VStack(spacing: 3) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "note.text")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [ArcaTicketsDesign.travelSunset, ArcaTicketsDesign.travelOcean],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .symbolRenderingMode(.hierarchical)
-
-                    if hasNotes {
-                        Circle()
-                            .fill(ArcaTicketsDesign.travelSunset)
-                            .frame(width: 7, height: 7)
-                            .offset(x: 4, y: -3)
-                    }
-                }
-
-                Text("Notizen")
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundStyle(ArcaTicketsDesign.travelSunset)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .rotationEffect(.degrees(-tilt))
-        }
-        .frame(width: 78, height: 74)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
+        ComicStarburstKlecks(
+            icon: "note.text",
+            label: "Notizen",
+            palette: .notizen,
+            tilt: tilt,
+            showsBadge: hasNotes
+        )
     }
 }
 

@@ -34,77 +34,13 @@ struct SouvenirsFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(red: 1.0, green: 0.45, blue: 0.55).opacity(0.22),
-                            ArcaTicketsDesign.travelSunset.opacity(0.14),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 82, height: 78)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 72, height: 68)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 1.0, green: 0.45, blue: 0.55).opacity(0.7),
-                                    ArcaTicketsDesign.travelSunset.opacity(0.5)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: Color(red: 1.0, green: 0.45, blue: 0.55).opacity(0.22), radius: 8, y: 3)
-
-            VStack(spacing: 2) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "gift.fill")
-                        .font(.system(size: 21, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 1.0, green: 0.45, blue: 0.55),
-                                    ArcaTicketsDesign.travelSunset
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .symbolRenderingMode(.hierarchical)
-
-                    if pendingCount > 0 {
-                        Circle()
-                            .fill(Color(red: 1.0, green: 0.45, blue: 0.55))
-                            .frame(width: 7, height: 7)
-                            .offset(x: 4, y: -3)
-                    }
-                }
-
-                Text("Für Opa")
-                    .font(.system(size: 8.5, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(red: 0.88, green: 0.28, blue: 0.42))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-            }
-            .rotationEffect(.degrees(-tilt))
-        }
-        .frame(width: 78, height: 74)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
+        ComicStarburstKlecks(
+            icon: "gift.fill",
+            label: "Für Opa",
+            palette: .souvenirs,
+            tilt: tilt,
+            showsBadge: pendingCount > 0
+        )
     }
 }
 

@@ -7,39 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Klecks blob shape
-
-struct KlecksBlobShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width
-        let h = rect.height
-        var path = Path()
-        path.move(to: CGPoint(x: w * 0.54, y: h * 0.03))
-        path.addCurve(
-            to: CGPoint(x: w * 0.97, y: h * 0.36),
-            control1: CGPoint(x: w * 0.84, y: h * -0.04),
-            control2: CGPoint(x: w * 1.03, y: h * 0.16)
-        )
-        path.addCurve(
-            to: CGPoint(x: w * 0.70, y: h * 0.94),
-            control1: CGPoint(x: w * 0.94, y: h * 0.60),
-            control2: CGPoint(x: w * 0.90, y: h * 1.02)
-        )
-        path.addCurve(
-            to: CGPoint(x: w * 0.14, y: h * 0.76),
-            control1: CGPoint(x: w * 0.52, y: h * 0.88),
-            control2: CGPoint(x: w * 0.26, y: h * 0.96)
-        )
-        path.addCurve(
-            to: CGPoint(x: w * 0.54, y: h * 0.03),
-            control1: CGPoint(x: w * -0.03, y: h * 0.52),
-            control2: CGPoint(x: w * 0.20, y: h * 0.06)
-        )
-        path.closeSubpath()
-        return path
-    }
-}
-
 // MARK: - Floating Klecks (Unterwegs)
 
 struct VisitenkarteFloatingDecoration: View {
@@ -67,65 +34,12 @@ struct VisitenkarteFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ArcaTicketsDesign.travelOcean.opacity(0.18),
-                            ArcaTicketsDesign.travelSky.opacity(0.08),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 82, height: 78)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 72, height: 68)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.travelOcean.opacity(0.65),
-                                    ArcaTicketsDesign.travelSky.opacity(0.35)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.22), radius: 8, y: 3)
-
-            VStack(spacing: 3) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .symbolRenderingMode(.hierarchical)
-
-                Text("Visitenkarte")
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .rotationEffect(.degrees(tilt))
-        }
-        .frame(width: 78, height: 74)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
+        ComicStarburstKlecks(
+            icon: "person.crop.circle.fill",
+            label: "Visitenkarte",
+            palette: .visitenkarte,
+            tilt: tilt
+        )
     }
 }
 
