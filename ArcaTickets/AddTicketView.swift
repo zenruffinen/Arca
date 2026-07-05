@@ -39,6 +39,13 @@ struct AddTicketView: View {
     @State private var boardingTime = Date()
     @State private var pinOnAdd = false
     @State private var showTravelDetails = false
+    @State private var showNewFolderSheet = false
+    @State private var newFolderName = ""
+    @State private var newFolderError = ""
+
+    private enum FolderPicker {
+        static let createNew = "___CREATE_NEW_FOLDER___"
+    }
 
     init(
         preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges",
@@ -100,10 +107,22 @@ struct AddTicketView: View {
 
                 Section {
                     TextField("Titel", text: $title)
-                    Picker("Ordner", selection: $folder) {
+                    Picker("Ordner", selection: Binding(
+                        get: { folder },
+                        set: { new in
+                            if new == FolderPicker.createNew {
+                                newFolderName = ""
+                                newFolderError = ""
+                                showNewFolderSheet = true
+                            } else {
+                                folder = new
+                            }
+                        }
+                    )) {
                         ForEach(store.folders, id: \.self) { name in
                             Text(name).tag(name)
                         }
+                        Text("Neuer Ordner…").tag(FolderPicker.createNew)
                     }
                     Toggle("Auf Unterwägs anheften", isOn: $pinOnAdd)
                     Toggle("Ablaufdatum", isOn: $hasExpiry)
@@ -202,7 +221,58 @@ struct AddTicketView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showNewFolderSheet) {
+                NavigationStack {
+                    Form {
+                        Section {
+                            TextField("Ordnername", text: $newFolderName)
+                                .textInputAutocapitalization(.words)
+                        } footer: {
+                            if !newFolderError.isEmpty {
+                                Text(newFolderError)
+                                    .foregroundStyle(.red)
+                            } else {
+                                Text("Der Ordner wird gespeichert und für dieses Ticket ausgewählt.")
+                            }
+                        }
+                    }
+                    .navigationTitle("Neuer Ordner")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Abbrechen") {
+                                newFolderName = ""
+                                newFolderError = ""
+                                showNewFolderSheet = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Erstellen") { createNewFolder() }
+                                .disabled(newFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                }
+                .presentationDetents([.height(220)])
+                .presentationDragIndicator(.visible)
+            }
         }
+    }
+
+    private func createNewFolder() {
+        let trimmed = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if store.folders.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            newFolderError = "Ein Ordner mit diesem Namen existiert bereits."
+            return
+        }
+        guard store.addFolder(named: trimmed) else {
+            newFolderError = "Der Ordner konnte nicht erstellt werden."
+            return
+        }
+        folder = trimmed
+        newFolderName = ""
+        newFolderError = ""
+        showNewFolderSheet = false
     }
 
     private var canSave: Bool {
