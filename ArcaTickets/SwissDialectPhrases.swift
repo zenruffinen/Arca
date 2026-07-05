@@ -143,6 +143,17 @@ struct ComicCurvedTextStyle: Equatable {
         baselineRotation: -3,
         wavePhaseStep: 0.48
     )
+
+    static let golfTag = ComicCurvedTextStyle(
+        size: 11,
+        weight: .black,
+        characterSpacing: 0.5,
+        tracking: 0.6,
+        waveAmplitude: 2.0,
+        waveRotation: 5.0,
+        baselineRotation: -2.5,
+        wavePhaseStep: 0.52
+    )
 }
 
 struct ComicCurvedText: View {

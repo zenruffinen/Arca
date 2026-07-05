@@ -47,6 +47,9 @@ final class TicketStore: ObservableObject {
     @Published var kofferPIN: String? {
         didSet { guard !isLoadingData else { return }; saveKofferPIN() }
     }
+    @Published var golfschlaegerInfo: GolfschlaegerInfo = .empty {
+        didSet { guard !isLoadingData else { return }; saveGolfschlaegerInfo() }
+    }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
@@ -128,7 +131,7 @@ final class TicketStore: ObservableObject {
     static let sharedFolderSuffix = " (geteilt)"
 
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf", "notes", "koffer_pin", "opa_souvenirs"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf", "notes", "koffer_pin", "golfschlaeger", "opa_souvenirs"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -361,6 +364,9 @@ final class TicketStore: ObservableObject {
         if let decoded = loadJSON(String.self, key: "koffer_pin") {
             kofferPIN = decoded.isEmpty ? nil : decoded
         }
+        if let decoded = loadJSON(GolfschlaegerInfo.self, key: "golfschlaeger") {
+            golfschlaegerInfo = decoded
+        }
     }
 
     private static let taxiQuickContactLabel = "Taxi"
@@ -509,6 +515,14 @@ final class TicketStore: ObservableObject {
         }
     }
 
+    private func saveGolfschlaegerInfo() {
+        if golfschlaegerInfo.hasContent {
+            saveJSON(golfschlaegerInfo, key: "golfschlaeger")
+        } else {
+            try? FileManager.default.removeItem(at: dataURL("golfschlaeger"))
+        }
+    }
+
     private func persistAllData() {
         saveTickets()
         saveFolders()
@@ -520,6 +534,7 @@ final class TicketStore: ObservableObject {
         saveTravelNotes()
         saveOpaSouvenirs()
         saveKofferPIN()
+        saveGolfschlaegerInfo()
     }
 
     func updateTaxiContact(_ contact: TaxiContact) {
@@ -562,6 +577,10 @@ final class TicketStore: ObservableObject {
             guard (3...4).contains(digits.count), digits.count == trimmed.count else { return }
             kofferPIN = digits
         }
+    }
+
+    func updateGolfschlaegerInfo(_ info: GolfschlaegerInfo) {
+        golfschlaegerInfo = info
     }
 
     var insuranceContacts: [QuickContact] {
@@ -852,6 +871,7 @@ final class TicketStore: ObservableObject {
         travelNotes = .empty
         opaSouvenirs = []
         kofferPIN = nil
+        golfschlaegerInfo = .empty
         KeychainManager.shared.delete(key: Self.pinHashKey)
     }
 
@@ -1030,7 +1050,8 @@ final class TicketStore: ObservableObject {
             golfContact: golfContact,
             travelNotes: travelNotes,
             opaSouvenirs: opaSouvenirs,
-            kofferPIN: kofferPIN
+            kofferPIN: kofferPIN,
+            golfschlaegerInfo: golfschlaegerInfo
         )
         return TicketsBackupArchive.exportBackup(
             manifest: manifest,
@@ -1122,6 +1143,9 @@ final class TicketStore: ObservableObject {
             if kofferPIN == nil, let importedPIN = manifest.kofferPIN, !importedPIN.isEmpty {
                 kofferPIN = importedPIN
             }
+            if !golfschlaegerInfo.hasContent, let importedGolfTravel = manifest.golfschlaegerInfo, importedGolfTravel.hasContent {
+                golfschlaegerInfo = importedGolfTravel
+            }
         } else {
             for ticket in tickets {
                 try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
@@ -1136,6 +1160,7 @@ final class TicketStore: ObservableObject {
             travelNotes = manifest.travelNotes ?? .empty
             opaSouvenirs = manifest.opaSouvenirs ?? []
             kofferPIN = manifest.kofferPIN
+            golfschlaegerInfo = manifest.golfschlaegerInfo ?? .empty
         }
 
         isLoadingData = false

@@ -339,6 +339,42 @@ struct GolfContact: Codable, Hashable {
         let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Greenfee-Nummer eintragen" : trimmed
     }
+
+    /// Kurzform für den Klecks — letzte Ziffern der Greenfee-Nummer.
+    var comicPhoneSnippet: String? {
+        let digits = phoneNumber.filter(\.isNumber)
+        guard digits.count >= 4 else { return nil }
+        return String(digits.suffix(4))
+    }
+}
+
+struct GolfschlaegerInfo: Codable, Hashable {
+    var airlinePolicyNote: String
+    var bagTagNumber: String
+    var checkedIn: Bool
+    var note: String
+
+    static let empty = GolfschlaegerInfo(
+        airlinePolicyNote: "",
+        bagTagNumber: "",
+        checkedIn: false,
+        note: ""
+    )
+
+    var hasBagTag: Bool {
+        !bagTagNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasContent: Bool {
+        hasBagTag
+            || checkedIn
+            || !airlinePolicyNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var displayBagTag: String {
+        bagTagNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 struct TravelNotes: Codable, Hashable {

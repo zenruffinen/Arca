@@ -27,6 +27,7 @@ struct TicketsBackupManifest: Codable {
     var travelNotes: TravelNotes?
     var opaSouvenirs: [SouvenirItem]?
     var kofferPIN: String?
+    var golfschlaegerInfo: GolfschlaegerInfo?
     var exportDate: Date
 
     init(
@@ -39,7 +40,8 @@ struct TicketsBackupManifest: Codable {
         golfContact: GolfContact? = nil,
         travelNotes: TravelNotes? = nil,
         opaSouvenirs: [SouvenirItem]? = nil,
-        kofferPIN: String? = nil
+        kofferPIN: String? = nil,
+        golfschlaegerInfo: GolfschlaegerInfo? = nil
     ) {
         self.formatVersion = Self.formatVersion
         self.tickets = tickets
@@ -52,6 +54,7 @@ struct TicketsBackupManifest: Codable {
         self.travelNotes = travelNotes
         self.opaSouvenirs = opaSouvenirs
         self.kofferPIN = kofferPIN
+        self.golfschlaegerInfo = golfschlaegerInfo
         self.exportDate = Date()
     }
 }
