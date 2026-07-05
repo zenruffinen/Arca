@@ -14,6 +14,11 @@ struct SettingsView: View {
     @EnvironmentObject private var store: TicketStore
 
     @State private var showFolderManagement = false
+    @State private var showContactsManagement = false
+    @State private var showFolderImportPicker = false
+    @State private var folderImportResult: String?
+    @State private var showFolderImportAlert = false
+    @State private var folderImportFailed = false
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -47,6 +52,21 @@ struct SettingsView: View {
 
                 Section {
                     Button {
+                        showContactsManagement = true
+                    } label: {
+                        HStack {
+                            Label("Wichtige Nummern", systemImage: "phone.fill")
+                            Spacer()
+                            Text("\(store.quickContacts.count)")
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .foregroundStyle(.primary)
+
+                    Button {
                         showFolderManagement = true
                     } label: {
                         HStack {
@@ -63,7 +83,19 @@ struct SettingsView: View {
                 } header: {
                     Text("Organisation")
                 } footer: {
-                    Text("Eigene Ordner anlegen oder umbenennen — z. B. „Sommerreise 2026“.")
+                    Text("Notrufnummern, Hotel, Fluggesellschaft und Familie — auf dem Tab „Unterwegs“ griffbereit. Ordner z. B. „Reise Zermatt“ für die ganze Familie.")
+                }
+
+                Section {
+                    Button {
+                        showFolderImportPicker = true
+                    } label: {
+                        Label("Geteilten Ordner importieren", systemImage: "square.and.arrow.down")
+                    }
+                } header: {
+                    Text("Familie")
+                } footer: {
+                    Text("Reise teilen — Familie erhält alle Tickets. Wenn dir jemand eine .arcaticketsfolder-Datei geschickt hat, importiere sie hier oder tippe die Datei in Dateien/Nachrichten an.")
                 }
 
                 Section {
@@ -94,6 +126,40 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showFolderManagement) {
                 FolderManagementView()
+            }
+            .sheet(isPresented: $showContactsManagement) {
+                QuickContactsManagementView()
+            }
+            .fileImporter(
+                isPresented: $showFolderImportPicker,
+                allowedContentTypes: [TicketsFolderShareType.contentType],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    switch store.importSharedFolder(from: url) {
+                    case .success(let name):
+                        folderImportResult = name
+                        showFolderImportAlert = true
+                    case .failure:
+                        folderImportFailed = true
+                    }
+                case .failure:
+                    folderImportFailed = true
+                }
+            }
+            .alert("Ordner importiert", isPresented: $showFolderImportAlert) {
+                Button("OK", role: .cancel) { folderImportResult = nil }
+            } message: {
+                if let name = folderImportResult {
+                    Text("Tickets aus der geteilten Reise liegen in „\(name)“.")
+                }
+            }
+            .alert("Import fehlgeschlagen", isPresented: $folderImportFailed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Die Datei ist kein gültiger geteilter Arca-Tickets-Ordner.")
             }
         }
     }
@@ -134,6 +200,7 @@ struct FolderManagementView: View {
     @State private var folderToRename: String?
     @State private var renameText = ""
     @State private var showAddAlert = false
+    @State private var shareItem: ShareURLItem?
 
     var body: some View {
         NavigationStack {
@@ -154,6 +221,15 @@ struct FolderManagementView: View {
                             }
                             Spacer()
                             Menu {
+                                Button {
+                                    if let url = store.exportFolder(folder) {
+                                        shareItem = ShareURLItem(url: url)
+                                    }
+                                } label: {
+                                    Label("Mit Familie teilen", systemImage: "person.2.fill")
+                                }
+                                .disabled(store.ticketCount(in: folder) == 0)
+
                                 Button("Umbenennen") {
                                     folderToRename = folder
                                     renameText = folder
@@ -208,6 +284,9 @@ struct FolderManagementView: View {
                     }
                     folderToRename = nil
                 }
+            }
+            .sheet(item: $shareItem) { item in
+                ShareSheet(activityItems: [item.url])
             }
         }
     }

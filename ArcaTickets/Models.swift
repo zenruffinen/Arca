@@ -31,6 +31,11 @@ struct TicketEntry: Identifiable, Codable, Hashable {
     var isArchived: Bool
     var remainingUses: Int?
     var totalUses: Int?
+    var flightNumber: String?
+    var seatNumber: String?
+    var boardingTime: Date?
+    var gate: String?
+    var isPinned: Bool
 
     init(id: UUID = UUID(),
          title: String,
@@ -41,7 +46,12 @@ struct TicketEntry: Identifiable, Codable, Hashable {
          notes: String? = nil,
          isArchived: Bool = false,
          remainingUses: Int? = nil,
-         totalUses: Int? = nil) {
+         totalUses: Int? = nil,
+         flightNumber: String? = nil,
+         seatNumber: String? = nil,
+         boardingTime: Date? = nil,
+         gate: String? = nil,
+         isPinned: Bool = false) {
         self.id = id
         self.title = title
         self.folder = folder
@@ -52,6 +62,11 @@ struct TicketEntry: Identifiable, Codable, Hashable {
         self.isArchived = isArchived
         self.remainingUses = remainingUses
         self.totalUses = totalUses
+        self.flightNumber = flightNumber
+        self.seatNumber = seatNumber
+        self.boardingTime = boardingTime
+        self.gate = gate
+        self.isPinned = isPinned
     }
 
     init(from decoder: Decoder) throws {
@@ -66,6 +81,11 @@ struct TicketEntry: Identifiable, Codable, Hashable {
         isArchived = try c.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
         remainingUses = try c.decodeIfPresent(Int.self, forKey: .remainingUses)
         totalUses = try c.decodeIfPresent(Int.self, forKey: .totalUses)
+        flightNumber = try c.decodeIfPresent(String.self, forKey: .flightNumber)
+        seatNumber = try c.decodeIfPresent(String.self, forKey: .seatNumber)
+        boardingTime = try c.decodeIfPresent(Date.self, forKey: .boardingTime)
+        gate = try c.decodeIfPresent(String.self, forKey: .gate)
+        isPinned = try c.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
     }
 
     var fileKind: TicketFileKind {
@@ -107,6 +127,135 @@ struct TicketEntry: Identifiable, Codable, Hashable {
         }
         return "Noch \(remaining) Eintritte"
     }
+
+    var boardingTimeText: String? {
+        guard let boardingTime else { return nil }
+        return boardingTime.formatted(date: .omitted, time: .shortened)
+    }
+
+    var hasTravelDetails: Bool {
+        flightNumber != nil || seatNumber != nil || boardingTime != nil || gate != nil
+    }
+
+    var unterwegsSortDate: Date {
+        boardingTime ?? expiryDate ?? createdAt
+    }
+}
+
+enum QuickContactCategory: String, Codable, CaseIterable, Identifiable {
+    case notfall = "Notfall"
+    case flug = "Flug"
+    case hotel = "Hotel"
+    case event = "Event"
+    case familie = "Familie"
+    case sonstiges = "Sonstiges"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .notfall: return "exclamationmark.triangle.fill"
+        case .flug: return "airplane"
+        case .hotel: return "bed.double.fill"
+        case .event: return "ticket.fill"
+        case .familie: return "person.2.fill"
+        case .sonstiges: return "phone.fill"
+        }
+    }
+
+    var tintName: String {
+        switch self {
+        case .notfall: return "orange"
+        case .flug: return "blue"
+        case .hotel: return "indigo"
+        case .event: return "purple"
+        case .familie: return "teal"
+        case .sonstiges: return "gray"
+        }
+    }
+
+    var displayOrder: Int {
+        switch self {
+        case .notfall: return 0
+        case .flug: return 1
+        case .hotel: return 2
+        case .event: return 3
+        case .familie: return 4
+        case .sonstiges: return 5
+        }
+    }
+}
+
+struct QuickContact: Identifiable, Codable, Hashable {
+    var id: UUID
+    var label: String
+    var phoneNumber: String
+    var category: QuickContactCategory
+    var sortOrder: Int
+
+    init(id: UUID = UUID(),
+         label: String,
+         phoneNumber: String,
+         category: QuickContactCategory,
+         sortOrder: Int = 0) {
+        self.id = id
+        self.label = label
+        self.phoneNumber = phoneNumber
+        self.category = category
+        self.sortOrder = sortOrder
+    }
+
+    var hasPhoneNumber: Bool {
+        !phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var telURL: URL? {
+        let cleaned = phoneNumber.filter { $0.isNumber || $0 == "+" }
+        guard !cleaned.isEmpty else { return nil }
+        return URL(string: "tel://\(cleaned)")
+    }
+
+    var displayPhoneNumber: String {
+        let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Nummer eintragen" : trimmed
+    }
+}
+
+struct QuickContactTemplate: Identifiable {
+    let label: String
+    let phoneNumber: String
+    let category: QuickContactCategory
+
+    var id: String { label }
+}
+
+enum QuickContactDefaults {
+    static let templates: [QuickContactTemplate] = [
+        QuickContactTemplate(label: "Polizei", phoneNumber: "117", category: .notfall),
+        QuickContactTemplate(label: "Feuerwehr", phoneNumber: "118", category: .notfall),
+        QuickContactTemplate(label: "Rettung", phoneNumber: "144", category: .notfall),
+        QuickContactTemplate(label: "EU-Notruf", phoneNumber: "112", category: .notfall),
+        QuickContactTemplate(label: "Fluggesellschaft", phoneNumber: "", category: .flug),
+        QuickContactTemplate(label: "Veranstalter", phoneNumber: "", category: .event),
+        QuickContactTemplate(label: "Reiseunternehmen", phoneNumber: "", category: .sonstiges),
+        QuickContactTemplate(label: "Reisebüro", phoneNumber: "", category: .sonstiges),
+        QuickContactTemplate(label: "Hotel", phoneNumber: "", category: .hotel),
+        QuickContactTemplate(label: "Reiseversicherung", phoneNumber: "", category: .sonstiges),
+        QuickContactTemplate(label: "Mutter", phoneNumber: "", category: .familie),
+        QuickContactTemplate(label: "Vater", phoneNumber: "", category: .familie),
+        QuickContactTemplate(label: "Anwalt", phoneNumber: "", category: .sonstiges),
+    ]
+
+    static func seedContacts() -> [QuickContact] {
+        templates.enumerated().map { index, template in
+            QuickContact(
+                label: template.label,
+                phoneNumber: template.phoneNumber,
+                category: template.category,
+                sortOrder: index
+            )
+        }
+    }
 }
 
 struct TicketFolderStyle {
@@ -130,8 +279,18 @@ struct TicketFolderStyle {
         case "Parken":
             return TicketFolderStyle(icon: "parkingsign.circle.fill", tintName: "orange")
         default:
+            if name.hasSuffix(TicketStore.sharedFolderSuffix) {
+                return TicketFolderStyle(icon: "person.2.fill", tintName: "teal")
+            }
             return TicketFolderStyle(icon: "folder.fill", tintName: "gray")
         }
+    }
+
+    static func style(for name: String, isShared: Bool) -> TicketFolderStyle {
+        if isShared {
+            return TicketFolderStyle(icon: "person.2.fill", tintName: "teal")
+        }
+        return style(for: name)
     }
 
     static func emptyStateMessage(for name: String) -> (title: String, description: String, examples: [String]) {

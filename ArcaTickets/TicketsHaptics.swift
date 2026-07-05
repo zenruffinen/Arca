@@ -15,4 +15,16 @@ enum TicketsHaptics {
     static func mediumImpact() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
+
+    static func lightImpact() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    static func pin() {
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+    }
+
+    static func delete() {
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
 }

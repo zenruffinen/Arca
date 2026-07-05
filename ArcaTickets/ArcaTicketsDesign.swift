@@ -12,6 +12,31 @@ enum ArcaTicketsDesign {
     static let chipRadius: CGFloat = 14
     static let iconTileSize: CGFloat = 44
 
+    static let travelSky = Color(red: 0.35, green: 0.72, blue: 0.98)
+    static let travelSand = Color(red: 0.98, green: 0.94, blue: 0.86)
+    static let travelOcean = Color(red: 0.10, green: 0.38, blue: 0.72)
+    static let travelSunset = Color(red: 1.0, green: 0.62, blue: 0.38)
+
+    static var travelGradient: LinearGradient {
+        LinearGradient(
+            colors: [travelSky.opacity(0.35), travelSand.opacity(0.5)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static var boardingPassGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(.secondarySystemGroupedBackground),
+                travelSky.opacity(0.12),
+                travelSand.opacity(0.18)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     static func tint(for name: String) -> Color {
         switch name {
         case "blue": return .blue
@@ -36,6 +61,28 @@ extension View {
         }
     }
 
+    func boardingPassCard(tint: Color = ArcaTicketsDesign.travelOcean) -> some View {
+        background {
+            RoundedRectangle(cornerRadius: ArcaTicketsDesign.cornerRadius, style: .continuous)
+                .fill(ArcaTicketsDesign.boardingPassGradient)
+                .overlay {
+                    RoundedRectangle(cornerRadius: ArcaTicketsDesign.cornerRadius, style: .continuous)
+                        .strokeBorder(tint.opacity(0.15), lineWidth: 1)
+                }
+                .shadow(color: tint.opacity(0.12), radius: 12, y: 6)
+        }
+    }
+
+    func travelScreenBackground() -> some View {
+        background {
+            ZStack {
+                Color(.systemGroupedBackground)
+                ArcaTicketsDesign.travelGradient
+                    .ignoresSafeArea()
+            }
+        }
+    }
+
     func ticketsIconTile(tint: Color, size: CGFloat = ArcaTicketsDesign.iconTileSize) -> some View {
         frame(width: size, height: size)
             .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -45,9 +92,10 @@ extension View {
 struct TicketsFolderCard: View {
     let name: String
     let count: Int
+    var isShared: Bool = false
     var action: (() -> Void)? = nil
 
-    private var style: TicketFolderStyle { .style(for: name) }
+    private var style: TicketFolderStyle { .style(for: name, isShared: isShared) }
     private var tint: Color { ArcaTicketsDesign.tint(for: style.tintName) }
 
     var body: some View {
@@ -58,9 +106,16 @@ struct TicketsFolderCard: View {
                 .ticketsIconTile(tint: tint, size: 40)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.primary)
+                HStack(spacing: 4) {
+                    Text(name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    if isShared {
+                        Image(systemName: "person.2.fill")
+                            .font(.caption2)
+                            .foregroundStyle(ArcaTicketsDesign.tint(for: "teal"))
+                    }
+                }
                 Text(count == 1 ? "1 Ticket" : "\(count) Tickets")
                     .font(.caption)
                     .foregroundStyle(.secondary)

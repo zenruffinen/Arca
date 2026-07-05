@@ -13,6 +13,7 @@ struct ArcaTicketsApp: App {
     @State private var isUnlocked = false
     @State private var showOnboarding = !OnboardingStorage.hasCompleted
     @State private var pendingImportURL: URL?
+    @State private var pendingFolderImportURL: URL?
     @State private var pendingTicketID: UUID?
     @Environment(\.scenePhase) private var scenePhase
     @State private var backgroundedAt: Date?
@@ -24,6 +25,7 @@ struct ArcaTicketsApp: App {
                 ContentView(
                     isUnlocked: isUnlocked,
                     pendingImportURL: $pendingImportURL,
+                    pendingFolderImportURL: $pendingFolderImportURL,
                     pendingTicketID: $pendingTicketID
                 )
                     .environmentObject(store)
@@ -62,6 +64,8 @@ struct ArcaTicketsApp: App {
                    let idString = url.pathComponents.dropFirst().first,
                    let id = UUID(uuidString: idString) {
                     pendingTicketID = id
+                } else if store.isFolderSharePackageURL(url) {
+                    pendingFolderImportURL = ImportStaging.copyToTemporary(url) ?? url
                 } else if url.isFileURL || url.scheme == "file" {
                     pendingImportURL = ImportStaging.copyToTemporary(url) ?? url
                 } else {

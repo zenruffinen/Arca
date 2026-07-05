@@ -75,7 +75,18 @@ struct TicketDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Bearbeiten") { isEditing = true }
+                HStack(spacing: 16) {
+                    Button {
+                        store.togglePin(for: ticket)
+                        syncTicketFromStore()
+                    } label: {
+                        Image(systemName: ticket.isPinned ? "pin.fill" : "pin")
+                            .foregroundStyle(ticket.isPinned ? ArcaTicketsDesign.travelSunset : .primary)
+                    }
+                    .accessibilityLabel(ticket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs pinnen")
+
+                    Button("Bearbeiten") { isEditing = true }
+                }
             }
         }
         .sheet(isPresented: $isEditing) {
@@ -130,6 +141,27 @@ struct TicketDetailView: View {
 
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if ticket.hasTravelDetails {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Reisedetails", systemImage: "airplane")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
+
+                    if let flight = ticket.flightNumber, !flight.isEmpty {
+                        detailRow(title: "Flugnummer", value: flight)
+                    }
+                    if let seat = ticket.seatNumber, !seat.isEmpty {
+                        detailRow(title: "Sitzplatz", value: seat)
+                    }
+                    if let boarding = ticket.boardingTime {
+                        detailRow(title: "Boarding", value: boarding.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    if let gate = ticket.gate, !gate.isEmpty {
+                        detailRow(title: "Gate", value: gate)
+                    }
+                }
+            }
+
             detailRow(title: "Ordner", value: ticket.folder)
             if let expiry = ticket.expiryDate {
                 detailRow(title: "Gültig bis", value: expiry.formatted(date: .long, time: .shortened))
@@ -187,6 +219,12 @@ struct EditTicketView: View {
     @State private var hasUses = false
     @State private var remainingUses = 10
     @State private var totalUses = 10
+    @State private var flightNumber = ""
+    @State private var seatNumber = ""
+    @State private var gate = ""
+    @State private var hasBoarding = false
+    @State private var boardingTime = Date()
+    @State private var isPinned = false
 
     var body: some View {
         NavigationStack {
@@ -197,6 +235,19 @@ struct EditTicketView: View {
                         ForEach(store.folders, id: \.self) { name in
                             Text(name).tag(name)
                         }
+                    }
+                    Toggle("Auf Unterwegs pinnen", isOn: $isPinned)
+                }
+                Section("Reise") {
+                    TextField("Flugnummer", text: $flightNumber)
+                        .textInputAutocapitalization(.characters)
+                    TextField("Sitzplatz", text: $seatNumber)
+                        .textInputAutocapitalization(.characters)
+                    TextField("Gate (optional)", text: $gate)
+                        .textInputAutocapitalization(.characters)
+                    Toggle("Boarding-Zeit", isOn: $hasBoarding)
+                    if hasBoarding {
+                        DatePicker("Boarding", selection: $boardingTime, displayedComponents: [.date, .hourAndMinute])
                     }
                 }
                 Section("Gültigkeit") {
@@ -240,6 +291,14 @@ struct EditTicketView: View {
                     remainingUses = ticket.remainingUses ?? 0
                     totalUses = ticket.totalUses ?? remainingUses
                 }
+                flightNumber = ticket.flightNumber ?? ""
+                seatNumber = ticket.seatNumber ?? ""
+                gate = ticket.gate ?? ""
+                if let boarding = ticket.boardingTime {
+                    hasBoarding = true
+                    boardingTime = boarding
+                }
+                isPinned = ticket.isPinned
             }
         }
     }
@@ -257,6 +316,14 @@ struct EditTicketView: View {
             ticket.remainingUses = nil
             ticket.totalUses = nil
         }
+        let trimmedFlight = flightNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        ticket.flightNumber = trimmedFlight.isEmpty ? nil : trimmedFlight
+        let trimmedSeat = seatNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        ticket.seatNumber = trimmedSeat.isEmpty ? nil : trimmedSeat
+        let trimmedGate = gate.trimmingCharacters(in: .whitespacesAndNewlines)
+        ticket.gate = trimmedGate.isEmpty ? nil : trimmedGate
+        ticket.boardingTime = hasBoarding ? boardingTime : nil
+        ticket.isPinned = isPinned
         store.updateTicket(ticket)
         dismiss()
     }

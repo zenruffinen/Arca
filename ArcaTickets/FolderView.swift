@@ -12,12 +12,20 @@ struct FolderView: View {
     let folder: String
     @State private var showAddTicket = false
     @State private var filter: TicketExpiryFilter = .active
+    @State private var ticketToDelete: TicketEntry?
+    @State private var showDeleteConfirm = false
+    @State private var shareItem: ShareURLItem?
+    @State private var showShareEmptyAlert = false
 
     private var folderTickets: [TicketEntry] {
         store.tickets(in: folder, filter: filter)
     }
 
-    private var style: TicketFolderStyle { .style(for: folder) }
+    private var allFolderTickets: [TicketEntry] {
+        store.tickets(in: folder, filter: .all)
+    }
+
+    private var style: TicketFolderStyle { .style(for: folder, isShared: store.isSharedFolder(folder)) }
     private var tint: Color { ArcaTicketsDesign.tint(for: style.tintName) }
     private var emptyMessage: (title: String, description: String, examples: [String]) {
         TicketFolderStyle.emptyStateMessage(for: folder)
@@ -29,24 +37,52 @@ struct FolderView: View {
                 folderEmptyState
             } else {
                 List {
-                    ForEach(folderTickets) { ticket in
-                        NavigationLink(value: ticket) {
-                            TicketRow(ticket: ticket)
+                    Section {
+                        ForEach(folderTickets) { ticket in
+                            NavigationLink(value: ticket) {
+                                TicketRow(ticket: ticket, showPinIndicator: true)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    ticketToDelete = ticket
+                                    showDeleteConfirm = true
+                                } label: {
+                                    Label("Löschen", systemImage: "trash")
+                                }
+                            }
                         }
+                    } footer: {
+                        shareHintFooter
                     }
-                    .onDelete(perform: deleteTickets)
                 }
             }
         }
         .navigationTitle(folder)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddTicket = true
-                } label: {
-                    Image(systemName: "plus")
+                HStack(spacing: 16) {
+                    Button {
+                        shareFolder()
+                    } label: {
+                        Image(systemName: "person.2.fill")
+                    }
+                    .accessibilityLabel("Mit Familie teilen")
+
+                    Button {
+                        showAddTicket = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
+        }
+        .sheet(item: $shareItem) { item in
+            ShareSheet(activityItems: [item.url])
+        }
+        .alert("Nichts zu teilen", isPresented: $showShareEmptyAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Füge mindestens ein Ticket in diesen Ordner hinzu, bevor du ihn teilst.")
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             Picker("Filter", selection: $filter) {
@@ -62,6 +98,42 @@ struct FolderView: View {
         .sheet(isPresented: $showAddTicket) {
             AddTicketView(preselectedFolder: folder)
         }
+        .alert("Ticket löschen?", isPresented: $showDeleteConfirm) {
+            Button("Abbrechen", role: .cancel) { ticketToDelete = nil }
+            Button("Löschen", role: .destructive) {
+                if let ticket = ticketToDelete {
+                    TicketsHaptics.delete()
+                    store.deleteTicket(ticket)
+                }
+                ticketToDelete = nil
+            }
+        } message: {
+            if let ticket = ticketToDelete {
+                Text("\u{201E}\(ticket.title)\u{201C} wird unwiderruflich gelöscht.")
+            }
+        }
+    }
+
+    private func shareFolder() {
+        guard !allFolderTickets.isEmpty else {
+            showShareEmptyAlert = true
+            return
+        }
+        if let url = store.exportFolder(folder) {
+            TicketsHaptics.lightImpact()
+            shareItem = ShareURLItem(url: url)
+        }
+    }
+
+    private var shareHintFooter: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Reise teilen — Familie erhält alle Tickets", systemImage: "person.2.fill")
+                .font(.subheadline.weight(.semibold))
+            Text("Einmal teilen, jeder hat Flug, Hotel, Eintritt griffbereit. Tippe oben auf das Familien-Symbol und sende per AirDrop oder Nachrichten.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.top, 4)
     }
 
     @ViewBuilder
@@ -72,7 +144,7 @@ struct FolderView: View {
                       systemImage: filter == .expired ? "clock.badge.xmark" : "tray")
             } description: {
                 Text(filter == .expired
-                     ? "In „\(folder)“ gibt es keine abgelaufenen Tickets."
+                     ? "In \u{201E}\(folder)\u{201C} gibt es keine abgelaufenen Tickets."
                      : "Wechsle den Filter, um andere Tickets zu sehen.")
             }
         } else {
@@ -114,12 +186,6 @@ struct FolderView: View {
             }
             .padding(32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-
-    private func deleteTickets(at offsets: IndexSet) {
-        for index in offsets {
-            store.deleteTicket(folderTickets[index])
         }
     }
 }

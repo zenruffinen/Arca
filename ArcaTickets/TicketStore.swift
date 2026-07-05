@@ -22,6 +22,12 @@ final class TicketStore: ObservableObject {
     @Published var folders: [String] = [] {
         didSet { guard !isLoadingData else { return }; saveFolders() }
     }
+    @Published var sharedFolders: Set<String> = [] {
+        didSet { guard !isLoadingData else { return }; saveSharedFolders() }
+    }
+    @Published var quickContacts: [QuickContact] = [] {
+        didSet { guard !isLoadingData else { return }; saveQuickContacts() }
+    }
     @Published private(set) var isCloudSyncPending = false
 
     enum ICloudStatus: String {
@@ -92,8 +98,10 @@ final class TicketStore: ObservableObject {
         return false
     }
 
+    static let sharedFolderSuffix = " (geteilt)"
+
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -294,6 +302,16 @@ final class TicketStore: ObservableObject {
                   !hasAnyExistingDataStore() {
             folders = Self.defaultFolders
         }
+        if let decoded = loadJSON([String].self, key: "sharedFolders") {
+            sharedFolders = Set(decoded)
+        }
+        if let decoded = loadJSON([QuickContact].self, key: "contacts") {
+            quickContacts = decoded
+        } else if !hasPendingCloudDataDownloads(),
+                  !FileManager.default.fileExists(atPath: dataURL("contacts").path),
+                  !hasCloudPlaceholder(at: dataURL("contacts")) {
+            quickContacts = QuickContactDefaults.seedContacts()
+        }
     }
 
     private func saveTickets() {
@@ -302,6 +320,66 @@ final class TicketStore: ObservableObject {
 
     private func saveFolders() {
         saveJSON(folders, key: "folders")
+    }
+
+    private func saveSharedFolders() {
+        saveJSON(Array(sharedFolders).sorted(), key: "sharedFolders")
+    }
+
+    private func saveQuickContacts() {
+        saveJSON(quickContacts, key: "contacts")
+    }
+
+    // MARK: - Wichtige Nummern
+
+    func quickContactsGroupedByCategory() -> [(QuickContactCategory, [QuickContact])] {
+        let grouped = Dictionary(grouping: quickContacts, by: \.category)
+        return QuickContactCategory.allCases
+            .sorted { $0.displayOrder < $1.displayOrder }
+            .compactMap { category in
+                guard let items = grouped[category], !items.isEmpty else { return nil }
+                return (category, items.sorted { $0.sortOrder < $1.sortOrder })
+            }
+    }
+
+    func addQuickContact(_ contact: QuickContact) {
+        var entry = contact
+        let maxOrder = quickContacts.filter { $0.category == contact.category }.map(\.sortOrder).max() ?? -1
+        entry.sortOrder = maxOrder + 1
+        quickContacts.append(entry)
+    }
+
+    func updateQuickContact(_ contact: QuickContact) {
+        guard let idx = quickContacts.firstIndex(where: { $0.id == contact.id }) else { return }
+        quickContacts[idx] = contact
+    }
+
+    func deleteQuickContact(_ contact: QuickContact) {
+        quickContacts.removeAll { $0.id == contact.id }
+    }
+
+    func addQuickContactFromTemplate(_ template: QuickContactTemplate) {
+        let exists = quickContacts.contains {
+            $0.label.caseInsensitiveCompare(template.label) == .orderedSame
+        }
+        guard !exists else { return }
+        addQuickContact(QuickContact(
+            label: template.label,
+            phoneNumber: template.phoneNumber,
+            category: template.category
+        ))
+    }
+
+    var availableQuickContactTemplates: [QuickContactTemplate] {
+        QuickContactDefaults.templates.filter { template in
+            !quickContacts.contains {
+                $0.label.caseInsensitiveCompare(template.label) == .orderedSame
+            }
+        }
+    }
+
+    func resetQuickContactsToDefaults() {
+        quickContacts = QuickContactDefaults.seedContacts()
     }
 
     // MARK: - Tickets
@@ -387,6 +465,44 @@ final class TicketStore: ObservableObject {
         return valid.max(by: { $0.createdAt < $1.createdAt })
     }
 
+    /// Tickets für den Tab „Unterwegs“: gepinnt + bald anstehende Reisen.
+    func unterwegsTickets() -> [TicketEntry] {
+        let now = Date()
+        let horizon = Calendar.current.date(byAdding: .day, value: 14, to: now) ?? now
+
+        let candidates = tickets.filter { ticket in
+            guard ticket.isValid else { return false }
+            if ticket.isPinned { return true }
+            if let boarding = ticket.boardingTime, boarding >= now, boarding <= horizon { return true }
+            if let expiry = ticket.expiryDate, expiry >= now, expiry <= horizon { return true }
+            return false
+        }
+
+        return candidates.sorted { lhs, rhs in
+            if lhs.isPinned != rhs.isPinned { return lhs.isPinned }
+            return lhs.unterwegsSortDate < rhs.unterwegsSortDate
+        }
+    }
+
+    func togglePin(for entry: TicketEntry) {
+        guard let idx = tickets.firstIndex(where: { $0.id == entry.id }) else { return }
+        tickets[idx].isPinned.toggle()
+        if tickets[idx].isPinned {
+            TicketsHaptics.pin()
+        } else {
+            TicketsHaptics.lightImpact()
+        }
+    }
+
+    func setPinned(_ pinned: Bool, for entry: TicketEntry) {
+        guard let idx = tickets.firstIndex(where: { $0.id == entry.id }) else { return }
+        let wasPinned = tickets[idx].isPinned
+        tickets[idx].isPinned = pinned
+        if pinned && !wasPinned {
+            TicketsHaptics.pin()
+        }
+    }
+
     func fileURL(for filename: String) -> URL {
         let url = filesDirectory.appendingPathComponent(filename)
         if !FileManager.default.fileExists(atPath: url.path) {
@@ -462,6 +578,84 @@ final class TicketStore: ObservableObject {
         }
         tickets = []
         folders = Self.defaultFolders
+        sharedFolders = []
+        quickContacts = QuickContactDefaults.seedContacts()
         KeychainManager.shared.delete(key: Self.pinHashKey)
+    }
+
+    // MARK: - Ordner teilen
+
+    func isSharedFolder(_ name: String) -> Bool {
+        sharedFolders.contains(name)
+    }
+
+    func markFolderAsShared(_ name: String) {
+        sharedFolders.insert(name)
+    }
+
+    func exportFolder(_ folderName: String) -> URL? {
+        let folderTickets = tickets.filter { $0.folder == folderName }
+        guard !folderTickets.isEmpty else { return nil }
+        for ticket in folderTickets {
+            _ = ensureFileDownloaded(ticket.fileName)
+        }
+        return FolderArchive.exportPackage(
+            folderName: folderName,
+            tickets: folderTickets,
+            filesDirectory: filesDirectory
+        )
+    }
+
+    func importSharedFolder(from url: URL) -> Result<String, FolderImportError> {
+        FolderArchive.importPackage(from: url, into: self)
+    }
+
+    func isFolderSharePackageURL(_ url: URL) -> Bool {
+        TicketsFolderShareType.isPackageURL(url)
+    }
+
+    /// Importiert ein geteiltes Ordnerpaket; gibt den lokalen Ordnernamen zurück.
+    func mergeImportedFolder(from export: TicketsFolderExport, filesFrom extractedFiles: URL) -> String {
+        let baseName = export.folderName.hasSuffix(Self.sharedFolderSuffix)
+            ? export.folderName
+            : "\(export.folderName)\(Self.sharedFolderSuffix)"
+        var importedName = baseName
+        var counter = 2
+        while folders.contains(importedName) {
+            importedName = "\(baseName) \(counter)"
+            counter += 1
+        }
+
+        if !folders.contains(importedName) {
+            folders.append(importedName)
+        }
+        sharedFolders.insert(importedName)
+
+        var fileMap: [String: String] = [:]
+        if let files = try? FileManager.default.contentsOfDirectory(
+            at: extractedFiles, includingPropertiesForKeys: nil) {
+            for file in files {
+                let newName = "\(UUID().uuidString).\((file.lastPathComponent as NSString).pathExtension)"
+                let dest = fileURL(for: newName)
+                try? FileManager.default.removeItem(at: dest)
+                try? FileManager.default.copyItem(at: file, to: dest)
+                fileMap[file.lastPathComponent] = newName
+            }
+        }
+
+        for var ticket in export.tickets {
+            ticket.id = UUID()
+            ticket.folder = importedName
+            if let mapped = fileMap[ticket.fileName] {
+                ticket.fileName = mapped
+            } else if FileManager.default.fileExists(atPath: fileURL(for: ticket.fileName).path) {
+                // Bereits kopiert unter gleichem Namen
+            } else {
+                continue
+            }
+            tickets.append(ticket)
+        }
+
+        return importedName
     }
 }

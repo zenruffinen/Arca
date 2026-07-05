@@ -15,10 +15,6 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if let next = store.nextTicket {
-                    NextTicketHeroCard(ticket: next)
-                }
-
                 header
 
                 if store.isCloudSyncPending {
@@ -43,7 +39,11 @@ struct HomeView: View {
 
                     ForEach(store.folders, id: \.self) { folder in
                         NavigationLink(value: folder) {
-                            TicketsFolderCard(name: folder, count: store.ticketCount(in: folder))
+                            TicketsFolderCard(
+                                name: folder,
+                                count: store.ticketCount(in: folder),
+                                isShared: store.isSharedFolder(folder)
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -53,7 +53,7 @@ struct HomeView: View {
             .padding(.bottom, 100)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Arca Tickets")
+        .navigationTitle("Alle Tickets")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -103,16 +103,16 @@ struct HomeView: View {
         HStack(spacing: 12) {
             TicketsAppIcon(size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.tickets.isEmpty ? "Willkommen" : "Deine Fahrkarten")
+                Text(store.tickets.isEmpty ? "Willkommen" : "Deine Sammlung")
                     .font(.headline)
                 Text(store.tickets.isEmpty
-                     ? "Alles griffbereit für unterwegs"
-                     : "\(store.tickets.count) Tickets gespeichert")
+                     ? "Ordne Tickets in Ordnern"
+                     : "\(store.tickets.count) Tickets in \(store.folders.count) Ordnern")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Image(systemName: "lock.shield.fill")
+            Image(systemName: "folder.fill")
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
         }
@@ -127,9 +127,9 @@ struct HomeView: View {
                 .ticketsIconTile(tint: .accentColor, size: 40)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Alle Tickets")
+                Text("Chronologisch")
                     .font(.system(size: 16, weight: .semibold))
-                Text("Übersicht aller Ordner")
+                Text("Alle Tickets auf einen Blick")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -153,108 +153,49 @@ struct HomeView: View {
     }
 }
 
-struct NextTicketHeroCard: View {
-    @EnvironmentObject private var store: TicketStore
-    let ticket: TicketEntry
-    @State private var showQRFullscreen = false
-
-    private var style: TicketFolderStyle { .style(for: ticket.folder) }
-    private var tint: Color { ArcaTicketsDesign.tint(for: style.tintName) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("Nächstes Ticket", systemImage: "star.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(tint)
-                Spacer()
-                if let countdown = ticket.expiryCountdownText {
-                    Text(countdown)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(ticket.isExpired ? .red : .secondary)
-                }
-            }
-
-            NavigationLink(value: ticket) {
-                HStack(spacing: 12) {
-                    Image(systemName: style.icon)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(tint)
-                        .ticketsIconTile(tint: tint, size: 48)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(ticket.title)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                        HStack(spacing: 6) {
-                            Text(ticket.folder)
-                            if let expiry = ticket.expiryDate {
-                                Text("·")
-                                Text(expiry, style: .date)
-                            }
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-
-                    Spacer(minLength: 0)
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .buttonStyle(.plain)
-
-            if ticket.fileKind == .image {
-                Button {
-                    TicketsHaptics.mediumImpact()
-                    showQRFullscreen = true
-                } label: {
-                    Label("Am Schalter zeigen", systemImage: "qrcode.viewfinder")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .foregroundStyle(.white)
-                        .background(tint, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(16)
-        .ticketsCardBackground(tint: tint, cornerRadius: ArcaTicketsDesign.cornerRadius)
-        .fullScreenCover(isPresented: $showQRFullscreen) {
-            QRFullscreenView(imageURL: store.fileURL(for: ticket.fileName))
-        }
-    }
-}
-
 struct AllTicketsView: View {
     @EnvironmentObject private var store: TicketStore
+    @State private var ticketToDelete: TicketEntry?
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         List {
             ForEach(store.allTicketsSorted()) { ticket in
                 NavigationLink(value: ticket) {
-                    TicketRow(ticket: ticket)
+                    TicketRow(ticket: ticket, showPinIndicator: true)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        ticketToDelete = ticket
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("Löschen", systemImage: "trash")
+                    }
                 }
             }
-            .onDelete(perform: deleteTickets)
         }
         .navigationTitle("Alle Tickets")
-    }
-
-    private func deleteTickets(at offsets: IndexSet) {
-        let sorted = store.allTicketsSorted()
-        for index in offsets {
-            store.deleteTicket(sorted[index])
+        .alert("Ticket löschen?", isPresented: $showDeleteConfirm) {
+            Button("Abbrechen", role: .cancel) { ticketToDelete = nil }
+            Button("Löschen", role: .destructive) {
+                if let ticket = ticketToDelete {
+                    TicketsHaptics.delete()
+                    store.deleteTicket(ticket)
+                }
+                ticketToDelete = nil
+            }
+        } message: {
+            if let ticket = ticketToDelete {
+                Text("\u{201E}\(ticket.title)\u{201C} wird unwiderruflich gelöscht.")
+            }
         }
     }
 }
 
 struct TicketRow: View {
+    @EnvironmentObject private var store: TicketStore
     let ticket: TicketEntry
+    var showPinIndicator: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -263,13 +204,27 @@ struct TicketRow: View {
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(ticket.title)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(ticket.title)
+                        .font(.body.weight(.medium))
+                        .lineLimit(1)
+                    if showPinIndicator && ticket.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(ArcaTicketsDesign.travelSunset)
+                    }
+                }
                 HStack(spacing: 6) {
                     Text(ticket.folder)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let flight = ticket.flightNumber, !flight.isEmpty {
+                        Text("·")
+                            .foregroundStyle(.secondary)
+                        Text(flight)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     if let countdown = ticket.expiryCountdownText {
                         Text("·")
                             .foregroundStyle(.secondary)
@@ -290,6 +245,20 @@ struct TicketRow: View {
                             .foregroundStyle(ticket.isExpired ? .red : .secondary)
                     }
                 }
+            }
+
+            Spacer(minLength: 0)
+
+            if showPinIndicator {
+                Button {
+                    store.togglePin(for: ticket)
+                } label: {
+                    Image(systemName: ticket.isPinned ? "pin.fill" : "pin")
+                        .font(.body)
+                        .foregroundStyle(ticket.isPinned ? ArcaTicketsDesign.travelSunset : Color.secondary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(ticket.isPinned ? "Von Unterwegs lösen" : "Auf Unterwegs pinnen")
             }
         }
         .padding(.vertical, 2)

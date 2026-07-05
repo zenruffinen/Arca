@@ -260,7 +260,20 @@ Vier Standard-Ordner — bewusst wenig, aber passend für den Alltag in der Schw
 
 ## UI-Skizze
 
-### Hauptansicht (iPhone)
+### Zwei Tabs — Reise-UX (v2)
+
+> **Motto:** *Arca Tickets — alles dabei, sorglos*
+
+| Tab | Zweck |
+|-----|--------|
+| **Unterwegs** | Gepinnte + bald anstehende Tickets als Boarding-Pass-Karten mit Vorschau, Flugnummer, Sitz, Boarding, Gate |
+| **Alle Tickets** | Ordnerstruktur (Bahn, Abos, Berge, Sonstiges + eigene) → Ticketliste |
+
+**Unterwegs:** Nutzer pinnt Tickets per Pin-Icon („Aktuell"). Reisefelder sind auf der Karte tippbar und im Bearbeiten-Formular editierbar. „Am Schalter zeigen" öffnet QR-Vollbild. Leerer Zustand: *Pinne ein Ticket oder füge deine Reise hinzu*.
+
+**Alle Tickets:** Wischen nach links → Löschen mit Bestätigung. Pin-Icon in der Liste für schnelles Pinnen.
+
+### Hauptansicht (iPhone, Tab „Alle Tickets")
 
 ```
 ┌─────────────────────────────┐
@@ -303,11 +316,12 @@ Vier Standard-Ordner — bewusst wenig, aber passend für den Alltag in der Schw
 ```mermaid
 flowchart TD
     A["App-Start"] --> B["LockView<br/>PIN / Face ID"]
-    B --> C["Ticket-Liste<br/>+ Ordner"]
-    C --> D["Ticket hinzufügen<br/>Foto / PDF"]
-    C --> E["Ticket-Detail"]
-    E --> F["QR Vollbild<br/>max. Helligkeit"]
-    E --> G["Erinnerung setzen"]
+    B --> C["Tab: Unterwegs<br/>Gepinnte Reisekarten"]
+    B --> D["Tab: Alle Tickets<br/>Ordner & Listen"]
+    C --> E["Ticket-Detail / Quick-Edit"]
+    D --> F["Ordner → Ticketliste"]
+    E --> G["QR Vollbild<br/>max. Helligkeit"]
+    F --> G
     C --> H["Widget<br/>Nächstes Ticket"]
 ```
 
@@ -349,7 +363,7 @@ Arca/
 │   ├── ArcaTicketsApp.swift
 │   ├── TicketStore.swift        ← ObservableObject, iCloud
 │   ├── Models.swift
-│   ├── ContentView.swift, HomeView.swift, FolderView.swift
+│   ├── ContentView.swift, HomeView.swift, UnderwegsView.swift, FolderView.swift
 │   ├── TicketDetailView.swift, QRFullscreenView.swift, AddTicketView.swift
 │   ├── LockView.swift, KeychainManager.swift
 │   ├── OnboardingView.swift, NotificationManager.swift, SettingsView.swift

@@ -32,6 +32,12 @@ struct AddTicketView: View {
     @State private var pendingData: Data?
     @State private var pendingExtension = "jpg"
     @State private var errorMessage = ""
+    @State private var flightNumber = ""
+    @State private var seatNumber = ""
+    @State private var gate = ""
+    @State private var hasBoarding = false
+    @State private var boardingTime = Date()
+    @State private var pinOnAdd = false
 
     init(
         preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges",
@@ -93,6 +99,7 @@ struct AddTicketView: View {
                             Text(name).tag(name)
                         }
                     }
+                    Toggle("Auf Unterwegs pinnen", isOn: $pinOnAdd)
                     Toggle("Ablaufdatum", isOn: $hasExpiry)
                     if hasExpiry {
                         DatePicker("Gültig bis", selection: $expiryDate, displayedComponents: [.date, .hourAndMinute])
@@ -104,6 +111,19 @@ struct AddTicketView: View {
                     }
                     TextField("Notizen (optional)", text: $notes, axis: .vertical)
                         .lineLimit(2...4)
+                }
+
+                Section("Reise (optional)") {
+                    TextField("Flugnummer", text: $flightNumber)
+                        .textInputAutocapitalization(.characters)
+                    TextField("Sitzplatz", text: $seatNumber)
+                        .textInputAutocapitalization(.characters)
+                    TextField("Gate", text: $gate)
+                        .textInputAutocapitalization(.characters)
+                    Toggle("Boarding-Zeit", isOn: $hasBoarding)
+                    if hasBoarding {
+                        DatePicker("Boarding", selection: $boardingTime, displayedComponents: [.date, .hourAndMinute])
+                    }
                 }
 
                 if !errorMessage.isEmpty {
@@ -240,6 +260,14 @@ struct AddTicketView: View {
             saved.remainingUses = remainingUses
             saved.totalUses = totalUses
         }
+        let trimmedFlight = flightNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        saved.flightNumber = trimmedFlight.isEmpty ? nil : trimmedFlight
+        let trimmedSeat = seatNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        saved.seatNumber = trimmedSeat.isEmpty ? nil : trimmedSeat
+        let trimmedGate = gate.trimmingCharacters(in: .whitespacesAndNewlines)
+        saved.gate = trimmedGate.isEmpty ? nil : trimmedGate
+        saved.boardingTime = hasBoarding ? boardingTime : nil
+        saved.isPinned = pinOnAdd
         store.updateTicket(saved)
 
         if let source = renewalSource {
