@@ -97,10 +97,14 @@ enum ArcaTicketsTabBar {
 
         func styleItems(_ item: UITabBarItemAppearance) {
             item.normal.iconColor = normalUIColor
-            item.normal.titleTextAttributes = [.foregroundColor: normalUIColor]
+            item.normal.titleTextAttributes = [
+                .foregroundColor: normalUIColor,
+                .font: SwissDialectComicStyle.uiFont(size: 10, weight: .semibold)
+            ]
             item.selected.iconColor = selectedUIColor
             item.selected.titleTextAttributes = [
                 .foregroundColor: selectedUIColor,
+                .font: SwissDialectComicStyle.uiFont(size: 10, weight: .black),
                 .shadow: {
                     let shadow = NSShadow()
                     shadow.shadowColor = UIColor(ArcaTicketsDesign.travelGlassPurple).withAlphaComponent(0.35)

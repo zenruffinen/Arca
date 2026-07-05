@@ -341,6 +341,17 @@ struct GolfContact: Codable, Hashable {
     }
 }
 
+struct TravelNotes: Codable, Hashable {
+    var text: String
+    var updatedAt: Date
+
+    static let empty = TravelNotes(text: "", updatedAt: .distantPast)
+
+    var isEmpty: Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
 struct PersonalIDCard: Codable, Hashable {
     var name: String
     var passportNumber: String

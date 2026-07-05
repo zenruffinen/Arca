@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SwissDialectPhrase: Identifiable, Hashable {
     let id: String
@@ -49,6 +50,79 @@ enum SwissDialectPhrases {
     ]
 
     static let tabLabel = "Unterwägs"
+
+    static let tabComicPhrase = SwissDialectPhrase(
+        id: "tab-unterwegs",
+        text: tabLabel,
+        design: .rounded,
+        weight: .black,
+        isItalic: true,
+        rotationDegrees: -1.2,
+        fontSize: 10
+    )
+}
+
+enum SwissDialectComicStyle {
+    static func font(size: CGFloat, weight: Font.Weight = .black, design: Font.Design = .rounded) -> Font {
+        .system(size: size, weight: weight, design: design)
+    }
+
+    static func uiFont(size: CGFloat, weight: UIFont.Weight = .black) -> UIFont {
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        if let descriptor = base.fontDescriptor.withDesign(.rounded)?
+            .withSymbolicTraits([.traitBold, .traitItalic]) {
+            return UIFont(descriptor: descriptor, size: size)
+        }
+        return base
+    }
+}
+
+extension View {
+    func swissDialectComicText(
+        size: CGFloat,
+        weight: Font.Weight = .black,
+        design: Font.Design = .rounded,
+        italic: Bool = true,
+        tracking: CGFloat = 0.6,
+        rotation: Double = 0
+    ) -> some View {
+        self
+            .font(SwissDialectComicStyle.font(size: size, weight: weight, design: design))
+            .italic(italic)
+            .tracking(tracking)
+            .rotationEffect(.degrees(rotation))
+    }
+}
+
+struct UnterwegsComicNavigationTitleConfigurator: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> HookViewController {
+        HookViewController()
+    }
+
+    func updateUIViewController(_ uiViewController: HookViewController, context: Context) {}
+
+    final class HookViewController: UIViewController {
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            applyComicLargeTitle()
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            applyComicLargeTitle()
+        }
+
+        private func applyComicLargeTitle() {
+            guard let nav = navigationController else { return }
+            let appearance = nav.navigationBar.standardAppearance.copy()
+            appearance.largeTitleTextAttributes = [
+                .font: SwissDialectComicStyle.uiFont(size: 34, weight: .black),
+                .foregroundColor: UIColor.label
+            ]
+            nav.navigationBar.standardAppearance = appearance
+            nav.navigationBar.scrollEdgeAppearance = appearance
+        }
+    }
 }
 
 enum SwissDialectRotationMode: String, CaseIterable, Identifiable {
@@ -134,12 +208,17 @@ struct SwissDialectHeaderPhrase: View {
 
     var body: some View {
         Text(phrase.text)
-            .font(.system(size: phrase.fontSize, weight: phrase.weight, design: phrase.design))
-            .italic(phrase.isItalic)
-            .rotationEffect(.degrees(appeared ? phrase.rotationDegrees : phrase.rotationDegrees * 0.4))
-            .scaleEffect(appeared ? 1 : 0.94)
-            .opacity(appeared ? 1 : 0.6)
-            .animation(.spring(response: 0.45, dampingFraction: 0.78), value: appeared)
+            .swissDialectComicText(
+                size: max(phrase.fontSize, 22),
+                weight: .heavy,
+                design: phrase.design,
+                italic: phrase.isItalic || phrase.design == .rounded,
+                tracking: 0.8,
+                rotation: appeared ? phrase.rotationDegrees * 1.4 : phrase.rotationDegrees * 0.3
+            )
+            .scaleEffect(appeared ? 1 : 0.92)
+            .opacity(appeared ? 1 : 0.55)
+            .animation(.spring(response: 0.45, dampingFraction: 0.72), value: appeared)
             .accessibilityLabel(phrase.text)
             .onAppear {
                 phrase = SwissDialectPreferences.currentPhrase()

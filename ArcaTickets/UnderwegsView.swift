@@ -76,8 +76,17 @@ struct UnderwegsView: View {
                 .padding(.trailing, 18)
                 .padding(.bottom, 108)
         }
+        .overlay(alignment: .bottomLeading) {
+            NotizenFloatingDecoration()
+                .padding(.leading, 16)
+                .padding(.bottom, 196)
+        }
         .navigationTitle(SwissDialectPhrases.tabLabel)
         .navigationBarTitleDisplayMode(.large)
+        .background {
+            UnterwegsComicNavigationTitleConfigurator()
+                .frame(width: 0, height: 0)
+        }
         .overlay(alignment: .bottom) {
             TicketsFAB(title: "Hinzufügen", useTravelGradient: true) {
                 showAddTicket = true

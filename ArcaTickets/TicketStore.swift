@@ -38,6 +38,9 @@ final class TicketStore: ObservableObject {
     @Published var golfContact: GolfContact = .empty {
         didSet { guard !isLoadingData else { return }; saveGolfContact() }
     }
+    @Published var travelNotes: TravelNotes = .empty {
+        didSet { guard !isLoadingData else { return }; saveTravelNotes() }
+    }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
@@ -119,7 +122,7 @@ final class TicketStore: ObservableObject {
     static let sharedFolderSuffix = " (geteilt)"
 
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf", "notes"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -343,6 +346,9 @@ final class TicketStore: ObservableObject {
         } else {
             golfContact = golfContactFromQuickContacts()
         }
+        if let decoded = loadJSON(TravelNotes.self, key: "notes") {
+            travelNotes = decoded
+        }
     }
 
     private static let taxiQuickContactLabel = "Taxi"
@@ -475,6 +481,10 @@ final class TicketStore: ObservableObject {
         syncGolfToQuickContacts()
     }
 
+    private func saveTravelNotes() {
+        saveJSON(travelNotes, key: "notes")
+    }
+
     private func persistAllData() {
         saveTickets()
         saveFolders()
@@ -483,6 +493,7 @@ final class TicketStore: ObservableObject {
         savePersonalIDCard()
         saveTaxiContact()
         saveGolfContact()
+        saveTravelNotes()
     }
 
     func updateTaxiContact(_ contact: TaxiContact) {
@@ -495,6 +506,10 @@ final class TicketStore: ObservableObject {
 
     func updatePersonalIDCard(_ card: PersonalIDCard) {
         personalIDCard = card
+    }
+
+    func updateTravelNotes(_ notes: TravelNotes) {
+        travelNotes = notes
     }
 
     var insuranceContacts: [QuickContact] {
@@ -782,6 +797,7 @@ final class TicketStore: ObservableObject {
         personalIDCard = .empty
         taxiContact = .empty
         golfContact = .empty
+        travelNotes = .empty
         KeychainManager.shared.delete(key: Self.pinHashKey)
     }
 
@@ -957,7 +973,8 @@ final class TicketStore: ObservableObject {
             quickContacts: quickContacts,
             personalIDCard: personalIDCard,
             taxiContact: taxiContact,
-            golfContact: golfContact
+            golfContact: golfContact,
+            travelNotes: travelNotes
         )
         return TicketsBackupArchive.exportBackup(
             manifest: manifest,
@@ -1040,6 +1057,9 @@ final class TicketStore: ObservableObject {
             if golfContact == .empty, let importedGolf = manifest.golfContact {
                 golfContact = importedGolf
             }
+            if travelNotes.isEmpty, let importedNotes = manifest.travelNotes, !importedNotes.isEmpty {
+                travelNotes = importedNotes
+            }
         } else {
             for ticket in tickets {
                 try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
@@ -1051,6 +1071,7 @@ final class TicketStore: ObservableObject {
             personalIDCard = manifest.personalIDCard
             taxiContact = manifest.taxiContact ?? .empty
             golfContact = manifest.golfContact ?? .empty
+            travelNotes = manifest.travelNotes ?? .empty
         }
 
         isLoadingData = false

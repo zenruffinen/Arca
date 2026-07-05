@@ -29,7 +29,21 @@ struct ContentView: View {
             ForEach(tabOrder) { tab in
                 tabRoot(for: tab)
                     .tabItem {
-                        Label(tab.title, systemImage: tab.icon)
+                        if tab == .unterwegs {
+                            Label {
+                                Text(SwissDialectPhrases.tabLabel)
+                                    .font(SwissDialectComicStyle.font(
+                                        size: SwissDialectPhrases.tabComicPhrase.fontSize,
+                                        weight: SwissDialectPhrases.tabComicPhrase.weight,
+                                        design: SwissDialectPhrases.tabComicPhrase.design
+                                    ))
+                                    .italic(SwissDialectPhrases.tabComicPhrase.isItalic)
+                            } icon: {
+                                Image(systemName: tab.icon)
+                            }
+                        } else {
+                            Label(tab.title, systemImage: tab.icon)
+                        }
                     }
                     .tag(tab)
             }
