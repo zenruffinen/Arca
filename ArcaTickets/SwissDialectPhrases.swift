@@ -88,6 +88,102 @@ enum SwissDialectComicStyle {
     }
 }
 
+struct ComicCurvedTextStyle: Equatable {
+    var size: CGFloat = 15
+    var weight: Font.Weight = .black
+    var design: Font.Design = .rounded
+    var italic: Bool = true
+    var characterSpacing: CGFloat = 0.4
+    var tracking: CGFloat = 0.8
+    var waveAmplitude: CGFloat = 2.8
+    var waveRotation: Double = 5.5
+    var baselineRotation: Double = -2
+    var wavePhaseStep: Double = 0.58
+
+    static let hero = ComicCurvedTextStyle(
+        size: 30,
+        weight: .black,
+        characterSpacing: 0.6,
+        tracking: 1.0,
+        waveAmplitude: 4.2,
+        waveRotation: 7,
+        baselineRotation: -2.8,
+        wavePhaseStep: 0.52
+    )
+
+    static let glassHint = ComicCurvedTextStyle(
+        size: 14,
+        weight: .heavy,
+        characterSpacing: 0.35,
+        tracking: 0.7,
+        waveAmplitude: 2.2,
+        waveRotation: 4.5,
+        baselineRotation: -2,
+        wavePhaseStep: 0.55
+    )
+
+    static let compact = ComicCurvedTextStyle(
+        size: 11,
+        weight: .bold,
+        characterSpacing: 0.25,
+        tracking: 0.5,
+        waveAmplitude: 1.6,
+        waveRotation: 3.5,
+        baselineRotation: -1.5,
+        wavePhaseStep: 0.6
+    )
+
+    static let pinCode = ComicCurvedTextStyle(
+        size: 18,
+        weight: .black,
+        characterSpacing: 1.2,
+        tracking: 1.4,
+        waveAmplitude: 3.0,
+        waveRotation: 6.5,
+        baselineRotation: -3,
+        wavePhaseStep: 0.48
+    )
+}
+
+struct ComicCurvedText: View {
+    let text: String
+    var style: ComicCurvedTextStyle = .glassHint
+    var foreground: Color = .primary
+
+    private var characters: [Character] { Array(text) }
+
+    var body: some View {
+        HStack(spacing: style.characterSpacing) {
+            ForEach(Array(characters.enumerated()), id: \.offset) { index, character in
+                let phase = Double(index) * style.wavePhaseStep
+                let yOffset = sin(phase) * style.waveAmplitude
+                let rotation = sin(phase + 0.35) * style.waveRotation
+
+                Group {
+                    if character == " " {
+                        Color.clear.frame(width: style.size * 0.28)
+                    } else {
+                        Text(String(character))
+                            .font(SwissDialectComicStyle.font(
+                                size: style.size,
+                                weight: style.weight,
+                                design: style.design
+                            ))
+                            .italic(style.italic)
+                            .foregroundStyle(foreground)
+                            .offset(y: yOffset)
+                            .rotationEffect(.degrees(rotation))
+                    }
+                }
+            }
+        }
+        .tracking(style.tracking)
+        .rotationEffect(.degrees(style.baselineRotation))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
+    }
+}
+
 extension View {
     func swissDialectComicText(
         size: CGFloat,
@@ -236,22 +332,29 @@ struct SwissDialectHeaderPhrase: View {
 
     private var isHero: Bool { phrase.id == SwissDialectPhrases.heroPhrase.id }
 
+    private var curvedStyle: ComicCurvedTextStyle {
+        var style = isHero ? ComicCurvedTextStyle.hero : ComicCurvedTextStyle.glassHint
+        style.size = isHero ? max(phrase.fontSize, 28) : max(phrase.fontSize, 20)
+        style.weight = isHero ? .black : .heavy
+        style.design = phrase.design
+        style.italic = phrase.isItalic || phrase.design == .rounded
+        style.baselineRotation = appeared
+            ? phrase.rotationDegrees * (isHero ? 1.6 : 1.4)
+            : phrase.rotationDegrees * 0.3
+        if isHero {
+            style.waveAmplitude = 4.5
+            style.waveRotation = 7.5
+        }
+        return style
+    }
+
     var body: some View {
-        Text(phrase.text)
-            .swissDialectComicText(
-                size: isHero ? max(phrase.fontSize, 28) : max(phrase.fontSize, 22),
-                weight: isHero ? .black : .heavy,
-                design: phrase.design,
-                italic: phrase.isItalic || phrase.design == .rounded,
-                tracking: isHero ? 1.0 : 0.8,
-                rotation: appeared ? phrase.rotationDegrees * (isHero ? 1.6 : 1.4) : phrase.rotationDegrees * 0.3
-            )
+        ComicCurvedText(text: phrase.text, style: curvedStyle)
             .lineLimit(isHero ? 2 : 1)
             .minimumScaleFactor(isHero ? 0.75 : 0.85)
             .scaleEffect(appeared ? (isHero ? 1.04 : 1) : 0.9)
             .opacity(appeared ? 1 : 0.55)
             .animation(.spring(response: 0.45, dampingFraction: isHero ? 0.62 : 0.72), value: appeared)
-            .accessibilityLabel(phrase.text)
             .onAppear {
                 phrase = SwissDialectPreferences.currentPhrase()
                 appeared = true

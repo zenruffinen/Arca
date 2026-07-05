@@ -772,17 +772,52 @@ struct TicketsTip: Identifiable {
 
 enum TicketsTravelTips {
     static let swissKnifeDismissKey = "travelTip.swissKnife.dismissed"
+    private static let unterwegsTipIndexKey = "travelTip.unterwegs.index"
 
     static let swissKnife = TicketsTip(
         id: "swissKnife",
-        icon: "airplane",
-        text: "Schweizer Messer dürfen nicht ins Handgepäck — auch kleine Klingen gehören ins aufgegebene Gepäck oder bleiben zu Hause.",
+        icon: "airplane.departure",
+        text: "Schweizer Messer im Flieger verboten",
         tint: ArcaTicketsDesign.travelGlassCyan
     )
 
-    static let all: [TicketsTip] = [
+    static let unterwegsGlass: [TicketsTip] = [
         swissKnife,
-        TicketsTip(icon: "airplane.departure", text: "Schweizer Messer dürfen nicht ins Handgepäck — lieber im aufgegebenen Gepäck oder zu Hause lassen.", tint: ArcaTicketsDesign.travelGlassCyan),
+        TicketsTip(
+            id: "handLuggage",
+            icon: "drop.fill",
+            text: "Flüssigkeiten: max. 100 ml",
+            tint: ArcaTicketsDesign.travelOcean
+        ),
+        TicketsTip(
+            id: "boardingPin",
+            icon: "pin.fill",
+            text: "Bordkarte gepinnt? Am Gate parat",
+            tint: ArcaTicketsDesign.travelSunset
+        ),
+    ]
+
+    static var unterwegsGlassTip: TicketsTip {
+        let tips = unterwegsGlass
+        guard tips.count > 1 else { return tips[0] }
+        let stored = UserDefaults.standard.integer(forKey: unterwegsTipIndexKey)
+        let index = tips.indices.contains(stored) ? stored : 0
+        return tips[index]
+    }
+
+    static func advanceUnterwegsGlassTip() {
+        let tips = unterwegsGlass
+        guard tips.count > 1 else { return }
+        let next = (UserDefaults.standard.integer(forKey: unterwegsTipIndexKey) + 1) % tips.count
+        UserDefaults.standard.set(next, forKey: unterwegsTipIndexKey)
+    }
+
+    static let all: [TicketsTip] = [
+        TicketsTip(
+            icon: "airplane.departure",
+            text: "Schweizer Messer dürfen nicht ins Handgepäck — lieber im aufgegebenen Gepäck oder zu Hause lassen.",
+            tint: ArcaTicketsDesign.travelGlassCyan
+        ),
         TicketsTip(icon: "pin.fill", text: "Pinne Tickets auf „Unterwägs“, damit Bordkarte und Hotelbestätigung beim Reisen oben bleiben.", tint: ArcaTicketsDesign.travelOcean),
         TicketsTip(icon: "person.2.fill", text: "Teile einen Reiseordner per AirDrop — die ganze Familie hat Flug, Hotel und Eintritt auf dem Handy.", tint: .teal),
         TicketsTip(icon: "folder.badge.plus", text: "Lege Ordner wie „Reise Zermatt“ an und sammle alle Tickets der Reise an einem Ort.", tint: .purple),
@@ -799,27 +834,37 @@ enum TicketsTravelTips {
 struct TravelGlassTipBanner: View {
     let tip: TicketsTip
     var title: String = "Reisetipp"
+    var useComicText: Bool = true
     var onDismiss: (() -> Void)?
+    var onAdvance: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Image(systemName: tip.icon)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(tip.tint)
                 .frame(width: 36, height: 36)
                 .background(tip.tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(tip.tint)
-                Text(tip.text)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            VStack(alignment: .leading, spacing: 4) {
+                ComicCurvedText(text: title, style: .compact, foreground: tip.tint)
 
-            Spacer(minLength: 0)
+                if useComicText {
+                    ComicCurvedText(text: tip.text, style: .glassHint, foreground: .primary)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(2)
+                } else {
+                    Text(tip.text)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onAdvance?()
+            }
 
             if let onDismiss {
                 Button {
@@ -838,12 +883,12 @@ struct TravelGlassTipBanner: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .ticketsGlass(tint: tip.tint.opacity(0.32), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(ArcaTicketsDesign.travelGlassCyan.opacity(0.45), lineWidth: 1)
+                .strokeBorder(tip.tint.opacity(0.38), lineWidth: 1)
         }
-        .shadow(color: ArcaTicketsDesign.travelGlassCyan.opacity(0.08), radius: 8, y: 3)
+        .shadow(color: tip.tint.opacity(0.1), radius: 8, y: 3)
         .accessibilityElement(children: .combine)
     }
 }

@@ -11,19 +11,14 @@ struct UnderwegsView: View {
     @EnvironmentObject private var store: TicketStore
     @Binding var showAddTicket: Bool
     @AppStorage(TicketsTravelTips.swissKnifeDismissKey) private var swissKnifeTipDismissed = false
+    @State private var glassTip = TicketsTravelTips.unterwegsGlassTip
 
     private var unterwegsTickets: [TicketEntry] {
         store.unterwegsTickets()
     }
 
-    private var hasFlightTickets: Bool {
-        unterwegsTickets.contains { ticket in
-            !(ticket.flightNumber?.isEmpty ?? true) || ticket.boardingTime != nil
-        }
-    }
-
-    private var showSwissKnifeTip: Bool {
-        !swissKnifeTipDismissed && (hasFlightTickets || !unterwegsTickets.isEmpty)
+    private var showGlassTip: Bool {
+        !swissKnifeTipDismissed
     }
 
     var body: some View {
@@ -34,16 +29,27 @@ struct UnderwegsView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
 
-                    if showSwissKnifeTip {
+                    if showGlassTip {
                         TravelGlassTipBanner(
-                            tip: TicketsTravelTips.swissKnife,
-                            title: "Tipp ✈️"
-                        ) {
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                swissKnifeTipDismissed = true
+                            tip: glassTip,
+                            title: "Tipp ✈️",
+                            onDismiss: {
+                                withAnimation(.easeOut(duration: 0.25)) {
+                                    swissKnifeTipDismissed = true
+                                }
+                            },
+                            onAdvance: {
+                                withAnimation(.easeInOut(duration: 0.22)) {
+                                    TicketsTravelTips.advanceUnterwegsGlassTip()
+                                    glassTip = TicketsTravelTips.unterwegsGlassTip
+                                }
+                                TicketsHaptics.lightImpact()
                             }
-                        }
+                        )
                         .transition(.move(edge: .top).combined(with: .opacity))
+                        .onAppear {
+                            glassTip = TicketsTravelTips.unterwegsGlassTip
+                        }
                     }
 
                     if store.isCloudSyncPending {
@@ -108,6 +114,11 @@ struct UnderwegsView: View {
             SouvenirsFloatingDecoration()
                 .padding(.trailing, 12)
                 .padding(.top, 168)
+        }
+        .overlay(alignment: .trailing) {
+            KofferPINFloatingDecoration()
+                .padding(.trailing, 18)
+                .padding(.top, 258)
         }
         .navigationTitle(SwissDialectPhrases.tabLabel)
         .navigationBarTitleDisplayMode(.large)
