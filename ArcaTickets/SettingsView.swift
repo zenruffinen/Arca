@@ -24,6 +24,9 @@ struct SettingsView: View {
     @State private var showReleaseNotes = false
     @State private var dialectMode = SwissDialectPreferences.rotationMode
     @State private var dialectFavoriteID = SwissDialectPreferences.favoritePhraseID
+    @State private var unterwegsViewMode = UnterwegsViewPreferences.viewMode
+    @State private var ferienEinstiegEnabled = UnterwegsViewPreferences.einstiegEnabled
+    @State private var showPrivacyDetail = false
 
     // Backup export
     @State private var showExportPasswordSheet = false
@@ -71,8 +74,8 @@ struct SettingsView: View {
                     }
                 } footer: {
                     Text(store.isICloudAvailable
-                         ? "Tickets und Dateien werden über iCloud Drive synchronisiert. Bei „Warte auf Download“ werden Inhalte noch aus der Cloud geladen."
-                         : "iCloud ist nicht verfügbar. Daten werden lokal auf diesem Gerät gespeichert.")
+                         ? LegalCopy.iCloudAvailableFooter
+                         : LegalCopy.iCloudUnavailableFooter)
                 }
 
                 Section {
@@ -83,20 +86,20 @@ struct SettingsView: View {
                         showExportPassword = false
                         showExportPasswordSheet = true
                     } label: {
-                        Label("Daten sichern", systemImage: "square.and.arrow.up.fill")
+                        Label("Date sichere", systemImage: "square.and.arrow.up.fill")
                             .foregroundStyle(.blue)
                     }
 
                     Button {
                         showImportConfirm = true
                     } label: {
-                        Label("Daten wiederherstellen", systemImage: "square.and.arrow.down.fill")
+                        Label("Date wiederherstelle", systemImage: "square.and.arrow.down.fill")
                             .foregroundStyle(.green)
                     }
                 } header: {
-                    Text("Sichern und wiederherstellen")
+                    Text("Sichere und wiederherstelle")
                 } footer: {
-                    Text("Das Backup wird verschlüsselt gespeichert (.arcaticketsbackup). Du kannst es in iCloud Drive, per Mail oder lokal sichern — ideal beim Gerätewechsel.")
+                    Text(LegalCopy.backupFooter)
                 }
 
                 Section {
@@ -105,10 +108,10 @@ struct SettingsView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 } footer: {
-                    Label("Arca Tickets ist kostenlos, werbefrei und sammelt keine Daten über dich.", systemImage: "lock.shield.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    Text(LegalCopy.privacySummary)
                 }
+
+                legalSection
 
                 tabOrderSection
                 unterwegsDialectSection
@@ -131,6 +134,8 @@ struct SettingsView: View {
             .onAppear {
                 tabOrder = TabOrderPreferences.reorderableTabOrder
                 leadTab = TabOrderPreferences.leadTab
+                unterwegsViewMode = UnterwegsViewPreferences.viewMode
+                ferienEinstiegEnabled = UnterwegsViewPreferences.einstiegEnabled
                 consumePendingBackupURL()
             }
             .onChange(of: store.pendingBackupURL) { _, url in
@@ -145,6 +150,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showReleaseNotes) {
                 releaseNotesSheet
+            }
+            .sheet(isPresented: $showPrivacyDetail) {
+                LegalPrivacyDetailView()
             }
             .sheet(isPresented: $showExportPasswordSheet) {
                 NavigationStack {
@@ -185,11 +193,11 @@ struct SettingsView: View {
                                 .onChange(of: exportPasswordConfirm) { _, _ in exportPasswordError = "" }
                             }
                         } header: {
-                            Text("Backup-Passwort festlegen")
+                            Text("Backup-Passwort feschtle")
                         } footer: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Das Passwort muss mindestens 4 Zeichen lang sein.")
-                                Text("Das Backup wird verschlüsselt. Ohne dieses Passwort kann es nicht wiederhergestellt werden.")
+                                Text("S'Passwort muess mindestens 4 Zeiche lang si.")
+                                Text(LegalCopy.backupPasswordHint)
                             }
                         }
                         if !exportPasswordError.isEmpty {
@@ -200,17 +208,17 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    .navigationTitle("Daten sichern")
+                    .navigationTitle("Date sichere")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Abbrechen") {
+                            Button(ArcaTicketsStrings.cancel) {
                                 exportPasswordFieldFocused = false
                                 showExportPasswordSheet = false
                             }
                         }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Sichern") { performBackupExport() }
+                            Button(ArcaTicketsStrings.backup) { performBackupExport() }
                                 .disabled(exportPassword.isEmpty)
                         }
                     }
@@ -224,27 +232,27 @@ struct SettingsView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 40))
                             .foregroundStyle(.orange)
-                        Text("Sicherung fehlgeschlagen")
+                        Text(ArcaTicketsStrings.backupFailed)
                             .font(.headline)
-                        Text("Die Backup-Datei konnte nicht erstellt werden. Bitte versuche es erneut.")
+                        Text("D'Backup-Datei het nöd chönne erstellt werde. Bitte nomal probiere.")
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                        Button("Schließen") { exportShareItem = nil }
+                        Button(ArcaTicketsStrings.close) { exportShareItem = nil }
                             .buttonStyle(.borderedProminent)
                             .padding(.top, 8)
                     }
                     .padding()
                 }
             }
-            .alert("Daten wiederherstellen", isPresented: $showImportConfirm) {
-                Button("Abbrechen", role: .cancel) {}
-                Button("Fortfahren") {
+            .alert("Date wiederherstelle", isPresented: $showImportConfirm) {
+                Button(ArcaTicketsStrings.cancel, role: .cancel) {}
+                Button(ArcaTicketsStrings.proceed) {
                     importPickerStartFolder = store.beginAccessingRememberedBackupFolder()
                     showImportPicker = true
                 }
             } message: {
-                Text("Bestehende Daten werden ersetzt, sofern du nicht zusammenführst. Möchtest du fortfahren?")
+                Text("Bestehendi Date werded ersetzt, wenn du nöd zämmefüege. Wotsch witerfahre?")
             }
             .sheet(isPresented: $showImportPicker, onDismiss: {
                 store.releaseRememberedBackupFolderAccess()
@@ -285,33 +293,33 @@ struct SettingsView: View {
                                 .buttonStyle(.borderless)
                             }
                         } header: {
-                            Text("Backup-Passwort eingeben")
+                            Text("Backup-Passwort ii gä")
                         } footer: {
-                            Text("Gib das Passwort ein, das beim Export vergeben wurde.")
+                            Text("Gib s'Passwort ii, wo bim Export vergä worde isch.")
                         }
 
                         Section {
                             Toggle(isOn: $importMerge) {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Zusammenführen")
+                                    Text(ArcaTicketsStrings.merge)
                                         .font(.body)
-                                    Text("Bestehende Daten bleiben erhalten — nur neue Einträge werden hinzugefügt.")
+                                    Text("Bestehendi Date bliibed — nur neui Iiträg werded dezue gfüegt.")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
                         } footer: {
                             Text(importMerge
-                                 ? "Vorhandene Tickets, Ordner und Kontakte bleiben erhalten."
-                                 : "Alles wird durch den Backup-Stand ersetzt.")
+                                 ? "Vorhandeni Ticket, Ordner und Kontakt bliibed."
+                                 : "Alles wird dur de Backup-Stand ersetzt.")
                                 .foregroundStyle(importMerge ? .green : .orange)
                         }
                     }
-                    .navigationTitle("Wiederherstellen")
+                    .navigationTitle("Wiederherstelle")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Abbrechen") {
+                            Button(ArcaTicketsStrings.cancel) {
                                 importPasswordFieldFocused = false
                                 showImportPasswordSheet = false
                                 pendingImportURL = nil
@@ -319,7 +327,7 @@ struct SettingsView: View {
                             }
                         }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button(importMerge ? "Zusammenführen" : "Ersetzen") {
+                            Button(importMerge ? ArcaTicketsStrings.merge : ArcaTicketsStrings.replace) {
                                 performBackupImport()
                             }
                             .disabled(importPassword.isEmpty)
@@ -346,27 +354,27 @@ struct SettingsView: View {
                     folderImportFailed = true
                 }
             }
-            .alert("Import erfolgreich", isPresented: $showImportSuccess) {
-                Button("OK", role: .cancel) {}
+            .alert(ArcaTicketsStrings.importSuccess, isPresented: $showImportSuccess) {
+                Button(ArcaTicketsStrings.ok, role: .cancel) {}
             } message: {
-                Text("Alle Daten wurden erfolgreich wiederhergestellt.")
+                Text("Alli Date sind erfolgriich wiederherstellt worde.")
             }
-            .alert("Import fehlgeschlagen", isPresented: $showImportError) {
-                Button("OK", role: .cancel) {}
+            .alert(ArcaTicketsStrings.importFailed, isPresented: $showImportError) {
+                Button(ArcaTicketsStrings.ok, role: .cancel) {}
             } message: {
                 Text(importErrorMessage)
             }
             .alert("Ordner importiert", isPresented: $showFolderImportAlert) {
-                Button("OK", role: .cancel) { folderImportResult = nil }
+                Button(ArcaTicketsStrings.ok, role: .cancel) { folderImportResult = nil }
             } message: {
                 if let name = folderImportResult {
-                    Text("Tickets aus der geteilten Reise liegen in „\(name)“.")
+                    Text("Ticket us dr geteilti Reise liged in „\(name)“.")
                 }
             }
-            .alert("Das hat nicht geklappt", isPresented: $folderImportFailed) {
-                Button("Nochmal versuchen", role: .cancel) {}
+            .alert(ArcaTicketsStrings.didNotWork, isPresented: $folderImportFailed) {
+                Button(ArcaTicketsStrings.retry, role: .cancel) {}
             } message: {
-                Text("Die Datei ist kein gültiger geteilter Arca-Tickets-Ordner.")
+                Text("D'Datei isch kein gültige geteilti Arca-Tickets-Ordner.")
             }
         }
     }
@@ -377,17 +385,17 @@ struct SettingsView: View {
         if store.isBlockedDocumentExtension(url) {
             let ext = url.pathExtension.uppercased()
             if ext == "PDF" {
-                return "Das ist ein PDF-Dokument, keine Arca-Tickets-Sicherung (.arcaticketsbackup). Bitte die exportierte Datei „ArcaTicketsBackup_….arcaticketsbackup“ wählen — nicht ein Ticket-PDF."
+                return "Das isch es PDF-Dokument, kei Arca-Tickets-Sicherig (.arcaticketsbackup). Bitte d'exportierti Datei „ArcaTicketsBackup_….arcaticketsbackup“ wähle — kei Ticket-PDF."
             }
-            return "Das ist eine \(ext)-Datei, keine Arca-Tickets-Sicherung (.arcaticketsbackup). Bitte die exportierte Backup-Datei wählen."
+            return "Das isch e \(ext)-Datei, kei Arca-Tickets-Sicherig (.arcaticketsbackup). Bitte d'exportierti Backup-Datei wähle."
         }
         switch error {
         case .fileAccessDenied:
-            return "Kein Zugriff auf die Datei. Bitte erneut auswählen."
+            return "Kei Zuegriff uf d'Datei. Bitte nomal uswähle."
         case .invalidBackupFile:
-            return "Keine gültige Arca-Tickets-Backup-Datei (.arcaticketsbackup). Bitte die exportierte Sicherungsdatei wählen — keine PDF oder anderes Dokument."
+            return "Kei gültigi Arca-Tickets-Backup-Datei (.arcaticketsbackup). Bitte d'exportierti Sicherigsdatei wähle — kei PDF oder anders Dokument."
         case .wrongPasswordOrCorrupt, .manifestInvalid:
-            return "Die Datei konnte nicht gelesen werden. Falsches Passwort oder beschädigte Datei."
+            return "D'Datei het nöd gläse werde chönne. Falsches Passwort oder beschädigti Datei."
         }
     }
 
@@ -432,11 +440,11 @@ struct SettingsView: View {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             guard password.count >= TicketStore.minBackupPasswordLength else {
-                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+                exportPasswordError = "S'Passwort muess mindestens 4 Zeiche lang si."
                 return
             }
             guard password == passwordConfirm else {
-                exportPasswordError = "Passwörter stimmen nicht überein."
+                exportPasswordError = "Passwörter stimmed nöd überein."
                 return
             }
 
@@ -447,9 +455,9 @@ struct SettingsView: View {
                     exportShareItem = ShareURLItem(url: url, isTicketsBackup: true)
                 }
             case .failure(.passwordTooShort):
-                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+                exportPasswordError = "S'Passwort muess mindestens 4 Zeiche lang si."
             case .failure(.archiveFailed):
-                exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
+                exportPasswordError = "Sicherig fehlgschlage. Bitte nomal probiere."
             }
         }
     }
@@ -475,7 +483,7 @@ struct SettingsView: View {
                 try? FileManager.default.removeItem(at: url)
                 showImportSuccess = true
             case .failure(.fileAccessDenied):
-                importErrorMessage = "Kein Zugriff auf die Datei. Bitte erneut auswählen."
+                importErrorMessage = "Kei Zuegriff uf d'Datei. Bitte nomal uswähle."
                 showImportError = true
             case .failure(.manifestInvalid):
                 importErrorMessage = "Backup-Datei beschädigt (manifest.json ungültig)."
@@ -484,7 +492,7 @@ struct SettingsView: View {
                 importErrorMessage = "Falsches Passwort oder beschädigte Datei."
                 showImportError = true
             case .failure(.invalidBackupFile):
-                importErrorMessage = "Keine gültige Arca-Tickets-Backup-Datei (.arcaticketsbackup)."
+                importErrorMessage = "Kei gültigi Arca-Tickets-Backup-Datei (.arcaticketsbackup)."
                 showImportError = true
             }
         }
@@ -539,7 +547,7 @@ struct SettingsView: View {
         } header: {
             Text("Über Arca Tickets")
         } footer: {
-            Text("Die schlanke Schwester von Arca — nur Tickets, nichts Überflüssiges. Speichern, vorzeigen, rechtzeitig erinnert.")
+            Text("D'schlanki Schwester vo Arca — nur Ticket, nüt Überflüssigs. Speichere, zeig, rächtziitig erinnert.")
         }
     }
 
@@ -580,15 +588,33 @@ struct SettingsView: View {
                 .environment(\.editMode, .constant(.active))
             }
         } header: {
-            Text("Tab-Reihenfolge")
+            Text("Tab-Riihfolge")
         } footer: {
-            Text("Lege fest, welche Registerkarte beim Öffnen zuerst erscheint. Einstellungen bleiben immer als letzter Tab unten.")
+            Text("Leg fest, weli Registercharte bim Öffne zeerscht erschint. Istellige bliibed immer als letschte Tab unte.")
         }
     }
 
     @ViewBuilder
     private var unterwegsDialectSection: some View {
         Section {
+            Toggle(isOn: $ferienEinstiegEnabled) {
+                Label("Zeerscht", systemImage: "photo.artframe")
+            }
+            .onChange(of: ferienEinstiegEnabled) { _, enabled in
+                UnterwegsViewPreferences.einstiegEnabled = enabled
+            }
+
+            Picker(selection: $unterwegsViewMode) {
+                ForEach(UnterwegsViewMode.allCases) { mode in
+                    Label(mode.label, systemImage: mode.settingsIcon).tag(mode)
+                }
+            } label: {
+                Label("Aasicht nach Zeerscht", systemImage: "map.fill")
+            }
+            .onChange(of: unterwegsViewMode) { _, mode in
+                UnterwegsViewPreferences.viewMode = mode
+            }
+
             Picker(selection: $dialectMode) {
                 ForEach(SwissDialectRotationMode.allCases) { mode in
                     Text(mode.label).tag(mode)
@@ -606,7 +632,7 @@ struct SettingsView: View {
                         Text(phrase.text).tag(phrase.id)
                     }
                 } label: {
-                    Label("Lieblingsspruch", systemImage: "heart.fill")
+                    Label("Lieblings-Spruch", systemImage: "heart.fill")
                 }
                 .onChange(of: dialectFavoriteID) { _, id in
                     SwissDialectPreferences.favoritePhraseID = id
@@ -615,7 +641,7 @@ struct SettingsView: View {
         } header: {
             Text("Unterwägs")
         } footer: {
-            Text("Schweizer Dialekt-Sprüche mit verspielter Schrift — im Tab bleibt es kurz „Unterwägs“.")
+            Text("Beim Öffne vom Tab: Vollbild-Ferie-Grafik im Querformat mit versteckte Tippzone. Beim erste Mal churze Hinweis und dezents Pulsiere — danach optional dauerhaft Glas-Chreise über „Tipp-Hinwiis“. Jederzeit wieder über „Zeerscht“ obe rächts uf Unterwägs.")
         }
     }
 
@@ -626,7 +652,7 @@ struct SettingsView: View {
                 showContactsManagement = true
             } label: {
                 HStack {
-                    Label("Wichtige Nummern", systemImage: "phone.fill")
+                    Label("Wichtigi Nummerä", systemImage: "phone.fill")
                     Spacer()
                     Text("\(store.quickContacts.count)")
                         .foregroundStyle(.secondary)
@@ -641,7 +667,7 @@ struct SettingsView: View {
                 showFolderManagement = true
             } label: {
                 HStack {
-                    Label("Ordner verwalten", systemImage: "folder.badge.gearshape")
+                    Label("Ordner verwalte", systemImage: "folder.badge.gearshape")
                     Spacer()
                     Text("\(store.folders.count)")
                         .foregroundStyle(.secondary)
@@ -654,7 +680,7 @@ struct SettingsView: View {
         } header: {
             Text("Organisation")
         } footer: {
-            Text("Notrufnummern, Hotel, Fluggesellschaft und Familie — auf dem Tab „Notfall“ griffbereit. Ordner z. B. „Reise Zermatt“ für die ganze Familie.")
+            Text("Notrufnummerä, Hotel, Fluggsellschaft und Familie — uf em Tab „Notfall“ griffbereit. \(LegalCopy.contactsCallFooter)")
         }
     }
 
@@ -664,23 +690,43 @@ struct SettingsView: View {
             Button {
                 showFolderImportPicker = true
             } label: {
-                Label("Geteilten Ordner importieren", systemImage: "square.and.arrow.down")
+                Label("Geteilti Ordner importiere", systemImage: "square.and.arrow.down")
             }
         } header: {
             Text("Familie")
         } footer: {
-            Text("Schritt 1: Ordner teilen · Schritt 2: AirDrop oder Nachrichten · Schritt 3: Datei öffnen. Reise teilen — Familie erhält alle Tickets.")
+            Text("Schritt 1: Ordner teile · Schritt 2: AirDrop oder Nachrichte · Schritt 3: Datei öffne. \(LegalCopy.familyShareWarning) \(LegalCopy.familyImportFooter)")
+        }
+    }
+
+    @ViewBuilder
+    private var legalSection: some View {
+        Section {
+            Button {
+                showPrivacyDetail = true
+            } label: {
+                HStack {
+                    Label("Dateschutz & Hinweis", systemImage: "hand.raised.fill")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+        } footer: {
+            Text(LegalCopy.emergencyDisclaimer)
         }
     }
 
     @ViewBuilder
     private var remindersSection: some View {
         Section {
-            LabeledContent("Tickets gespeichert", value: "\(store.tickets.count)")
+            LabeledContent("Ticket gspeicheret", value: "\(store.tickets.count)")
         } header: {
             Text("Erinnerungen")
         } footer: {
-            Text("Abos und Saisonkarten: Erinnerung 30 Tage vor Ablauf. Alle anderen Tickets: 1 Tag vorher.")
+            Text("Abo und Saisoncharte: Erinnerig 30 Tag vor Ablauf. Alli andere Ticket: 1 Tag vorher.")
         }
     }
 
@@ -691,7 +737,7 @@ struct SettingsView: View {
         } header: {
             Text("Sicherheit")
         } footer: {
-            Text("PIN und Face ID schützen den Zugriff auf deine Tickets.")
+            Text(LegalCopy.appLockFooter)
         }
     }
 
@@ -699,11 +745,11 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
-                    Label("Einstellungen im Arca-Stil: Über Arca Tickets, iCloud, Backup, Wusstest du?", systemImage: "gearshape.fill")
-                    Label("Vollständiges verschlüsseltes Backup (.arcaticketsbackup)", systemImage: "lock.shield.fill")
-                    Label("Tab-Reihenfolge: Einstellungen bleiben unten in der Tab-Leiste", systemImage: "arrow.up.arrow.down")
-                    Label("Notfall-Tab mit wichtigen Nummern und Ausweisdaten", systemImage: "phone.circle.fill")
-                    Label("Reiseordner teilen und importieren", systemImage: "person.2.fill")
+                    Label("Istellige im Arca-Stil: Über Arca Tickets, iCloud, Backup, Wüssisch?", systemImage: "gearshape.fill")
+                    Label("Vollständigs verschlüsseltes Backup (.arcaticketsbackup)", systemImage: "lock.shield.fill")
+                    Label("Tab-Riihfolge: Istellige bliibed unte in dr Tab-Leiste", systemImage: "arrow.up.arrow.down")
+                    Label("Notfall-Tab mit wichtige Nummerä und Usweisdate", systemImage: "phone.circle.fill")
+                    Label("Reiseordner teile und importiere", systemImage: "person.2.fill")
                 } header: {
                     Text("Neu in Version \(appVersion)")
                 }
@@ -712,7 +758,7 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { showReleaseNotes = false }
+                    Button(ArcaTicketsStrings.done) { showReleaseNotes = false }
                 }
             }
         }
@@ -753,16 +799,16 @@ struct FolderManagementView: View {
                                 Button {
                                     shareGuideFolder = folder
                                 } label: {
-                                    Label("Mit Familie teilen", systemImage: "person.2.fill")
+                                    Label("Mit Familie teile", systemImage: "person.2.fill")
                                 }
                                 .disabled(store.ticketCount(in: folder) == 0)
 
-                                Button("Umbenennen") {
+                                Button("Umbenenne") {
                                     folderToRename = folder
                                     renameText = folder
                                 }
                                 if store.folders.count > 1 {
-                                    Button("Löschen", role: .destructive) {
+                                    Button(ArcaTicketsStrings.delete, role: .destructive) {
                                         _ = store.deleteFolder(folder)
                                     }
                                 }
@@ -773,39 +819,39 @@ struct FolderManagementView: View {
                         }
                     }
                 } header: {
-                    Text("Deine Ordner")
+                    Text("Dini Ordner")
                 }
 
                 Section {
                     Button {
                         showAddAlert = true
                     } label: {
-                        Label("Neuen Ordner hinzufügen", systemImage: "folder.badge.plus")
+                        Label("Neue Ordner hinzuefüege", systemImage: "folder.badge.plus")
                     }
                 }
             }
-            .navigationTitle("Ordner verwalten")
+            .navigationTitle("Ordner verwalte")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { dismiss() }
+                    Button(ArcaTicketsStrings.done) { dismiss() }
                 }
             }
             .alert("Neuer Ordner", isPresented: $showAddAlert) {
                 TextField("Ordnername", text: $newFolderName)
-                Button("Abbrechen", role: .cancel) { newFolderName = "" }
-                Button("Hinzufügen") {
+                Button(ArcaTicketsStrings.cancel, role: .cancel) { newFolderName = "" }
+                Button(ArcaTicketsStrings.addFull) {
                     _ = store.addFolder(named: newFolderName)
                     newFolderName = ""
                 }
             }
-            .alert("Ordner umbenennen", isPresented: Binding(
+            .alert("Ordner umbenenne", isPresented: Binding(
                 get: { folderToRename != nil },
                 set: { if !$0 { folderToRename = nil } }
             )) {
-                TextField("Neuer Name", text: $renameText)
-                Button("Abbrechen", role: .cancel) { folderToRename = nil }
-                Button("Speichern") {
+                TextField("Neue Name", text: $renameText)
+                Button(ArcaTicketsStrings.cancel, role: .cancel) { folderToRename = nil }
+                Button(ArcaTicketsStrings.save) {
                     if let old = folderToRename {
                         _ = store.renameFolder(from: old, to: renameText)
                     }

@@ -72,7 +72,7 @@ struct AddTicketView: View {
             Form {
                 if isRenewal {
                     Section {
-                        Label("Erneuertes Ticket — neues Dokument und neues Ablaufdatum wählen.", systemImage: "arrow.triangle.2.circlepath")
+                        Label("Erneuerts Ticket — neus Dokument und neus Ablaufdatum wähle.", systemImage: "arrow.triangle.2.circlepath")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -80,7 +80,7 @@ struct AddTicketView: View {
 
                 Section {
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                        Label("Aus Fotos wählen", systemImage: "photo.on.rectangle")
+                        Label("Us Foto wähle", systemImage: "photo.on.rectangle")
                     }
                     Button {
                         showDocumentPicker = true
@@ -95,7 +95,7 @@ struct AddTicketView: View {
                 } header: {
                     Text("Quelle")
                 } footer: {
-                    Text("Tipp: In Mail oder Safari auf Teilen tippen → Arca Tickets.")
+                    Text("Tipp: In Mail oder Safari uf Teile tippen → Arca Tickets.")
                         .font(.caption)
                 }
 
@@ -122,9 +122,9 @@ struct AddTicketView: View {
                         ForEach(store.folders, id: \.self) { name in
                             Text(name).tag(name)
                         }
-                        Text("Neuer Ordner…").tag(FolderPicker.createNew)
+                        Text("Neue Ordner…").tag(FolderPicker.createNew)
                     }
-                    Toggle("Auf Unterwägs anheften", isOn: $pinOnAdd)
+                    Toggle(ArcaTicketsStrings.pinOnUnterwegs, isOn: $pinOnAdd)
                     Toggle("Ablaufdatum", isOn: $hasExpiry)
                     if hasExpiry {
                         DatePicker("Gültig bis", selection: $expiryDate, displayedComponents: [.date, .hourAndMinute])
@@ -134,7 +134,7 @@ struct AddTicketView: View {
                         Stepper("Verbleibend: \(remainingUses)", value: $remainingUses, in: 0...999)
                         Stepper("Gesamt: \(totalUses)", value: $totalUses, in: 1...999)
                     }
-                    TextField("Notizen (optional)", text: $notes, axis: .vertical)
+                    TextField("Notize (optional)", text: $notes, axis: .vertical)
                         .lineLimit(2...4)
                 } header: {
                     Text("Details")
@@ -153,10 +153,10 @@ struct AddTicketView: View {
                             DatePicker("Boarding", selection: $boardingTime, displayedComponents: [.date, .hourAndMinute])
                         }
                     } label: {
-                        Label("Reisedetails (optional)", systemImage: "airplane")
+                        Label("Reisedetail (optional)", systemImage: "airplane")
                     }
                 } footer: {
-                    Text("Flug, Sitz und Gate — nur wenn du sie brauchst. Alles später änderbar.")
+                    Text("Flug, Sitz und Gate — nur wenn du sie bruchsch. Alles spöter änderbar.")
                         .font(.caption)
                 }
 
@@ -168,14 +168,14 @@ struct AddTicketView: View {
                     }
                 }
             }
-            .navigationTitle(isRenewal ? "Ticket erneuern" : "Neues Ticket")
+            .navigationTitle(isRenewal ? "Ticket erneuere" : "Neus Ticket")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isRenewal ? "Erneuern" : "Speichern") { saveTicket() }
+                    Button(isRenewal ? ArcaTicketsStrings.renew : ArcaTicketsStrings.save) { saveTicket() }
                         .disabled(!canSave)
                 }
             }
@@ -197,7 +197,7 @@ struct AddTicketView: View {
                         title = url.deletingPathExtension().lastPathComponent
                     }
                 case .failure:
-                    errorMessage = "Das hat nicht geklappt — nochmal versuchen?"
+                    errorMessage = ArcaTicketsStrings.didNotWork + " — no einisch probiere?"
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
@@ -232,7 +232,7 @@ struct AddTicketView: View {
                                 Text(newFolderError)
                                     .foregroundStyle(.red)
                             } else {
-                                Text("Der Ordner wird gespeichert und für dieses Ticket ausgewählt.")
+                                Text("De Ordner wird gspeicheret und für das Ticket usgwählt.")
                             }
                         }
                     }
@@ -240,14 +240,14 @@ struct AddTicketView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Abbrechen") {
+                            Button(ArcaTicketsStrings.cancel) {
                                 newFolderName = ""
                                 newFolderError = ""
                                 showNewFolderSheet = false
                             }
                         }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Erstellen") { createNewFolder() }
+                            Button(ArcaTicketsStrings.create) { createNewFolder() }
                                 .disabled(newFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
@@ -262,11 +262,11 @@ struct AddTicketView: View {
         let trimmed = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         if store.folders.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
-            newFolderError = "Ein Ordner mit diesem Namen existiert bereits."
+            newFolderError = "En Ordner mit dem Name git scho."
             return
         }
         guard store.addFolder(named: trimmed) else {
-            newFolderError = "Der Ordner konnte nicht erstellt werden."
+            newFolderError = "De Ordner het nöd chönne erstellt werde."
             return
         }
         folder = trimmed
@@ -296,7 +296,7 @@ struct AddTicketView: View {
                 .scaledToFit()
                 .frame(maxHeight: 180)
         } else {
-            Label("Datei ausgewählt", systemImage: "checkmark.circle.fill")
+            Label("Datei usgwählt", systemImage: "checkmark.circle.fill")
         }
     }
 
@@ -316,7 +316,7 @@ struct AddTicketView: View {
                 if title.isEmpty { title = "Ticket \(Date().formatted(date: .abbreviated, time: .omitted))" }
             }
         } catch {
-            await MainActor.run { errorMessage = "Das hat nicht geklappt — nochmal versuchen?" }
+            await MainActor.run { errorMessage = ArcaTicketsStrings.didNotWork + " — no einisch probiere?" }
         }
     }
 
@@ -334,7 +334,7 @@ struct AddTicketView: View {
         }
 
         guard var saved = entry else {
-            errorMessage = "Das hat nicht geklappt — nochmal versuchen?"
+            errorMessage = ArcaTicketsStrings.didNotWork + " — no einisch probiere?"
             return
         }
 
@@ -362,13 +362,13 @@ struct AddTicketView: View {
         TicketsHaptics.success()
         let hasFlight = !(saved.flightNumber?.isEmpty ?? true)
         if pinOnAdd {
-            store.showToast("Auf Unterwägs angehefixt ✈️")
+            store.showToast("Uf Unterwägs agheftet ✈️")
         } else if hasFlight {
-            store.showToast("Guten Flug! ✈️")
+            store.showToast("Guete Flug! ✈️")
         } else if isRenewal {
-            store.showToast("Ticket erneuert — gute Fahrt!")
+            store.showToast("Ticket erneuert — gueti Fahrt!")
         } else {
-            store.showToast("Alles gespeichert — gute Reise!")
+            store.showToast("Alles gspeicheret — gueti Reise!")
         }
         dismiss()
     }

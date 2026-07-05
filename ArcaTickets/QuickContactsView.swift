@@ -19,10 +19,10 @@ struct QuickContactsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Wichtige Nummern", systemImage: "phone.fill")
+                Label("Wichtigi Nummerä", systemImage: "phone.fill")
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
                 Spacer()
-                Button("Verwalten") {
+                Button(ArcaTicketsStrings.manage) {
                     showManageAll = true
                 }
                 .font(.subheadline.weight(.medium))
@@ -50,11 +50,11 @@ struct QuickContactsSection: View {
 
     private var emptyHint: some View {
         VStack(spacing: 8) {
-            Text("Polizei, Hotel, Flug — ein Tap zum Anrufen.")
+            Text("Polizei, Hotel, Flug — ein Tap zum Aarufe.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Button("Nummern hinzufügen") {
+            Button("Nummerä hinzuefüege") {
                 showManageAll = true
             }
             .font(.subheadline.weight(.semibold))
@@ -152,7 +152,7 @@ struct QuickContactRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(contact.label), \(contact.displayPhoneNumber)")
-        .accessibilityHint(contact.hasPhoneNumber ? "Anrufen" : "Nummer eintragen")
+        .accessibilityHint(contact.hasPhoneNumber ? "Aarufe" : "Nummer iträge")
     }
 }
 
@@ -174,9 +174,9 @@ struct QuickContactsManagementView: View {
                 if groupedContacts.isEmpty {
                     Section {
                         ContentUnavailableView(
-                            "Keine Nummern",
-                            systemImage: "phone.slash",
-                            description: Text("Füge wichtige Kontakte hinzu — per Vorlage oder manuell.")
+                            "Kei Nummerä",
+                            systemImage: "phone.down.circle.fill",
+                            description: Text("Füeg wichtigi Kontakt hinzue — per Vorlage oder manuell.")
                         )
                     }
                 } else {
@@ -203,31 +203,31 @@ struct QuickContactsManagementView: View {
                     Button {
                         showAddSheet = true
                     } label: {
-                        Label("Kontakt hinzufügen", systemImage: "plus.circle.fill")
+                        Label("Kontakt hinzuefüege", systemImage: "plus.circle.fill")
                     }
 
                     if !store.availableQuickContactTemplates.isEmpty {
                         Button {
                             showTemplatePicker = true
                         } label: {
-                            Label("Aus Vorlage hinzufügen", systemImage: "doc.on.doc")
+                            Label("Us Vorlage hinzuefüege", systemImage: "doc.on.doc")
                         }
                     }
                 }
 
                 Section {
-                    Button("Standard-Vorlagen wiederherstellen", role: .destructive) {
+                    Button("Standard-Vorlage wiederherstelle", role: .destructive) {
                         store.resetQuickContactsToDefaults()
                     }
                 } footer: {
-                    Text("Schweizer Notrufnummern: Polizei 117, Feuer 118, Rettung 144, EU 112.")
+                    Text("Schwiizer Notrufnummerä: Polizei 117, Feuer 118, Rettung 144, EU 112. \(LegalCopy.contactsCallFooter)")
                 }
             }
-            .navigationTitle("Wichtige Nummern")
+            .navigationTitle("Wichtigi Nummerä")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { dismiss() }
+                    Button(ArcaTicketsStrings.done) { dismiss() }
                 }
             }
             .sheet(item: $contactToEdit) { contact in
@@ -322,7 +322,7 @@ struct QuickContactEditorView: View {
                 } header: {
                     Text("Kategorie")
                 } footer: {
-                    Text("Notfall-Nummern wie Polizei (117) und Rettung (144) sind vorausgefüllt.")
+                    Text("Notfall-Nummerä wie Polizei (117) und Rettung (144) sind vorausgfüllt. \(LegalCopy.contactsCallFooter)")
                 }
 
                 if category == .versicherung {
@@ -339,18 +339,18 @@ struct QuickContactEditorView: View {
                     } header: {
                         Text("Versicherung")
                     } footer: {
-                        Text("Polizzen-Nummer für den Notfall griffbereit — z. B. auf dem Tab „Notfall“.")
+                        Text(LegalCopy.insuranceDisclaimer)
                     }
                 }
             }
-            .navigationTitle(isEditing ? "Kontakt bearbeiten" : "Neuer Kontakt")
+            .navigationTitle(isEditing ? "Kontakt bearbeite" : "Neuer Kontakt")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") {
+                    Button(ArcaTicketsStrings.save) {
                         save()
                         dismiss()
                     }
@@ -417,7 +417,7 @@ struct QuickContactTemplatePickerView: View {
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                             } else {
-                                                Text("Nummer später eintragen")
+                                                Text("Nummer spöter iträge")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                             }
@@ -435,11 +435,11 @@ struct QuickContactTemplatePickerView: View {
                     }
                 }
             }
-            .navigationTitle("Vorlage wählen")
+            .navigationTitle("Vorlage wähle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
             }
         }

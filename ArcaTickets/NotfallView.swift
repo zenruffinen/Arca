@@ -17,9 +17,13 @@ struct NotfallView: View {
                 PersonalIDCardView()
                 swissEmergencySection
                 CollapsibleContactCategoriesView(
-                    title: "Wichtige Nummern",
+                    title: "Wichtigi Nummerä",
                     defaultExpanded: [.notfall]
                 )
+
+                LegalFootnote(text: LegalCopy.emergencyDisclaimer, icon: "exclamationmark.triangle")
+                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
@@ -35,7 +39,7 @@ struct NotfallView: View {
                 .ignoresSafeArea()
             }
         }
-        .navigationTitle("Notfall")
+        .navigationTitle(ArcaTicketsStrings.tabNotfall)
         .navigationBarTitleDisplayMode(.large)
     }
 
@@ -47,9 +51,9 @@ struct NotfallView: View {
                 .symbolRenderingMode(.hierarchical)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Im Ernstfall schnell da")
+                Text("Im Ernstfall schnell parat")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
-                Text("Ein Tap zum Anrufen — alles an einem Ort")
+                Text("Ein Tap zum Aarufe — alles a eim Ort")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -60,7 +64,7 @@ struct NotfallView: View {
 
     private var swissEmergencySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Schweizer Notruf", systemImage: "sos")
+            Label("Schwiizer Notruf", systemImage: "sos")
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(.red)
 
@@ -113,6 +117,6 @@ struct SwissEmergencyButton: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(emergency.label), \(emergency.number), anrufen")
+        .accessibilityLabel("\(emergency.label), \(emergency.number), aarufe")
     }
 }

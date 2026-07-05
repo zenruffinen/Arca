@@ -47,7 +47,7 @@ struct FolderView: View {
                                 Button(role: .destructive) {
                                     deleteTicket(ticket)
                                 } label: {
-                                    Label("Löschen", systemImage: "trash")
+                                    Label(ArcaTicketsStrings.delete, systemImage: "trash")
                                 }
                             }
                         }
@@ -67,7 +67,7 @@ struct FolderView: View {
                         Image(systemName: "person.2.fill")
                     }
                     .ticketsMinTapTarget()
-                    .accessibilityLabel("Mit Familie teilen")
+                    .accessibilityLabel("Mit Familie teile")
 
                     Button {
                         showAddTicket = true
@@ -87,10 +87,10 @@ struct FolderView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .alert("Nichts zu teilen", isPresented: $showShareEmptyAlert) {
-            Button("OK", role: .cancel) {}
+        .alert("Nüt zum Teile", isPresented: $showShareEmptyAlert) {
+            Button(ArcaTicketsStrings.ok, role: .cancel) {}
         } message: {
-            Text("Füge mindestens ein Ticket in diesen Ordner hinzu, bevor du ihn teilst.")
+            Text("Füeg mindestens es Ticket in dene Ordner hinzue, bevor du ihn teilsch.")
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             Picker("Filter", selection: $filter) {
@@ -106,9 +106,9 @@ struct FolderView: View {
         .sheet(isPresented: $showAddTicket) {
             AddTicketView(preselectedFolder: folder)
         }
-        .alert("Ticket löschen?", isPresented: $showDeleteConfirm) {
-            Button("Abbrechen", role: .cancel) { ticketToDelete = nil }
-            Button("Löschen", role: .destructive) {
+        .alert("Ticket lösche?", isPresented: $showDeleteConfirm) {
+            Button(ArcaTicketsStrings.cancel, role: .cancel) { ticketToDelete = nil }
+            Button(ArcaTicketsStrings.delete, role: .destructive) {
                 if let ticket = ticketToDelete {
                     TicketsHaptics.delete()
                     store.deleteTicket(ticket)
@@ -117,7 +117,7 @@ struct FolderView: View {
             }
         } message: {
             if let ticket = ticketToDelete {
-                Text("\u{201E}\(ticket.title)\u{201C} wirklich löschen? Das lässt sich nicht rückgängig machen.")
+                Text("\u{201E}\(ticket.title)\u{201C} würklich lösche? Das gaht nöd rückgängig.")
             }
         }
     }
@@ -153,11 +153,14 @@ struct FolderView: View {
 
     private var shareHintFooter: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("Reise teilen — Familie erhält alle Tickets", systemImage: "person.2.fill")
+            Label("Reise teile — Familie überchunnt alli Ticket", systemImage: "person.2.fill")
                 .font(.subheadline.weight(.semibold))
-            Text("Einmal teilen, jeder hat Flug, Hotel, Eintritt griffbereit. Tippe oben auf das Familien-Symbol und sende per AirDrop oder Nachrichten.")
+            Text("Einisch teile, jede/r het Flug, Hotel, Iitritt griffbereit. Tipp obe uf s'Familie-Symbol und send per AirDrop oder Nachrichte.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            Text(LegalCopy.familyShareWarning)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .padding(.top, 4)
     }
@@ -166,12 +169,12 @@ struct FolderView: View {
     private var folderEmptyState: some View {
         if filter != .active && store.ticketCount(in: folder) > 0 {
             ContentUnavailableView {
-                Label(filter == .expired ? "Keine abgelaufenen Tickets" : "Keine Tickets",
+                Label(filter == .expired ? "Kei abgloffeni Ticket" : "Kei Ticket",
                       systemImage: filter == .expired ? "clock.badge.xmark" : "tray")
             } description: {
                 Text(filter == .expired
-                     ? "In \u{201E}\(folder)\u{201C} gibt es keine abgelaufenen Tickets."
-                     : "Wechsle den Filter, um andere Tickets zu sehen.")
+                     ? "In \u{201E}\(folder)\u{201C} git's kei abgloffeni Ticket."
+                     : "Wechsle de Filter, zum anderi Ticket z'gseh.")
             }
         } else {
             VStack(spacing: 20) {
@@ -205,7 +208,7 @@ struct FolderView: View {
                 Button {
                     showAddTicket = true
                 } label: {
-                    Label("Ticket hinzufügen", systemImage: "plus.circle.fill")
+                    Label("Ticket hinzuefüege", systemImage: "plus.circle.fill")
                         .font(.headline)
                 }
                 .buttonStyle(.borderedProminent)

@@ -52,10 +52,10 @@ struct HomeView: View {
             .padding(.bottom, 100)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Alle Tickets")
+        .navigationTitle(ArcaTicketsStrings.tabAllTickets)
         .navigationBarTitleDisplayMode(.large)
         .overlay(alignment: .bottom) {
-            TicketsFAB(title: "Hinzufügen") {
+            TicketsFAB(title: ArcaTicketsStrings.add) {
                 showAddTicket = true
             }
             .padding(.bottom, 24)
@@ -64,9 +64,9 @@ struct HomeView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Noch keine Tickets — leg los ✈️")
+            Text("Noch kei Ticket — leg los ✈️")
                 .font(.headline)
-            Text("Tippe auf Hinzufügen oder teile ein PDF oder Foto direkt in Arca Tickets.")
+            Text("Tipp uf Dezue tue oder teil es PDF oder Foto direkt in Arca Tickets.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -79,11 +79,11 @@ struct HomeView: View {
         HStack(spacing: 12) {
             TicketsAppIcon(size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.tickets.isEmpty ? "Willkommen" : "Deine Sammlung")
+                Text(store.tickets.isEmpty ? "Willkomme" : "Dini Sammlig")
                     .font(.headline)
                 Text(store.tickets.isEmpty
-                     ? "Ordne Tickets in Ordnern"
-                     : "\(store.tickets.count) Tickets in \(store.folders.count) Ordnern")
+                     ? "Ordne Ticket in Ordner"
+                     : "\(store.tickets.count) Ticket in \(store.folders.count) Ordner")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -105,7 +105,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Chronologisch")
                     .font(.system(size: 16, weight: .semibold))
-                Text("Alle Tickets auf einen Blick")
+                Text("Alli Ticket uf e Blick")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -144,15 +144,15 @@ struct AllTicketsView: View {
                     Button(role: .destructive) {
                         deleteTicket(ticket)
                     } label: {
-                        Label("Löschen", systemImage: "trash")
+                        Label(ArcaTicketsStrings.delete, systemImage: "trash")
                     }
                 }
             }
         }
-        .navigationTitle("Alle Tickets")
-        .alert("Ticket löschen?", isPresented: $showDeleteConfirm) {
-            Button("Abbrechen", role: .cancel) { ticketToDelete = nil }
-            Button("Löschen", role: .destructive) {
+        .navigationTitle(ArcaTicketsStrings.tabAllTickets)
+        .alert("Ticket lösche?", isPresented: $showDeleteConfirm) {
+            Button(ArcaTicketsStrings.cancel, role: .cancel) { ticketToDelete = nil }
+            Button(ArcaTicketsStrings.delete, role: .destructive) {
                 if let ticket = ticketToDelete {
                     TicketsHaptics.delete()
                     store.deleteTicket(ticket)
@@ -161,7 +161,7 @@ struct AllTicketsView: View {
             }
         } message: {
             if let ticket = ticketToDelete {
-                Text("\u{201E}\(ticket.title)\u{201C} wirklich löschen? Das lässt sich nicht rückgängig machen.")
+                Text("\u{201E}\(ticket.title)\u{201C} würklich lösche? Das gaht nöd rückgängig.")
             }
         }
     }
@@ -244,9 +244,14 @@ struct TicketRow: View {
                 }
                 .buttonStyle(.plain)
                 .ticketsMinTapTarget()
-                .accessibilityLabel(ticket.isPinned ? "Von Unterwägs lösen" : "Auf Unterwägs anheften")
+                .accessibilityLabel(ticket.isPinned ? ArcaTicketsStrings.unpinFromUnterwegs : ArcaTicketsStrings.pinOnUnterwegs)
             }
         }
         .padding(.vertical, 2)
     }
+}
+
+#Preview {
+    HomeView(showAddTicket: .constant(false))
+        .environmentObject(TicketStore())
 }

@@ -49,7 +49,7 @@ struct CollapsibleContactCategoriesView: View {
 
     private var emptyHint: some View {
         VStack(spacing: 8) {
-            Text("Polizei, Hotel, Versicherung — ein Tap zum Anrufen.")
+            Text("Polizei, Hotel, Versicherig — ein Tap zum Aarufe.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

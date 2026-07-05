@@ -13,8 +13,8 @@ extension Notification.Name {
 
 enum TicketExpiryFilter: String, CaseIterable, Identifiable {
     case active = "Aktiv"
-    case expired = "Abgelaufen"
-    case all = "Alle"
+    case expired = "Abgloffe"
+    case all = "Alli"
 
     var id: String { rawValue }
 }
@@ -118,9 +118,9 @@ struct TicketEntry: Identifiable, Codable, Hashable {
     var expiryCountdownText: String? {
         guard let days = daysUntilExpiry else { return nil }
         switch days {
-        case 0: return "Läuft heute ab"
+        case 0: return "Lauft hüt ab"
         case 1: return "Noch 1 Tag gültig"
-        default: return "Noch \(days) Tage gültig"
+        default: return "Noch \(days) Tag gültig"
         }
     }
 
@@ -272,7 +272,7 @@ struct QuickContact: Identifiable, Codable, Hashable {
 
     var displayPhoneNumber: String {
         let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Nummer eintragen" : trimmed
+        return trimmed.isEmpty ? "Nummer iträge" : trimmed
     }
 
     var displayPolicyNumber: String? {
@@ -310,7 +310,7 @@ struct TaxiContact: Codable, Hashable {
 
     var displayPhoneNumber: String {
         let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Taxinummer eintragen" : trimmed
+        return trimmed.isEmpty ? "Taxinummer iträge" : trimmed
     }
 }
 
@@ -337,7 +337,7 @@ struct GolfContact: Codable, Hashable {
 
     var displayPhoneNumber: String {
         let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Greenfee-Nummer eintragen" : trimmed
+        return trimmed.isEmpty ? "Greenfee-Nummer iträge" : trimmed
     }
 
     /// Kurzform für den Klecks — letzte Ziffern der Greenfee-Nummer.
@@ -422,7 +422,7 @@ struct PersonalIDCard: Codable, Hashable {
 
     var displayName: String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Deine Visitenkarte" : trimmed
+        return trimmed.isEmpty ? "Dini Visitenkarte" : trimmed
     }
 }
 
@@ -505,9 +505,9 @@ enum ArcaTicketsTab: String, CaseIterable, Identifiable, Hashable {
     var label: String {
         switch self {
         case .unterwegs: return SwissDialectPhrases.tabLabel
-        case .alleTickets: return "Alle Tickets"
-        case .notfall: return "Notfall"
-        case .settings: return "Einstellungen"
+        case .alleTickets: return ArcaTicketsStrings.tabAllTickets
+        case .notfall: return ArcaTicketsStrings.tabNotfall
+        case .settings: return ArcaTicketsStrings.tabSettings
         }
     }
 
@@ -535,8 +535,8 @@ enum TabOrderPreferences {
 
         var label: String {
             switch self {
-            case .unterwegsFirst: return "Unterwägs zuerst"
-            case .alleTicketsFirst: return "Alle Tickets zuerst"
+            case .unterwegsFirst: return "Unterwägs zeerscht"
+            case .alleTicketsFirst: return "Alli Tickets zeerscht"
             }
         }
     }
@@ -635,50 +635,50 @@ struct TicketFolderStyle {
         switch name {
         case "Bahn":
             return (
-                "Noch keine Zugtickets",
-                "Speichere SBB-Fahrkarten hier — per Foto, PDF oder Teilen aus der SBB-App.",
-                ["Einzelbillette", "Sparbillette", "Tageskarten"]
+                "Noch kei Zugticket",
+                "Speicher SBB-Fahrcharte da — per Foto, PDF oder Teile us dr SBB-App.",
+                ["Einzelbillette", "Sparbillette", "Tagescharte"]
             )
         case "Abos":
             return (
-                "Noch keine Abos",
-                "Jahres- und Monatsabos mit längerer Laufzeit — wir erinnern dich 30 Tage vor Ablauf.",
+                "Noch kei Abo",
+                "Jahres- und Monetabo mit längerer Laufziit — mir erinnered dich 30 Tag vor Ablauf.",
                 ["Halbtax", "GA", "ÖV-Abo", "Fitness", "Vignette"]
             )
         case "Berge":
             return (
-                "Noch keine Bergtickets",
-                "Skipässe und Bergbahnen — Saisonkarten erinnern wir 30 Tage vor Ablauf.",
-                ["Skipass", "Saisonkarte", "Skitageskarte", "Bergbahn"]
+                "Noch kei Bergticket",
+                "Skipass und Bergbahn — bi Saisoncharte erinnered mir 30 Tag vor Ablauf.",
+                ["Skipass", "Saisoncharte", "Skitagescharte", "Bergbahn"]
             )
         case "Sonstiges":
             return (
-                "Noch nichts hier",
-                "Alles, was in keine andere Kategorie passt — oder eigene Ordner unter Einstellungen.",
-                ["Parktickets", "Events", "Mehrfachkarten", "Boarding Pass", "MFK"]
+                "Noch nüt da",
+                "Alles, was in kei anderi Kategorie passt — oder eigene Ordner under Istellige.",
+                ["Parkticket", "Events", "Mehrfachcharte", "Boarding Pass", "MFK"]
             )
         case "ÖV":
             return (
-                "ÖV-Tickets fehlen noch",
-                "Bus, Tram und Metro: Importiere dein Ticket und zeig den QR-Code am Schalter.",
+                "ÖV-Ticket fähle no",
+                "Bus, Tram und Metro: Importier dis Ticket und zeig de QR-Code am Schalter.",
                 ["Bus", "Tram", "Metro"]
             )
         case "Events":
             return (
-                "Keine Event-Tickets",
-                "Konzert, Sport oder Festival — lege dein Ticket ab, bevor du losgehst.",
+                "Kei Event-Ticket",
+                "Konzert, Sport oder Festival — leg dis Ticket ab, bevor du losgahsch.",
                 ["Konzert", "Sport", "Festival"]
             )
         case "Parken":
             return (
-                "Keine Parktickets",
-                "Parkschein oder Parkhaus-Ticket? Hier landet alles für die Ausfahrt.",
+                "Kei Parkticket",
+                "Parkschein oder Parkhaus-Ticket? Da landet alles für d'Usfahrt.",
                 ["Parkschein", "Parkhaus"]
             )
         default:
             return (
-                "Ordner ist leer",
-                "Füge ein Ticket hinzu — per Kamera, Galerie, PDF oder Teilen aus einer anderen App.",
+                "Ordner isch leer",
+                "Füeg es Ticket hinzue — per Kamera, Galerie, PDF oder Teile us ere andere App.",
                 []
             )
         }

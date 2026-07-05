@@ -46,9 +46,9 @@ struct TicketsPINSetupView: View {
             TicketsAppIcon(size: 92)
 
             VStack(spacing: 8) {
-                Text("Arca Tickets schützen")
+                Text("Arca Tickets schütze")
                     .font(.title.bold())
-                Text(step == .create ? "Erstelle deinen 4-stelligen PIN" : "PIN wiederholen zur Bestätigung")
+                Text(step == .create ? "Mach din 4-stellige PIN" : "PIN nomal zur Bestätigung")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -105,7 +105,7 @@ struct TicketsPINSetupView: View {
                         savePIN(pin)
                         isUnlocked = true
                     } else {
-                        errorMessage = "PINs stimmen nicht überein."
+                        errorMessage = "PINs stimmed nöd überein."
                         confirmPin = ""
                         pin = ""
                         step = .create
@@ -153,7 +153,7 @@ struct TicketsPINEntryView: View {
                     .font(.system(size: 28, weight: .bold, design: .rounded))
             }
 
-            Text("PIN eingeben")
+            Text("PIN ii gä")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -192,7 +192,7 @@ struct TicketsPINEntryView: View {
             Button {
                 showResetWarning = true
             } label: {
-                Text("PIN vergessen?")
+                Text("PIN vergässe?")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .underline()
@@ -203,17 +203,17 @@ struct TicketsPINEntryView: View {
         }
         .padding()
         .onAppear { authenticateWithBiometrics() }
-        .alert("PIN vergessen", isPresented: $showResetWarning) {
-            Button("Weiter", role: .destructive) { showResetConfirm = true }
-            Button("Abbrechen", role: .cancel) {}
+        .alert("PIN vergässe", isPresented: $showResetWarning) {
+            Button(ArcaTicketsStrings.continue, role: .destructive) { showResetConfirm = true }
+            Button(ArcaTicketsStrings.cancel, role: .cancel) {}
         } message: {
-            Text("Alle Tickets und Dateien werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
+            Text("Alli Ticket und Datei werded glöscht. Das gaht nöd rückgängig.")
         }
-        .alert("Wirklich zurücksetzen?", isPresented: $showResetConfirm) {
-            Button("Alle Daten löschen", role: .destructive) { resetApp() }
-            Button("Abbrechen", role: .cancel) {}
+        .alert("Würklich zrüggsetze?", isPresented: $showResetConfirm) {
+            Button("Alli Date lösche", role: .destructive) { resetApp() }
+            Button(ArcaTicketsStrings.cancel, role: .cancel) {}
         } message: {
-            Text("Alle gespeicherten Tickets werden unwiderruflich gelöscht.")
+            Text("Alli gspeicherete Ticket werded unwiderruflich glöscht.")
         }
     }
 
@@ -239,7 +239,7 @@ struct TicketsPINEntryView: View {
             pin = ""
             shake = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { shake = false }
-            errorMessage = attempts >= 3 ? "Falscher PIN (\(attempts) Versuche)" : "Falscher PIN"
+            errorMessage = attempts >= 3 ? "Falsche PIN (\(attempts) Versuch)" : "Falsche PIN"
         }
     }
 
@@ -248,7 +248,7 @@ struct TicketsPINEntryView: View {
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else { return }
         context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
-                               localizedReason: "Arca Tickets entsperren") { success, _ in
+                               localizedReason: "Arca Tickets entsperre") { success, _ in
             DispatchQueue.main.async {
                 if success { isUnlocked = true }
             }

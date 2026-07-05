@@ -322,15 +322,43 @@ Für Live-Sync (Vater fügt Hotel-Ticket hinzu → erscheint bei allen): CloudKi
 | Tab | Zweck |
 |-----|--------|
 | **Unterwegs** | Gepinnte + bald anstehende Tickets als Boarding-Pass-Karten |
-| **Alle Tickets** | Ordnerstruktur (Bahn, Abos, Berge, Sonstiges + eigene) → Ticketliste |
-| **Notfall** | Wichtige Nummern nach Kategorie, persönliche Ausweisdaten — ein Tap zum Anrufen |
-| **Einstellungen** | Über Arca Tickets, iCloud, Backup, Wusstest du?, Tab-Reihenfolge, Organisation |
+| **Alli Tickets** | Ordnerstruktur (Bahn, Abos, Berge, Sonstiges + eigene) → Ticketliste |
+| **Notfall** | Wichtigi Nummerä nach Kategorie, persönliche Ausweisdaten — ein Tap zum Aarufe |
+| **Istellige** | Über Arca Tickets, iCloud, Backup, Wüssisch?, Tab-Riihfolge, Organisation |
 
-**Einstellungen (Arca-Stil):** Oben **Über Arca Tickets** (Version, Entwickler Hans zen Ruffinen, Bewertung), darunter **iCloud-Status**, **Sichern und Wiederherstellen** (verschlüsseltes `.arcaticketsbackup`), **Wusstest du?**-Tipps in Glas-Karte, Tab-Reihenfolge (Einstellungen bleiben fix unten), Ordner & Nummern verwalten, Familien-Import.
+**Istellige (Arca-Stil):** Oben **Über Arca Tickets** (Version, Entwickler Hans zen Ruffinen, Bewertung), darunter **iCloud-Status**, **Sichere und wiederherstelle** (verschlüsseltes `.arcaticketsbackup`), **Wüssisch?**-Tipps in Glas-Karte, Tab-Riihfolge (Istellige bliibed fix unte), Ordner & Nummerä verwalte, Familie-Import.
 
-**Onboarding (3 Screens):** „Alles dabei. Sorglos reisen." → Ticket importieren → Unterwegs & Nummern. Letzter Screen bietet „Erstes Ticket hinzufügen" und „Wichtige Nummern einrichten".
+**Onboarding (3 Screens):** „Alles debii. Sorglos reise." → Ticket importiere → Unterwägs & Nummerä. Letschte Screen bietet „Ersts Ticket hinzuefüege" und „Wichtigi Nummerä iirichte".
 
-**Unterwegs:** Nutzer heftet Tickets per Pin-Icon an („Auf Unterwegs anheften"). Reisefelder sind auf der Karte tippbar. FAB „Hinzufügen" mit Reise-Gradient.
+**Unterwägs:** Nutzer heftet Tickets per Pin-Icon a („Uf Unterwägs anhefte"). Reisefeld sind uf dr Charte tippbar. FAB „Dezue tue" mit Reise-Gradient.
+
+#### Ferien-Grafik — versteckte Tippzonen
+
+Beim Öffnen des Tabs **Unterwägs** (oder über **Zeerscht** oben rechts) erscheint die Vollbild-Ferien-Illustration im Querformat. Die Szene ist interaktiv — viele Elemente sind unsichtbare Schnellzugriffe auf die gleichen Funktionen wie die Glas-Klecks auf der Plakatwand.
+
+**Erstes Mal:** Kurzer Hinweis *„Tipp uf Wegweiser & Objekt"* unte, plus dezents Pulsiere vo de Tippzone für ca. 3 Sekunde (oder bis zum erste Tipp).
+
+**Dauerhaft sichtbar mache:** Istellige → Unterwägs → **Tipp-Hinwiis azeige** — denn erschined dezenti Glas-Chreise uf allne Tippzone.
+
+| Tippzone | Öffnet |
+|----------|--------|
+| **Wegweiser Berge** | Visitenkarte (persönliche Ausweisdaten) |
+| **Wegweiser Golf** | ARCA Golf (Golfschläger) |
+| **Wegweiser Genuss** | Souvenirs für Opa |
+| **Wegweiser Meer** | Reise-Notizen |
+| **Wegweiser Abenteuer** | Taxi-Nummer |
+| **Wegweiser Entspannung** | Koffer-PIN |
+| **Reisender mit Koffer** | Visitenkarte |
+| **Murmeltier** | Souvenirs für Opa |
+| **Unterwägs-Magazin** | Reise-Notizen |
+| **Koffer mit Stickern** | Koffer-PIN |
+| **SBB-Zug** | Taxi-Nummer |
+| **ARCA Golf (Golfschläger)** | Golf |
+| **ARCA-Tablet** | Weiter zu Tickets & Plakatwand |
+
+**Witer zur App:** Obe rächts **Witer**, Tipp uf s'**ARCA-Tablet** in dr Szene, oder **nach unte wische**.
+
+**Aasicht dauerhaft umstelle:** Istellige → Unterwägs → **Aasicht nach Zeerscht** → „Ferie-Grafik" (iigbettet statt Glas-Plakatwand).
 
 **Notfall:** Gruppierte Kontaktkarten mit Kategorie-Farben, prominentes Telefon-Icon, ein Tap zum Anrufen (`tel:`). Persönliche Ausweisdaten optional hinterlegbar.
 
@@ -410,6 +438,7 @@ flowchart TD
 | **Team** | LE6TQB8QE5 (wie [[Arca]]) |
 | **Plattform** | iOS (iPhone-first), Deployment Target analog Arca |
 | **Sprache** | Swift 5, SwiftUI |
+| **UI-Sprache** | Schweizerdeutsch (leicht, Wallis/Ferien-Ton) — zentral in `SwissDialectPhrases.swift` / `ArcaTicketsStrings`; LegalCopy in verständlichem Schwiizer Hochdeutsch |
 
 ### ArcaCore — gemeinsame Bausteine
 

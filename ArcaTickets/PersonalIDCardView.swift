@@ -47,7 +47,6 @@ struct VisitenkarteFloatingDecoration: View {
     @State private var showDetailSheet = false
 
     private var card: PersonalIDCard { store.personalIDCard }
-    private let tilt: Double = 12
 
     var body: some View {
         Button {
@@ -55,77 +54,39 @@ struct VisitenkarteFloatingDecoration: View {
             showDetailSheet = true
         } label: {
             klecksGraphic
+                .unterwegsKlecksTapTarget()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(UnterwegsKlecksButtonStyle())
         .accessibilityLabel(card.isConfigured
             ? "Visitenkarte, \(card.displayName)"
-            : "Visitenkarte, Daten eintragen")
-        .accessibilityHint("Tippen zum Öffnen")
+            : "Visitenkarte, Date iträge")
+        .accessibilityHint("Tippen zum Öffne")
         .sheet(isPresented: $showDetailSheet) {
             PersonalIDCardDetailSheet()
         }
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ArcaTicketsDesign.travelOcean.opacity(0.18),
-                            ArcaTicketsDesign.travelSky.opacity(0.08),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 82, height: 78)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 72, height: 68)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
+        UnterwegsKlecksGlass {
+            VStack(spacing: 3) {
+                ZStack(alignment: .bottomTrailing) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(
                             LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.travelOcean.opacity(0.65),
-                                    ArcaTicketsDesign.travelSky.opacity(0.35)
-                                ],
+                                colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
+                            )
                         )
+                        .symbolRenderingMode(.hierarchical)
+                    SwissCrossStamp(size: 9)
+                        .offset(x: 6, y: 4)
                 }
-                .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.22), radius: 8, y: 3)
-
-            VStack(spacing: 3) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelSky],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .symbolRenderingMode(.hierarchical)
-
-                Text("Visitenkarte")
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                Text("Pass CH")
+                    .unterwegsKlecksLabel(size: 9.5)
             }
-            .rotationEffect(.degrees(tilt))
         }
-        .frame(width: 78, height: 74)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
     }
 }
 
@@ -147,14 +108,14 @@ struct PersonalIDCardDetailSheet: View {
                 .padding(20)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Meine Visitenkarte")
+            .navigationTitle("Mini Visitenkarte")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fertig") { dismiss() }
+                    Button(ArcaTicketsStrings.done) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Bearbeiten") { showEditor = true }
+                    Button(ArcaTicketsStrings.edit) { showEditor = true }
                 }
             }
             .sheet(isPresented: $showEditor) {
@@ -192,7 +153,7 @@ struct PersonalIDCardFieldsView: View {
             }
 
             if !card.isConfigured {
-                Text("Trage deine wichtigsten Daten ein — im Notfall schnell vorzeigen.")
+                Text("Trag dini wichtigste Date ii — im Notfall schnell zeige.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
@@ -200,7 +161,7 @@ struct PersonalIDCardFieldsView: View {
 
             if let onEdit {
                 Button(action: onEdit) {
-                    Label("Bearbeiten", systemImage: "pencil")
+                    Label(ArcaTicketsStrings.edit, systemImage: "pencil")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -292,12 +253,12 @@ struct PersonalIDCardView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Meine Visitenkarte")
+                    Text("Mini Visitenkarte")
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
                     Text(card.isConfigured
                          ? card.displayName
-                         : "Für den Notfall griffbereit")
+                         : "Für de Notfall griffbereit")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -305,7 +266,7 @@ struct PersonalIDCardView: View {
 
                 Spacer(minLength: 0)
 
-                Text(isExpanded ? "Einklappen" : "Ausklappen")
+                Text(isExpanded ? "Iiklappe" : "Usklappe")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(ArcaTicketsDesign.travelOcean)
 
@@ -318,7 +279,7 @@ struct PersonalIDCardView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Meine Visitenkarte, \(isExpanded ? "einklappen" : "ausklappen")")
+        .accessibilityLabel("Mini Visitenkarte, \(isExpanded ? "iiklappe" : "usklappe")")
     }
 
     @ViewBuilder
@@ -379,28 +340,32 @@ struct PersonalIDCardEditorView: View {
                     TextField("AHV-Nummer", text: $ahvNumber)
                         .keyboardType(.numbersAndPunctuation)
                 } header: {
-                    Text("Pflichtangaben")
+                    Text("Pflichtagabe")
                 } footer: {
-                    Text("Diese Daten werden in iCloud gespeichert und sind durch die App-Sperre geschützt.")
+                    Text(LegalCopy.personalIDEditorFooter)
                 }
 
-                Section("Optional") {
+                Section {
                     TextField("Nationalität", text: $nationality)
                     Toggle("Geburtsdatum", isOn: $hasBirthDate.animation())
                     if hasBirthDate {
                         DatePicker("Datum", selection: $birthDate, displayedComponents: .date)
                     }
                     TextField("Blutgruppe", text: $bloodType)
+                } header: {
+                    Text("Optional")
+                } footer: {
+                    Text(LegalCopy.personalIDBloodTypeNote)
                 }
             }
             .navigationTitle("Visitenkarte")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") {
+                    Button(ArcaTicketsStrings.save) {
                         save()
                         dismiss()
                     }

@@ -97,25 +97,25 @@ struct ContentView: View {
             }
         }
         .alert("Reise importiert", isPresented: $showFolderImportSuccess) {
-            Button("Ordner öffnen") {
+            Button("Ordner öffne") {
                 if let name = importedFolderName {
                     selectedTab = .alleTickets
                     alleTicketsPath.append(name)
                 }
                 importedFolderName = nil
             }
-            Button("OK", role: .cancel) {
+            Button(ArcaTicketsStrings.ok, role: .cancel) {
                 importedFolderName = nil
             }
         } message: {
             if let name = importedFolderName {
-                Text("Alle Tickets aus der geteilten Reise liegen jetzt in \u{201E}\(name)\u{201C}. Flug, Hotel und Eintritt sind griffbereit.")
+                Text("Alli Ticket us dr geteilti Reise liged jetzt in \u{201E}\(name)\u{201C}. Flug, Hotel und Iitritt sind griffbereit.")
             }
         }
-        .alert("Das hat nicht geklappt", isPresented: $showFolderImportError) {
-            Button("Nochmal versuchen", role: .cancel) {}
+        .alert(ArcaTicketsStrings.didNotWork, isPresented: $showFolderImportError) {
+            Button(ArcaTicketsStrings.retry, role: .cancel) {}
         } message: {
-            Text("Die Datei konnte nicht gelesen werden. Bitte eine gültige .arcaticketsfolder-Datei wählen.")
+            Text("D'Datei het nöd gläse werde chönne. Bitte e gültigi .arcaticketsfolder-Datei wähle.")
         }
     }
 
@@ -124,7 +124,10 @@ struct ContentView: View {
         switch tab {
         case .unterwegs:
             NavigationStack(path: $unterwegsPath) {
-                UnderwegsView(showAddTicket: $showAddTicket)
+                UnderwegsView(
+                    showAddTicket: $showAddTicket,
+                    isTabActive: selectedTab == .unterwegs
+                )
                     .navigationDestination(for: TicketEntry.self) { ticket in
                         TicketDetailView(ticket: ticket)
                     }
@@ -248,4 +251,14 @@ enum ImportStaging {
             return nil
         }
     }
+}
+
+#Preview {
+    ContentView(
+        isUnlocked: true,
+        pendingImportURL: .constant(nil),
+        pendingFolderImportURL: .constant(nil),
+        pendingTicketID: .constant(nil)
+    )
+    .environmentObject(TicketStore())
 }

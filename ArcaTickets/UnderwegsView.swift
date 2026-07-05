@@ -10,8 +10,17 @@ import SwiftUI
 struct UnderwegsView: View {
     @EnvironmentObject private var store: TicketStore
     @Binding var showAddTicket: Bool
+    var isTabActive: Bool = true
     @AppStorage(TicketsTravelTips.swissKnifeDismissKey) private var swissKnifeTipDismissed = false
+    @AppStorage(UnterwegsViewPreferences.viewModeKey) private var unterwegsViewModeRaw = UnterwegsViewMode.plakatwand.rawValue
+    @AppStorage(UnterwegsViewPreferences.einstiegEnabledKey) private var ferienEinstiegEnabled = true
     @State private var glassTip = TicketsTravelTips.unterwegsGlassTip
+    @State private var showFerienEinstieg = false
+    @State private var einstiegDismissedThisVisit = false
+
+    private var unterwegsViewMode: UnterwegsViewMode {
+        UnterwegsViewMode(rawValue: unterwegsViewModeRaw) ?? .plakatwand
+    }
 
     private var unterwegsTickets: [TicketEntry] {
         store.unterwegsTickets()
@@ -27,16 +36,47 @@ struct UnderwegsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    TravelSceneWithKlecks()
-                        .padding(.horizontal, UnterwegsKlecksMetrics.sceneHorizontalPadding)
-                        .padding(.top, 4)
+                    Group {
+                        switch unterwegsViewMode {
+                        case .plakatwand:
+                            TravelSceneWithKlecks()
+                        case .ferienGrafik:
+                            UnterwegsHeroIllustrationScene()
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.28), value: unterwegsViewModeRaw)
 
-                    header
+                    if unterwegsTickets.isEmpty {
+                        UnterwegsHolidayEmptyState()
+                    } else {
+                        PinnedTicketPreview {
+                            BoardingPassCard(ticket: unterwegsTickets[0])
+                        }
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+
+                        if unterwegsTickets.count > 1 {
+                            Text(ArcaTicketsStrings.moreTickets)
+                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .foregroundStyle(ArcaTicketsDesign.travelGlassCyan)
+                                .padding(.top, 4)
+
+                            ForEach(Array(unterwegsTickets.dropFirst())) { ticket in
+                                BoardingPassCard(ticket: ticket)
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
+                            }
+                        }
+                    }
 
                     if showGlassTip {
                         TravelGlassTipBanner(
                             tip: glassTip,
-                            title: "Tipp ✈️",
+                            title: ArcaTicketsStrings.travelTip,
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.25)) {
                                     swissKnifeTipDismissed = true
@@ -65,92 +105,78 @@ struct UnderwegsView: View {
                         }
                         .padding(.horizontal, 4)
                     }
-
-                    if unterwegsTickets.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(unterwegsTickets) { ticket in
-                            BoardingPassCard(ticket: ticket)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                                    removal: .opacity
-                                ))
-                        }
-                    }
                 }
                 .padding(.horizontal, UnterwegsKlecksMetrics.contentHorizontalPadding)
-                .padding(.top, 8)
+                .padding(.top, 4)
                 .padding(.bottom, 100)
                 .animation(.spring(response: 0.4, dampingFraction: 0.82), value: unterwegsTickets.map(\.id))
             }
         }
-        .navigationTitle(SwissDialectPhrases.tabLabel)
-        .navigationBarTitleDisplayMode(.large)
-        .background {
-            UnterwegsComicNavigationTitleConfigurator()
-                .frame(width: 0, height: 0)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                ComicCurvedText(
+                    text: SwissDialectPhrases.tabLabel,
+                    style: .navTitle,
+                    foreground: ArcaTicketsDesign.travelOcean
+                )
+                .padding(.vertical, 2)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                FerienSzeneOpenButton {
+                    TicketsHaptics.lightImpact()
+                    openFerienSzene()
+                }
+            }
         }
         .overlay(alignment: .bottom) {
-            TicketsFAB(title: "Hinzufügen", useTravelGradient: true) {
+            TicketsFAB(
+                title: unterwegsTickets.isEmpty ? ArcaTicketsStrings.addFirstTrip : ArcaTicketsStrings.add,
+                useTravelGradient: true
+            ) {
                 showAddTicket = true
             }
             .padding(.bottom, 24)
         }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 12) {
-                TicketsAppIcon(size: 40)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 7) {
-                        SwissDialectHeaderPhrase()
-                        SwissGlassFlag(size: 18, style: .badge)
-                    }
-                    Text(unterwegsTickets.isEmpty
-                         ? "Deine Reise beginnt hier ✈️"
-                         : "\(unterwegsTickets.count) Ticket\(unterwegsTickets.count == 1 ? "" : "s") griffbereit")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 4)
-                Image(systemName: "airplane.departure")
-                    .font(.title2)
-                    .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                    .accessibilityHidden(true)
+        .fullScreenCover(isPresented: $showFerienEinstieg) {
+            UnterwegsFerienEinstiegView {
+                dismissFerienEinstieg()
             }
         }
-        .padding(.top, 4)
+        .onAppear {
+            presentFerienEinstiegIfNeeded()
+        }
+        .onChange(of: isTabActive) { _, active in
+            if active {
+                einstiegDismissedThisVisit = false
+                presentFerienEinstiegIfNeeded()
+            }
+        }
+        .onChange(of: ferienEinstiegEnabled) { _, enabled in
+            if !enabled {
+                showFerienEinstieg = false
+            }
+        }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "pin.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(ArcaTicketsDesign.travelSunset)
-                .symbolEffect(.pulse, options: .repeating)
-
-            Text("Noch nichts gepinnt")
-                .font(.headline)
-                .multilineTextAlignment(.center)
-
-            Text("Pinne ein Ticket unter \u{201E}Alle Tickets\u{201C} oder füge deine erste Reise hinzu — Flug, Sitz und Boarding auf einen Blick.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button {
-                showAddTicket = true
-            } label: {
-                Label("Erste Reise hinzufügen", systemImage: "plus.circle.fill")
-                    .font(.headline)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(ArcaTicketsDesign.travelOcean)
+    private func presentFerienEinstiegIfNeeded() {
+        guard ferienEinstiegEnabled, isTabActive, !einstiegDismissedThisVisit else { return }
+        guard !showFerienEinstieg else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard ferienEinstiegEnabled, isTabActive, !einstiegDismissedThisVisit else { return }
+            showFerienEinstieg = true
         }
-        .frame(maxWidth: .infinity)
-        .padding(28)
-        .boardingPassCard()
+    }
+
+    private func openFerienSzene() {
+        guard !showFerienEinstieg else { return }
+        showFerienEinstieg = true
+    }
+
+    private func dismissFerienEinstieg() {
+        einstiegDismissedThisVisit = true
+        showFerienEinstieg = false
     }
 }
 
@@ -241,7 +267,7 @@ struct BoardingPassCard: View {
             }
             .buttonStyle(.plain)
             .ticketsMinTapTarget()
-            .accessibilityLabel(localTicket.isPinned ? "Von Unterwägs lösen" : "Auf Unterwägs anheften")
+            .accessibilityLabel(localTicket.isPinned ? ArcaTicketsStrings.unpinFromUnterwegs : ArcaTicketsStrings.pinOnUnterwegs)
         }
         .padding(16)
     }
@@ -364,7 +390,7 @@ struct BoardingPassCard: View {
                 TicketsHaptics.mediumImpact()
                 showQRFullscreen = true
             } label: {
-                Label("Am Schalter zeigen", systemImage: "qrcode.viewfinder")
+                Label(ArcaTicketsStrings.showAtCounter, systemImage: "qrcode.viewfinder")
                     .font(.system(size: 16, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -432,10 +458,10 @@ struct BoardingPassCard: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { editingField = nil }
+                    Button(ArcaTicketsStrings.cancel) { editingField = nil }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") {
+                    Button(ArcaTicketsStrings.done) {
                         applyFieldEdit(field)
                         editingField = nil
                     }
@@ -481,4 +507,9 @@ enum TravelField: String, Identifiable {
         case .gate: return "Gate"
         }
     }
+}
+
+#Preview {
+    UnderwegsView(showAddTicket: .constant(false))
+        .environmentObject(TicketStore())
 }

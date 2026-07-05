@@ -13,7 +13,6 @@ struct NotizenFloatingDecoration: View {
     @EnvironmentObject private var store: TicketStore
     @State private var showNotesSheet = false
 
-    private let tilt: Double = -9
     private var hasNotes: Bool { !store.travelNotes.isEmpty }
 
     var body: some View {
@@ -22,52 +21,18 @@ struct NotizenFloatingDecoration: View {
             showNotesSheet = true
         } label: {
             klecksGraphic
+                .unterwegsKlecksTapTarget()
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(hasNotes ? "Reisenotizen, Einträge vorhanden" : "Reisenotizen, leer")
-        .accessibilityHint("Tippen zum Öffnen")
+        .buttonStyle(UnterwegsKlecksButtonStyle())
+        .accessibilityLabel(hasNotes ? "Reisenotize, Iiträg vorhande" : "Reisenotize, leer")
+        .accessibilityHint("Tippen zum Öffne")
         .sheet(isPresented: $showNotesSheet) {
             TravelNotesSheet()
         }
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ArcaTicketsDesign.travelSunset.opacity(0.22),
-                            ArcaTicketsDesign.travelSand.opacity(0.14),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 82, height: 78)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 72, height: 68)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.travelSunset.opacity(0.65),
-                                    ArcaTicketsDesign.travelSand.opacity(0.45)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: ArcaTicketsDesign.travelSunset.opacity(0.2), radius: 8, y: 3)
-
+        UnterwegsKlecksGlass {
             VStack(spacing: 3) {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "note.text")
@@ -80,7 +45,6 @@ struct NotizenFloatingDecoration: View {
                             )
                         )
                         .symbolRenderingMode(.hierarchical)
-
                     if hasNotes {
                         Circle()
                             .fill(ArcaTicketsDesign.travelSunset)
@@ -88,18 +52,10 @@ struct NotizenFloatingDecoration: View {
                             .offset(x: 4, y: -3)
                     }
                 }
-
                 Text("Notizen")
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundStyle(ArcaTicketsDesign.travelSunset)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .unterwegsKlecksLabel()
             }
-            .rotationEffect(.degrees(-tilt))
         }
-        .frame(width: 78, height: 74)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
     }
 }
 
@@ -115,7 +71,7 @@ struct TravelNotesSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Packliste, Gate-Hinweise, Adressen — alles, was du unterwegs schnell brauchst.")
+                Text("Packliste, Gate-Hinwiis, Adresse — alles, was du unterwägs schnell bruchsch.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -136,7 +92,7 @@ struct TravelNotesSheet: View {
                         .frame(minHeight: 200)
 
                     if draftText.isEmpty {
-                        Text("Hier tippen …")
+                        Text("Da tippe …")
                             .font(.system(.body, design: .rounded))
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 18)
@@ -146,7 +102,7 @@ struct TravelNotesSheet: View {
                 }
 
                 if store.travelNotes.updatedAt != .distantPast, !store.travelNotes.isEmpty {
-                    Text("Zuletzt bearbeitet: \(store.travelNotes.updatedAt.formatted(date: .abbreviated, time: .shortened))")
+                    Text("Zletscht bearbeitet: \(store.travelNotes.updatedAt.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
@@ -159,14 +115,14 @@ struct TravelNotesSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fertig") {
+                    Button(ArcaTicketsStrings.done) {
                         save()
                         dismiss()
                     }
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Fertig") {
+                    Button(ArcaTicketsStrings.done) {
                         isFocused = false
                     }
                 }

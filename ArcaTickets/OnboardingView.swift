@@ -48,20 +48,20 @@ struct OnboardingView: View {
     private let pages: [(icon: String, title: String, subtitle: String, accent: String)] = [
         (
             "airplane.departure",
-            "Alles dabei. Sorglos reisen.",
-            "Flug, Bahn, Skipass — alles an einem Ort. Kein Wühlen, kein Stress.",
+            "Alles debii. Sorglos reise.",
+            "Flug, Bahn, Skipass — alles a eim Ort. Kei Sueche, kei Stress.",
             "travel"
         ),
         (
             "square.and.arrow.down.fill",
-            "Ticket rein",
-            "Per Teilen aus Mail oder Safari, Foto oder PDF — in Sekunden gespeichert.",
+            "Ticket ine",
+            "Per Teile us Mail oder Safari, Foto oder PDF — in Sekunde gspeicheret.",
             "import"
         ),
         (
             "pin.fill",
             "Unterwägs griffbereit",
-            "Pinne dein nächstes Ticket, trage Flug & Sitz ein — und halte wichtige Nummern parat.",
+            "Heft dis nächschte Ticket a, trag Flug & Sitz ii — und halt wichtigi Nummerä parat.",
             "unterwegs"
         )
     ]
@@ -74,7 +74,7 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
-                    Button("Überspringen") { finish() }
+                    Button(ArcaTicketsStrings.skip) { finish() }
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                         .ticketsMinTapTarget()
@@ -101,7 +101,7 @@ struct OnboardingView: View {
                     Button {
                         withAnimation { page += 1 }
                     } label: {
-                        Text("Weiter")
+                        Text(ArcaTicketsStrings.continue)
                             .font(.system(size: 17, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -136,11 +136,11 @@ struct OnboardingView: View {
 
             if showFlow {
                 HStack(spacing: 10) {
-                    flowChip("Ticket rein", icon: "square.and.arrow.down.fill")
+                    flowChip("Ticket ine", icon: "square.and.arrow.down.fill")
                     Image(systemName: "arrow.right")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.tertiary)
-                    flowChip("Am Schalter zeigen", icon: "qrcode.viewfinder")
+                    flowChip(ArcaTicketsStrings.showAtCounter, icon: "qrcode.viewfinder")
                 }
                 .padding(.horizontal, 20)
             }
@@ -164,7 +164,7 @@ struct OnboardingView: View {
 
             if showGettingStarted {
                 VStack(spacing: 12) {
-                    Text("Bereit für deine erste Reise?")
+                    Text("Parat für dini erscht Reise?")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
 
@@ -172,7 +172,7 @@ struct OnboardingView: View {
                         OnboardingStorage.requestAddTicket()
                         finish()
                     } label: {
-                        Label("Erstes Ticket hinzufügen", systemImage: "plus.circle.fill")
+                        Label("Ersts Ticket hinzuefüege", systemImage: "plus.circle.fill")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -184,14 +184,14 @@ struct OnboardingView: View {
                         OnboardingStorage.requestContacts()
                         finish()
                     } label: {
-                        Label("Wichtige Nummern einrichten", systemImage: "phone.fill")
+                        Label("Wichtigi Nummerä iirichte", systemImage: "phone.fill")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }
                     .buttonStyle(.bordered)
 
-                    Button("Später — App entdecken") {
+                    Button("Später — App entdecke") {
                         finish()
                     }
                     .font(.subheadline)

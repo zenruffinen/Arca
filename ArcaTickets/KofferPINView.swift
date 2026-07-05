@@ -14,7 +14,6 @@ struct KofferPINFloatingDecoration: View {
     @State private var showSheet = false
     @State private var pinRevealed = false
 
-    private let tilt: Double = -6
     private var hasPIN: Bool { store.kofferPIN != nil }
 
     private var displayPIN: String {
@@ -34,8 +33,9 @@ struct KofferPINFloatingDecoration: View {
             }
         } label: {
             klecksGraphic
+                .unterwegsKlecksTapTarget()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(UnterwegsKlecksButtonStyle())
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.45).onEnded { _ in
                 TicketsHaptics.lightImpact()
@@ -57,89 +57,42 @@ struct KofferPINFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ArcaTicketsDesign.travelOcean.opacity(0.20),
-                            ArcaTicketsDesign.travelGlassPurple.opacity(0.12),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 86, height: 82)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 76, height: 72)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.travelOcean.opacity(0.65),
-                                    ArcaTicketsDesign.travelGlassPurple.opacity(0.45)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.22), radius: 8, y: 3)
-
+        UnterwegsKlecksGlass {
             VStack(spacing: 2) {
                 ZStack {
                     Image(systemName: "suitcase.fill")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.travelOcean,
-                                    ArcaTicketsDesign.travelGlassPurple
-                                ],
+                                colors: [ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelGlassPurple],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .symbolRenderingMode(.hierarchical)
-
                     Image(systemName: "lock.fill")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(ArcaTicketsDesign.travelSunset)
                         .offset(x: 10, y: 8)
                 }
-
                 if hasPIN {
                     ComicCurvedText(
                         text: displayPIN,
                         style: .pinCode,
-                        foreground: ArcaTicketsDesign.travelOcean
+                        foreground: UnterwegsKlecksMetrics.labelForeground
                     )
+                    .unterwegsKlecksCurvedLabel()
                     .scaleEffect(0.92)
                     .contentTransition(.numericText())
-
                     Image(systemName: pinRevealed ? "eye.fill" : "eye.slash.fill")
                         .font(.system(size: 7, weight: .bold))
-                        .foregroundStyle(ArcaTicketsDesign.travelOcean.opacity(0.55))
+                        .foregroundStyle(UnterwegsKlecksMetrics.labelForeground.opacity(0.7))
                 } else {
                     Text("Koffer")
-                        .font(.system(size: 8.5, weight: .black, design: .rounded))
-                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.65)
+                        .unterwegsKlecksLabel(size: 8.5, minScale: 0.65)
                 }
             }
-            .rotationEffect(.degrees(-tilt))
         }
-        .frame(width: 80, height: 78)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
     }
 }
 
@@ -162,16 +115,16 @@ struct KofferPINSheet: View {
             VStack(alignment: .leading, spacing: 20) {
                 if store.kofferPIN == nil {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Koffer-Code vergessen? Hier sichern!")
+                        Text("Koffer-Code vergässe? Da sichere!")
                             .font(.title3.weight(.bold))
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Text("TSA-Schloss, Reisekoffer, Zahlenschloss — 3 oder 4 Ziffern, damit du am Flughafen nicht raten musst.")
+                        Text("TSA-Schloss, Reisekoffer, Zahlenschloss — 3 oder 4 Ziffern, damit du am Flughafen nöd rate muessch.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text("Dein Koffer-Code — schnell nachschlagen, wenn das Schloss zickt.")
+                    Text("Dis Koffer-Code — schnell nachluege, wenn s'Schloss zickt.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -208,7 +161,7 @@ struct KofferPINSheet: View {
                     Image(systemName: "info.circle.fill")
                         .font(.subheadline)
                         .foregroundStyle(ArcaTicketsDesign.travelOcean.opacity(0.8))
-                    Text("Das ist dein Reisekoffer-Schloss — nicht der App-PIN. Trotzdem nur auf deinem Gerät speichern, wenn du dich damit wohlfühlst.")
+                    Text("Das isch dis Reisekoffer-Schloss — nöd de App-PIN. Trotzdem nur uf dim Gerät speichere, wenn du dich wohlfüehlsch.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -227,10 +180,10 @@ struct KofferPINSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Sichern") {
+                    Button(ArcaTicketsStrings.backup) {
                         savePIN()
                     }
                     .fontWeight(.semibold)
@@ -238,7 +191,7 @@ struct KofferPINSheet: View {
                 }
                 if store.kofferPIN != nil {
                     ToolbarItem(placement: .bottomBar) {
-                        Button("Code löschen", role: .destructive) {
+                        Button("Code lösche", role: .destructive) {
                             store.updateKofferPIN(nil)
                             TicketsHaptics.lightImpact()
                             dismiss()

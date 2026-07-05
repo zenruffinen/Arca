@@ -7,11 +7,32 @@
 
 import SwiftUI
 import Vision
+#if canImport(UIKit)
+import UIKit
+#endif
+
+#if canImport(UIKit)
+enum TicketsScreenAccess {
+    static var active: UIScreen? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first(where: { $0.activationState == .foregroundActive })?.screen
+            ?? scenes.first?.screen
+    }
+
+    static var brightness: CGFloat {
+        active?.brightness ?? 0.5
+    }
+
+    static func setBrightness(_ value: CGFloat) {
+        active?.brightness = min(max(value, 0), 1)
+    }
+}
+#endif
 
 struct QRFullscreenView: View {
     let imageURL: URL
     @Environment(\.dismiss) private var dismiss
-    @State private var originalBrightness: CGFloat = UIScreen.main.brightness
+    @State private var originalBrightness: CGFloat = 0.5
     @State private var codeCrop: CGRect?
     @State private var dragOffset: CGFloat = 0
 
@@ -24,7 +45,7 @@ struct QRFullscreenView: View {
                     .offset(y: dragOffset)
                     .opacity(1.0 - Double(abs(dragOffset)) / 400.0)
             } else {
-                ContentUnavailableView("Bild nicht verfügbar", systemImage: "photo")
+                ContentUnavailableView("Bild nöd verfügbar", systemImage: "photo")
                     .foregroundStyle(.white)
             }
 
@@ -36,7 +57,7 @@ struct QRFullscreenView: View {
 
                 Spacer()
 
-                Text("Nach unten wischen zum Schließen")
+                Text("Nach unte wische zum Schliesse")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.65))
                     .padding(.bottom, 36)
@@ -61,25 +82,28 @@ struct QRFullscreenView: View {
                 }
         )
         .onAppear {
-            originalBrightness = UIScreen.main.brightness
-            UIScreen.main.brightness = 1.0
+            #if canImport(UIKit)
+            originalBrightness = TicketsScreenAccess.brightness
+            TicketsScreenAccess.setBrightness(1.0)
+            #endif
             detectCode()
         }
         .onDisappear {
-            UIScreen.main.brightness = originalBrightness
+            #if canImport(UIKit)
+            TicketsScreenAccess.setBrightness(originalBrightness)
+            #endif
         }
     }
 
     @ViewBuilder
     private func codeImage(uiImage: UIImage) -> some View {
         if let crop = codeCrop {
+            let anchorX = LayoutSafety.dimension(crop.midX, minimum: 0.5)
+            let anchorY = LayoutSafety.dimension(1 - crop.midY, minimum: 0.5)
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFit()
-                .scaleEffect(2.4, anchor: UnitPoint(
-                    x: crop.midX,
-                    y: 1 - crop.midY
-                ))
+                .scaleEffect(2.4, anchor: UnitPoint(x: anchorX, y: anchorY))
                 .padding(20)
         } else {
             Image(uiImage: uiImage)

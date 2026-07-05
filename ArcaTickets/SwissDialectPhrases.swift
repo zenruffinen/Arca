@@ -36,16 +36,71 @@ struct SwissDialectPhrase: Identifiable, Hashable {
     }
 }
 
+// MARK: - UI string catalog (Schweizerdeutsch, konsistent)
+
+enum ArcaTicketsStrings {
+
+    // Tabs
+    static let tabAllTickets = "Alli Tickets"
+    static let tabNotfall = "Notfall"
+    static let tabSettings = "Istellige"
+
+    // Häufige Aktionen
+    static let add = "Dezue tue"
+    static let addFull = "Hinzuefüege"
+    static let addFirstTrip = "Ersti Reise hinzuefüege"
+    static let cancel = "Abbräche"
+    static let save = "Speichere"
+    static let backup = "Sichere"
+    static let done = "Fertig"
+    static let delete = "Lösche"
+    static let edit = "Bearbeite"
+    static let `continue` = "Witer"
+    static let close = "Schliesse"
+    static let retry = "Nochmal probiere"
+    static let ok = "OK"
+    static let merge = "Zämmefüege"
+    static let replace = "Ersetze"
+    static let proceed = "Fortfahre"
+    static let create = "Erstelle"
+    static let renew = "Erneuere"
+    static let skip = "Überspringe"
+    static let manage = "Verwalte"
+
+    // Unterwägs / Tickets
+    static let pinOnUnterwegs = "Uf Unterwägs anhefte"
+    static let unpinFromUnterwegs = "Vo Unterwägs löse"
+    static let noPinnedOnUnterwegs = "No nüt agheftet"
+    static let showAtCounter = "Am Schalter zeige"
+    static let moreTickets = "Wiiteri Tickets"
+    static let travelTip = "Tipp ✈️"
+    static let reiseTip = "Reisetipp"
+    static let wusstestDu = "Wüssisch?"
+
+    // Fehler / Erfolg
+    static let didNotWork = "Das het nöd klappet"
+    static let importSuccess = "Import erfolgriich"
+    static let importFailed = "Import fehlgschlage"
+    static let backupFailed = "Sicherig fehlgschlage"
+
+    // VoiceOver (etwas standardisiert)
+    static let voTipLandscape = "Tipp: Am schönste im Querformat — dreh s'Natel"
+    static let voZeerschtOpen = "Zeerscht im Vollbild öffne"
+    static let voContinueTickets = "Witer zu Tickets und Plakatwand"
+}
+
 enum SwissDialectPhrases {
     static let heroPhrase = SwissDialectPhrase(
-        id: "unterwaegs-huraahh",
-        text: "Unterwäää..gs huraahh",
+        id: "unterwaegs-hero",
+        text: "Unterwägs",
         design: .rounded,
-        weight: .black,
-        isItalic: true,
-        rotationDegrees: -2.8,
-        fontSize: 30
+        weight: .bold,
+        isItalic: false,
+        rotationDegrees: 0,
+        fontSize: 26
     )
+
+    static let legacyHeroPhraseID = "unterwaegs-huraahh"
 
     static let all: [SwissDialectPhrase] = [
         heroPhrase,
@@ -78,10 +133,13 @@ enum SwissDialectComicStyle {
         .system(size: size, weight: weight, design: design)
     }
 
-    static func uiFont(size: CGFloat, weight: UIFont.Weight = .black) -> UIFont {
+    static func uiFont(size: CGFloat, weight: UIFont.Weight = .bold, italic: Bool = false) -> UIFont {
         let base = UIFont.systemFont(ofSize: size, weight: weight)
+        var traits: UIFontDescriptor.SymbolicTraits = []
+        if weight >= .bold { traits.insert(.traitBold) }
+        if italic { traits.insert(.traitItalic) }
         if let descriptor = base.fontDescriptor.withDesign(.rounded)?
-            .withSymbolicTraits([.traitBold, .traitItalic]) {
+            .withSymbolicTraits(traits) {
             return UIFont(descriptor: descriptor, size: size)
         }
         return base
@@ -154,6 +212,17 @@ struct ComicCurvedTextStyle: Equatable {
         baselineRotation: -2.5,
         wavePhaseStep: 0.52
     )
+
+    static let navTitle = ComicCurvedTextStyle(
+        size: 17,
+        weight: .heavy,
+        characterSpacing: 0.3,
+        tracking: 0.55,
+        waveAmplitude: 1.9,
+        waveRotation: 3.8,
+        baselineRotation: -1.4,
+        wavePhaseStep: 0.56
+    )
 }
 
 struct ComicCurvedText: View {
@@ -163,35 +232,48 @@ struct ComicCurvedText: View {
 
     private var characters: [Character] { Array(text) }
 
-    var body: some View {
-        HStack(spacing: style.characterSpacing) {
-            ForEach(Array(characters.enumerated()), id: \.offset) { index, character in
-                let phase = Double(index) * style.wavePhaseStep
-                let yOffset = sin(phase) * style.waveAmplitude
-                let rotation = sin(phase + 0.35) * style.waveRotation
+    private var minLayoutHeight: CGFloat {
+        LayoutSafety.dimension(style.size + style.waveAmplitude * 2 + 4, minimum: 12)
+    }
 
-                Group {
-                    if character == " " {
-                        Color.clear.frame(width: style.size * 0.28)
-                    } else {
-                        Text(String(character))
-                            .font(SwissDialectComicStyle.font(
-                                size: style.size,
-                                weight: style.weight,
-                                design: style.design
-                            ))
-                            .italic(style.italic)
-                            .foregroundStyle(foreground)
-                            .offset(y: yOffset)
-                            .rotationEffect(.degrees(rotation))
+    var body: some View {
+        Group {
+            if text.isEmpty {
+                Color.clear
+                    .frame(width: 1, height: minLayoutHeight)
+            } else {
+                HStack(spacing: style.characterSpacing) {
+                    ForEach(Array(characters.enumerated()), id: \.offset) { index, character in
+                        let phase = Double(index) * style.wavePhaseStep
+                        let yOffset = sin(phase) * style.waveAmplitude
+                        let rotation = sin(phase + 0.35) * style.waveRotation
+
+                        Group {
+                            if character == " " {
+                                Color.clear.frame(width: LayoutSafety.dimension(style.size * 0.28, minimum: 2))
+                            } else {
+                                Text(String(character))
+                                    .font(SwissDialectComicStyle.font(
+                                        size: style.size,
+                                        weight: style.weight,
+                                        design: style.design
+                                    ))
+                                    .italic(style.italic)
+                                    .foregroundStyle(foreground)
+                                    .offset(y: yOffset)
+                                    .rotationEffect(.degrees(rotation))
+                            }
+                        }
                     }
                 }
+                .tracking(style.tracking)
+                .rotationEffect(.degrees(style.baselineRotation))
             }
         }
-        .tracking(style.tracking)
-        .rotationEffect(.degrees(style.baselineRotation))
+        .frame(minWidth: 1, minHeight: minLayoutHeight)
+        .fixedSize(horizontal: true, vertical: true)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(text)
+        .accessibilityLabel(text.isEmpty ? "" : text)
     }
 }
 
@@ -238,7 +320,7 @@ struct UnterwegsComicNavigationTitleConfigurator: UIViewControllerRepresentable 
             shadow.shadowBlurRadius = 2.5
             shadow.shadowColor = UIColor.black.withAlphaComponent(0.12)
             appearance.largeTitleTextAttributes = [
-                .font: SwissDialectComicStyle.uiFont(size: 30, weight: .black),
+                .font: SwissDialectComicStyle.uiFont(size: 34, weight: .bold),
                 .foregroundColor: UIColor.label,
                 .shadow: shadow
             ]
@@ -257,9 +339,9 @@ enum SwissDialectRotationMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .eachVisit: return "Bei jedem Besuch"
-        case .daily: return "Täglich wechseln"
-        case .locked: return "Lieblingsspruch"
+        case .eachVisit: return "Bi jedem Besuch"
+        case .daily: return "Täglich wächsle"
+        case .locked: return "Lieblings-Spruch"
         }
     }
 }
@@ -285,7 +367,11 @@ enum SwissDialectPreferences {
 
     static var favoritePhraseID: String {
         get {
-            UserDefaults.standard.string(forKey: favoriteKey) ?? SwissDialectPhrases.heroPhrase.id
+            let stored = UserDefaults.standard.string(forKey: favoriteKey) ?? SwissDialectPhrases.heroPhrase.id
+            if stored == SwissDialectPhrases.legacyHeroPhraseID {
+                return SwissDialectPhrases.heroPhrase.id
+            }
+            return stored
         }
         set {
             UserDefaults.standard.set(newValue, forKey: favoriteKey)
@@ -293,7 +379,10 @@ enum SwissDialectPreferences {
     }
 
     static func phrase(for id: String) -> SwissDialectPhrase {
-        SwissDialectPhrases.all.first { $0.id == id } ?? SwissDialectPhrases.heroPhrase
+        let resolved = id == SwissDialectPhrases.legacyHeroPhraseID
+            ? SwissDialectPhrases.heroPhrase.id
+            : id
+        return SwissDialectPhrases.all.first { $0.id == resolved } ?? SwissDialectPhrases.heroPhrase
     }
 
     static func currentPhrase() -> SwissDialectPhrase {
@@ -307,7 +396,7 @@ enum SwissDialectPreferences {
         }
     }
 
-    private static let heroWeight = 0.48
+    private static let heroWeight = 0.38
 
     private static func weightedRandomPhrase() -> SwissDialectPhrase {
         if Double.random(in: 0..<1) < heroWeight {
@@ -349,32 +438,42 @@ struct SwissDialectHeaderPhrase: View {
     private var isHero: Bool { phrase.id == SwissDialectPhrases.heroPhrase.id }
 
     private var curvedStyle: ComicCurvedTextStyle {
-        var style = isHero ? ComicCurvedTextStyle.hero : ComicCurvedTextStyle.glassHint
-        style.size = isHero ? max(phrase.fontSize, 28) : max(phrase.fontSize, 20)
-        style.weight = isHero ? .black : .heavy
+        var style = ComicCurvedTextStyle.glassHint
+        style.size = max(phrase.fontSize, 20)
+        style.weight = .heavy
         style.design = phrase.design
         style.italic = phrase.isItalic || phrase.design == .rounded
-        style.baselineRotation = appeared
-            ? phrase.rotationDegrees * (isHero ? 1.1 : 1.15)
-            : phrase.rotationDegrees * 0.3
-        if isHero {
-            style.waveAmplitude = 2.4
-            style.waveRotation = 4.0
-            style.size = max(phrase.fontSize, 26)
-        }
+        style.baselineRotation = appeared ? phrase.rotationDegrees * 1.15 : phrase.rotationDegrees * 0.3
         return style
     }
 
     var body: some View {
-        ComicCurvedText(text: phrase.text, style: curvedStyle)
-            .lineLimit(isHero ? 2 : 1)
-            .minimumScaleFactor(isHero ? 0.75 : 0.85)
-            .scaleEffect(appeared ? (isHero ? 1.0 : 1) : 0.92)
-            .opacity(appeared ? 1 : 0.55)
-            .animation(.spring(response: 0.45, dampingFraction: isHero ? 0.62 : 0.72), value: appeared)
-            .onAppear {
-                phrase = SwissDialectPreferences.currentPhrase()
-                appeared = true
+        Group {
+            if isHero {
+                Text(phrase.text)
+                    .font(.system(size: phrase.fontSize, weight: phrase.weight, design: phrase.design))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                ArcaTicketsDesign.travelOcean,
+                                ArcaTicketsDesign.travelGlassCyan
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            } else {
+                ComicCurvedText(text: phrase.text, style: curvedStyle)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
+        }
+        .scaleEffect(appeared ? 1 : 0.94)
+        .opacity(appeared ? 1 : 0.55)
+        .animation(.spring(response: 0.45, dampingFraction: 0.72), value: appeared)
+        .onAppear {
+            phrase = SwissDialectPreferences.currentPhrase()
+            appeared = true
+        }
     }
 }

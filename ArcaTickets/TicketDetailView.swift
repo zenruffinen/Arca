@@ -39,7 +39,7 @@ struct TicketDetailView: View {
                     Button {
                         showRenewal = true
                     } label: {
-                        Label("Erneuern", systemImage: "arrow.triangle.2.circlepath")
+                        Label(ArcaTicketsStrings.renew, systemImage: "arrow.triangle.2.circlepath")
                             .font(.system(size: 16, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -50,14 +50,14 @@ struct TicketDetailView: View {
                 }
 
                 if canShowQR {
-                    TicketsPrimaryButton(title: "Am Schalter zeigen", icon: "qrcode.viewfinder") {
+                    TicketsPrimaryButton(title: ArcaTicketsStrings.showAtCounter, icon: "qrcode.viewfinder") {
                         TicketsHaptics.mediumImpact()
                         showQRFullscreen = true
                     }
                 }
 
                 if ticket.isArchived {
-                    Label("Archiviert — durch Erneuerung ersetzt", systemImage: "archivebox.fill")
+                    Label("Archiviert — dur Erneuerig ersetzt", systemImage: "archivebox.fill")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,9 +83,9 @@ struct TicketDetailView: View {
                         Image(systemName: ticket.isPinned ? "pin.fill" : "pin")
                             .foregroundStyle(ticket.isPinned ? ArcaTicketsDesign.travelSunset : .primary)
                     }
-                    .accessibilityLabel(ticket.isPinned ? "Von Unterwägs lösen" : "Auf Unterwägs anheften")
+                    .accessibilityLabel(ticket.isPinned ? ArcaTicketsStrings.unpinFromUnterwegs : ArcaTicketsStrings.pinOnUnterwegs)
 
-                    Button("Bearbeiten") { isEditing = true }
+                    Button(ArcaTicketsStrings.edit) { isEditing = true }
                 }
             }
         }
@@ -120,7 +120,7 @@ struct TicketDetailView: View {
     @ViewBuilder
     private var previewSection: some View {
         if fileMissing {
-            ContentUnavailableView("Datei wird geladen", systemImage: "icloud.and.arrow.down")
+            ContentUnavailableView("Datei wird glade", systemImage: "icloud.and.arrow.down")
         } else if ticket.fileKind == .pdf {
             PDFKitView(url: fileURL)
                 .frame(minHeight: 360)
@@ -135,7 +135,7 @@ struct TicketDetailView: View {
                     if canShowQR { showQRFullscreen = true }
                 }
         } else {
-            ContentUnavailableView("Vorschau nicht verfügbar", systemImage: "exclamationmark.triangle")
+            ContentUnavailableView("Vorschau nöd verfügbar", systemImage: "exclamationmark.triangle")
         }
     }
 
@@ -143,7 +143,7 @@ struct TicketDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             if ticket.hasTravelDetails {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Reisedetails", systemImage: "airplane")
+                    Label("Reisedetail", systemImage: "airplane")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(ArcaTicketsDesign.travelOcean)
 
@@ -168,18 +168,18 @@ struct TicketDetailView: View {
                 if let countdown = ticket.expiryCountdownText {
                     detailRow(title: "Status", value: countdown)
                 } else if ticket.isExpired {
-                    detailRow(title: "Status", value: "Abgelaufen")
+                    detailRow(title: "Status", value: "Abgloffe")
                 }
             } else {
-                detailRow(title: "Gültig bis", value: "Nicht gesetzt")
+                detailRow(title: "Gültig bis", value: "Nöd gsetzt")
             }
             if let usesText = ticket.usesCountdownText {
-                detailRow(title: "Eintritte", value: usesText)
+                detailRow(title: "Iitritt", value: usesText)
             }
-            detailRow(title: "Hinzugefügt", value: ticket.createdAt.formatted(date: .abbreviated, time: .shortened))
+            detailRow(title: "Hinzuegfüegt", value: ticket.createdAt.formatted(date: .abbreviated, time: .shortened))
             if let notes = ticket.notes, !notes.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Notizen")
+                    Text("Notize")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(notes)
@@ -236,7 +236,7 @@ struct EditTicketView: View {
                             Text(name).tag(name)
                         }
                     }
-                    Toggle("Auf Unterwägs anheften", isOn: $isPinned)
+                    Toggle(ArcaTicketsStrings.pinOnUnterwegs, isOn: $isPinned)
                 }
                 Section("Reise") {
                     TextField("Flugnummer", text: $flightNumber)
@@ -257,25 +257,25 @@ struct EditTicketView: View {
                     }
                 }
                 Section("Mehrfachkarte") {
-                    Toggle("Eintritte zählen", isOn: $hasUses)
+                    Toggle("Iitritt zähle", isOn: $hasUses)
                     if hasUses {
                         Stepper("Verbleibend: \(remainingUses)", value: $remainingUses, in: 0...999)
                         Stepper("Gesamt: \(totalUses)", value: $totalUses, in: 1...999)
                     }
                 }
-                Section("Notizen") {
-                    TextField("Optionale Notizen", text: $notes, axis: .vertical)
+                Section("Notize") {
+                    TextField("Optionali Notize", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
                 }
             }
-            .navigationTitle("Bearbeiten")
+            .navigationTitle(ArcaTicketsStrings.edit)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { save() }
+                    Button(ArcaTicketsStrings.save) { save() }
                 }
             }
             .onAppear {

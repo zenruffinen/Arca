@@ -70,11 +70,11 @@ enum NotificationManager {
         ), fireDate > Date() else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = daysBefore > 1 ? "Abo läuft bald ab" : "Ticket läuft bald ab"
+        content.title = daysBefore > 1 ? "Abo lauft bald ab" : "Ticket lauft bald ab"
         if daysBefore > 1 {
-            content.body = "\(ticket.title) läuft in 30 Tagen ab — rechtzeitig erneuern."
+            content.body = "\(ticket.title) lauft in 30 Tag ab — rächtziitig erneuere."
         } else {
-            content.body = "\(ticket.title) läuft morgen ab — rechtzeitig vorzeigen oder erneuern."
+            content.body = "\(ticket.title) lauft morn ab — rächtziitig zeige oder erneuere."
         }
         content.sound = .default
 

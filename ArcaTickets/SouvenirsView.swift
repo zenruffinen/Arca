@@ -13,7 +13,6 @@ struct SouvenirsFloatingDecoration: View {
     @EnvironmentObject private var store: TicketStore
     @State private var showSouvenirsSheet = false
 
-    private let tilt: Double = 7
     private var pendingCount: Int { store.opaSouvenirs.filter { !$0.isChecked }.count }
 
     var body: some View {
@@ -22,8 +21,9 @@ struct SouvenirsFloatingDecoration: View {
             showSouvenirsSheet = true
         } label: {
             klecksGraphic
+                .unterwegsKlecksTapTarget()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(UnterwegsKlecksButtonStyle())
         .accessibilityLabel(pendingCount > 0
             ? "Souvenirs für Opa, \(pendingCount) offen"
             : "Souvenirs für Opa")
@@ -34,58 +34,19 @@ struct SouvenirsFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(red: 1.0, green: 0.45, blue: 0.55).opacity(0.22),
-                            ArcaTicketsDesign.travelSunset.opacity(0.14),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 82, height: 78)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 72, height: 68)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 1.0, green: 0.45, blue: 0.55).opacity(0.7),
-                                    ArcaTicketsDesign.travelSunset.opacity(0.5)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: Color(red: 1.0, green: 0.45, blue: 0.55).opacity(0.22), radius: 8, y: 3)
-
+        UnterwegsKlecksGlass {
             VStack(spacing: 2) {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "gift.fill")
                         .font(.system(size: 21, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [
-                                    Color(red: 1.0, green: 0.45, blue: 0.55),
-                                    ArcaTicketsDesign.travelSunset
-                                ],
+                                colors: [Color(red: 1.0, green: 0.45, blue: 0.55), ArcaTicketsDesign.travelSunset],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .symbolRenderingMode(.hierarchical)
-
                     if pendingCount > 0 {
                         Circle()
                             .fill(Color(red: 1.0, green: 0.45, blue: 0.55))
@@ -93,18 +54,10 @@ struct SouvenirsFloatingDecoration: View {
                             .offset(x: 4, y: -3)
                     }
                 }
-
                 Text("Für Opa")
-                    .font(.system(size: 8.5, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(red: 0.88, green: 0.28, blue: 0.42))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+                    .unterwegsKlecksLabel(size: 8.5, minScale: 0.65)
             }
-            .rotationEffect(.degrees(-tilt))
         }
-        .frame(width: 78, height: 74)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
     }
 }
 
@@ -133,11 +86,11 @@ struct SouvenirsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fertig") { dismiss() }
+                    Button(ArcaTicketsStrings.done) { dismiss() }
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Hinzufügen") { addItem() }
+                    Button(ArcaTicketsStrings.addFull) { addItem() }
                         .disabled(newItemTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -152,7 +105,7 @@ struct SouvenirsSheet: View {
         VStack(spacing: 20) {
             Spacer()
 
-            Image(systemName: "heart.gift.fill")
+            Image(systemName: "gift.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(
                     LinearGradient(
@@ -166,7 +119,7 @@ struct SouvenirsSheet: View {
                 )
                 .symbolRenderingMode(.hierarchical)
 
-            Text("Was möchtest du Opa mitbringen?")
+            Text("Was wotsch Opa mitbringe?")
                 .font(.title3.weight(.semibold))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -198,7 +151,7 @@ struct SouvenirsSheet: View {
                 Text("Mitbringen")
             } footer: {
                 if souvenirs.contains(where: \.isChecked) {
-                    Text("Abgehakte Sachen kannst du löschen, wenn sie schon eingepackt sind.")
+                    Text("Abghackti Sache chasch lösche, wenn sie scho iigpackt sind.")
                 }
             }
         }
@@ -207,7 +160,7 @@ struct SouvenirsSheet: View {
 
     private var addItemBar: some View {
         HStack(spacing: 10) {
-            TextField("Neues Souvenir …", text: $newItemTitle)
+            TextField("Neus Souvenir …", text: $newItemTitle)
                 .textFieldStyle(.roundedBorder)
                 .focused($isAddFieldFocused)
                 .submitLabel(.done)

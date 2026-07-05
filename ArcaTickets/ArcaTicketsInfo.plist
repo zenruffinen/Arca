@@ -42,6 +42,8 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
@@ -55,7 +57,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Owner</string>
+			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.hansruffin.arca.ticketsbackup</string>
@@ -67,7 +69,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Owner</string>
+			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.adobe.pdf</string>
@@ -75,7 +77,6 @@
 				<string>public.jpeg</string>
 				<string>public.png</string>
 				<string>public.heic</string>
-				<string>public.data</string>
 			</array>
 		</dict>
 	</array>

@@ -14,7 +14,6 @@ struct GolfschlagerFloatingDecoration: View {
     @State private var showSheet = false
     @State private var tagRevealed = false
 
-    private let tilt: Double = 8
     private var contact: GolfContact { store.golfContact }
     private var travel: GolfschlaegerInfo { store.golfschlaegerInfo }
 
@@ -40,8 +39,9 @@ struct GolfschlagerFloatingDecoration: View {
             handleTap()
         } label: {
             klecksGraphic
+                .unterwegsKlecksTapTarget()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(UnterwegsKlecksButtonStyle())
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.45).onEnded { _ in
                 TicketsHaptics.lightImpact()
@@ -96,64 +96,24 @@ struct GolfschlagerFloatingDecoration: View {
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ArcaTicketsDesign.golfCyan.opacity(0.28),
-                            ArcaTicketsDesign.golfFairway.opacity(0.14),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 86, height: 82)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 76, height: 72)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.golfCyan.opacity(0.65),
-                                    ArcaTicketsDesign.golfFairwayDeep.opacity(0.45)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: ArcaTicketsDesign.golfFairwayDeep.opacity(0.22), radius: 8, y: 3)
-
+        UnterwegsKlecksGlass {
             VStack(spacing: 2) {
                 ZStack {
                     Image(systemName: "figure.golf")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.golfCyan,
-                                    ArcaTicketsDesign.golfFairwayDeep
-                                ],
+                                colors: [ArcaTicketsDesign.golfCyan, ArcaTicketsDesign.golfFairwayDeep],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .symbolRenderingMode(.hierarchical)
-
                     Image(systemName: "bag.fill")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(ArcaTicketsDesign.golfFairway)
                         .offset(x: 11, y: 9)
                         .opacity(0.9)
-
                     if travel.checkedIn {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 10, weight: .bold))
@@ -161,38 +121,30 @@ struct GolfschlagerFloatingDecoration: View {
                             .offset(x: -11, y: -10)
                     }
                 }
-
                 if let line = comicLine, !line.isEmpty {
                     ComicCurvedText(
                         text: line,
                         style: .golfTag,
-                        foreground: ArcaTicketsDesign.golfFairwayDeep
+                        foreground: UnterwegsKlecksMetrics.labelForeground
                     )
+                    .unterwegsKlecksCurvedLabel()
                     .scaleEffect(0.92)
                     .contentTransition(.numericText())
-
                     if hasBagTag {
                         Image(systemName: tagRevealed ? "eye.fill" : "eye.slash.fill")
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep.opacity(0.55))
+                            .foregroundStyle(UnterwegsKlecksMetrics.labelForeground.opacity(0.7))
                     } else if hasPhone {
                         Image(systemName: "phone.fill")
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep.opacity(0.55))
+                            .foregroundStyle(UnterwegsKlecksMetrics.labelForeground.opacity(0.7))
                     }
                 } else {
                     Text("Golf")
-                        .font(.system(size: 8.5, weight: .black, design: .rounded))
-                        .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.65)
+                        .unterwegsKlecksLabel(size: 8.5, minScale: 0.65)
                 }
             }
-            .rotationEffect(.degrees(-tilt))
         }
-        .frame(width: 80, height: 78)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
     }
 }
 
@@ -226,9 +178,9 @@ struct GolfschlaegerSheet: View {
                     Text("Golfclub")
                 } footer: {
                     if bergeTicketCount > 0 {
-                        Text("Du hast \(bergeTicketCount) Ticket\(bergeTicketCount == 1 ? "" : "s") im Ordner „Berge“. Ein Tap auf den Klecks genügt zum Anrufen.")
+                        Text("Du hesch \(bergeTicketCount) Ticket\(bergeTicketCount == 1 ? "" : "s") im Ordner „Berge“. Ein Tap uf de Klecks zum Aarufe.")
                     } else {
-                        Text("Dein Golfclub im Wallis — Greenfee oder Pro-Shop, ein Tap auf den Klecks genügt zum Anrufen.")
+                        Text("Din Golfclub im Wallis — Greenfee oder Pro-Shop, ein Tap uf de Klecks zum Aarufe.")
                     }
                 }
 
@@ -237,7 +189,7 @@ struct GolfschlaegerSheet: View {
                         .lineLimit(2...4)
                     TextField("Bag-Tag / PIN", text: $bagTagNumber)
                         .textInputAutocapitalization(.characters)
-                    Toggle("Golfschläger eingecheckt", isOn: $checkedIn)
+                    Toggle("Golfschläger igcheckt", isOn: $checkedIn)
                     TextField("Notiz (Reminder)", text: $note, axis: .vertical)
                         .lineLimit(2...5)
                 } header: {
@@ -264,10 +216,10 @@ struct GolfschlaegerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Sichern") {
+                    Button(ArcaTicketsStrings.backup) {
                         save()
                         dismiss()
                     }
@@ -275,7 +227,7 @@ struct GolfschlaegerSheet: View {
                 }
                 if store.golfschlaegerInfo.hasContent {
                     ToolbarItem(placement: .bottomBar) {
-                        Button("Reise-Infos löschen", role: .destructive) {
+                        Button("Reise-Info lösche", role: .destructive) {
                             store.updateGolfschlaegerInfo(.empty)
                             airlinePolicyNote = ""
                             bagTagNumber = ""

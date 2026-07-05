@@ -12,15 +12,15 @@ struct TaxiButtonView: View {
     @State private var showEditSheet = false
 
     private var contact: TaxiContact { store.taxiContact }
-    private let tilt: Double = -10
 
     var body: some View {
         Button {
             handleTap()
         } label: {
             klecksGraphic
+                .unterwegsKlecksTapTarget()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(UnterwegsKlecksButtonStyle())
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.45).onEnded { _ in
                 TicketsHaptics.lightImpact()
@@ -31,55 +31,20 @@ struct TaxiButtonView: View {
             Button {
                 showEditSheet = true
             } label: {
-                Label("Taxinummer bearbeiten", systemImage: "pencil")
+                Label("Taxinummer bearbeite", systemImage: "pencil")
             }
         }
         .accessibilityLabel(contact.hasPhoneNumber
             ? "Taxi rufen, \(contact.displayCompanyName), \(contact.displayPhoneNumber)"
-            : "Taxi, Taxinummer eintragen")
-        .accessibilityHint(contact.hasPhoneNumber ? "Anrufen" : "Nummer eintragen")
+            : "Taxi, Taxinummer iträge")
+        .accessibilityHint(contact.hasPhoneNumber ? "Aarufe" : "Nummer iträge")
         .sheet(isPresented: $showEditSheet) {
             TaxiContactEditorView()
         }
     }
 
     private var klecksGraphic: some View {
-        ZStack {
-            KlecksBlobShape()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            ArcaTicketsDesign.taxiYellow.opacity(0.32),
-                            ArcaTicketsDesign.taxiYellowDeep.opacity(0.16),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 44
-                    )
-                )
-                .frame(width: 86, height: 82)
-                .blur(radius: 4)
-
-            KlecksBlobShape()
-                .fill(.ultraThinMaterial)
-                .frame(width: 76, height: 72)
-                .overlay {
-                    KlecksBlobShape()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    ArcaTicketsDesign.taxiYellow.opacity(0.7),
-                                    ArcaTicketsDesign.taxiYellowDeep.opacity(0.45)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .shadow(color: ArcaTicketsDesign.taxiYellowDeep.opacity(0.22), radius: 8, y: 3)
-
+        UnterwegsKlecksGlass {
             VStack(spacing: 2) {
                 Image(systemName: "car.side.fill")
                     .font(.system(size: 22, weight: .semibold))
@@ -91,18 +56,10 @@ struct TaxiButtonView: View {
                         )
                     )
                     .symbolRenderingMode(.hierarchical)
-
-                Text("Taxi")
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                Text("Taxi CH")
+                    .unterwegsKlecksLabel()
             }
-            .rotationEffect(.degrees(tilt))
         }
-        .frame(width: 80, height: 78)
-        .rotationEffect(.degrees(tilt))
-        .accessibilityHidden(true)
     }
 
     private func handleTap() {
@@ -110,6 +67,7 @@ struct TaxiButtonView: View {
             TicketsHaptics.mediumImpact()
             UIApplication.shared.open(url)
         } else {
+            TicketsHaptics.lightImpact()
             showEditSheet = true
         }
     }
@@ -134,17 +92,17 @@ struct TaxiContactEditorView: View {
                 } header: {
                     Text("Taxi")
                 } footer: {
-                    Text("Einmal eintragen — danach reicht ein Tap auf das Auto zum Anrufen.")
+                    Text("Einisch iträge — danach reicht ein Tap uf s'Auto zum Aarufe.")
                 }
             }
             .navigationTitle("Taxinummer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") {
+                    Button(ArcaTicketsStrings.save) {
                         save()
                         dismiss()
                     }

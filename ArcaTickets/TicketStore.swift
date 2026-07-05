@@ -61,9 +61,9 @@ final class TicketStore: ObservableObject {
     private var rememberedBackupFolderURL: URL?
 
     enum ICloudStatus: String {
-        case unavailable = "Nicht verfügbar"
-        case connected = "iCloud: verbunden"
-        case downloading = "Warte auf Download"
+        case unavailable = "Nöd verfügbar"
+        case connected = "iCloud: verbunde"
+        case downloading = "Warte uf Download"
         case synced = "Synchronisiert"
     }
 
@@ -771,10 +771,10 @@ final class TicketStore: ObservableObject {
         tickets[idx].isPinned.toggle()
         if tickets[idx].isPinned {
             TicketsHaptics.pin()
-            showToast("Auf Unterwägs angehefixt ✈️")
+            showToast("Uf Unterwägs agheftet ✈️")
         } else {
             TicketsHaptics.lightImpact()
-            showToast("Von Unterwägs gelöst")
+            showToast("Vo Unterwägs glöst")
         }
     }
 
@@ -784,7 +784,7 @@ final class TicketStore: ObservableObject {
         tickets[idx].isPinned = pinned
         if pinned && !wasPinned {
             TicketsHaptics.pin()
-            showToast("Auf Unterwägs angehefixt ✈️")
+            showToast("Uf Unterwägs agheftet ✈️")
         }
     }
 
