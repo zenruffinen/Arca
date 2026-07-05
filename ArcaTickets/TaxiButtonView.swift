@@ -11,25 +11,20 @@ struct TaxiButtonView: View {
     @EnvironmentObject private var store: TicketStore
     @State private var showEditSheet = false
 
-    var style: TravelQuickActionStyle = .card
-
     private var contact: TaxiContact { store.taxiContact }
+    private let tilt: Double = -10
 
     var body: some View {
         Button {
             handleTap()
         } label: {
-            Group {
-                switch style {
-                case .card:
-                    cardContent
-                case .chip:
-                    chipContent
-                }
-            }
-            .background { actionBackground }
+            comicTaxiGraphic
         }
         .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: 0.45) {
+            TicketsHaptics.lightImpact()
+            showEditSheet = true
+        }
         .contextMenu {
             Button {
                 showEditSheet = true
@@ -39,149 +34,69 @@ struct TaxiButtonView: View {
         }
         .accessibilityLabel(contact.hasPhoneNumber
             ? "Taxi rufen, \(contact.displayCompanyName), \(contact.displayPhoneNumber)"
-            : "Taxi rufen, Taxinummer eintragen")
+            : "Taxi, Taxinummer eintragen")
         .accessibilityHint(contact.hasPhoneNumber ? "Anrufen" : "Nummer eintragen")
         .sheet(isPresented: $showEditSheet) {
             TaxiContactEditorView()
         }
     }
 
-    private var cardContent: some View {
-        HStack(spacing: 14) {
-            comicCarIcon(size: .card)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Taxi rufen")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-
-                if contact.hasPhoneNumber {
-                    Text(contact.displayCompanyName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
-                    Text(contact.displayPhoneNumber)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Taxinummer eintragen")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
+    private var comicTaxiGraphic: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .frame(width: 76, height: 64)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    ArcaTicketsDesign.taxiYellow.opacity(0.28),
+                                    ArcaTicketsDesign.travelSand.opacity(0.14)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 }
-            }
-
-            Spacer(minLength: 0)
-
-            trailingIcon
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-    }
-
-    private var chipContent: some View {
-        VStack(spacing: 8) {
-            comicCarIcon(size: .chip)
-
-            Text("Taxi")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-
-            Text(chipSubtitle)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 12)
-    }
-
-    private var chipSubtitle: String {
-        contact.hasPhoneNumber ? contact.displayCompanyName : "Nummer eintragen"
-    }
-
-    private var trailingIcon: some View {
-        Image(systemName: contact.hasPhoneNumber ? "phone.arrow.up.right.circle.fill" : "pencil.circle.fill")
-            .font(.title2)
-            .foregroundStyle(
-                contact.hasPhoneNumber
-                    ? ArcaTicketsDesign.taxiYellowDeep
-                    : ArcaTicketsDesign.taxiYellow.opacity(0.85)
-            )
-            .symbolEffect(.bounce, value: contact.hasPhoneNumber)
-    }
-
-    private func comicCarIcon(size: TravelQuickActionIconSize) -> some View {
-        let tile = size == .card ? CGSize(width: 58, height: 52) : CGSize(width: 46, height: 42)
-        let iconFont: Font = size == .card ? .system(size: 30, weight: .bold) : .system(size: 24, weight: .bold)
-        let frame = size == .card ? CGSize(width: 64, height: 56) : CGSize(width: 50, height: 46)
-        let tilt: Double = -8
-
-        return ZStack {
-            RoundedRectangle(cornerRadius: size == .card ? 14 : 12, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            ArcaTicketsDesign.taxiYellow.opacity(0.35),
-                            ArcaTicketsDesign.taxiYellowDeep.opacity(0.22)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: tile.width, height: tile.height)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    ArcaTicketsDesign.taxiYellow.opacity(0.65),
+                                    ArcaTicketsDesign.taxiYellowDeep.opacity(0.3)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                }
                 .rotationEffect(.degrees(tilt))
-                .shadow(color: ArcaTicketsDesign.taxiYellowDeep.opacity(0.35), radius: 5, y: 3)
+                .shadow(color: ArcaTicketsDesign.taxiYellowDeep.opacity(0.28), radius: 8, y: 4)
 
-            Image(systemName: "car.side.fill")
-                .font(iconFont)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [ArcaTicketsDesign.taxiYellow, ArcaTicketsDesign.taxiYellowDeep],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .rotationEffect(.degrees(tilt))
-                .shadow(color: .black.opacity(0.18), radius: 2, y: 2)
-        }
-        .frame(width: frame.width, height: frame.height)
-        .accessibilityHidden(true)
-    }
+            VStack(spacing: 2) {
+                Text("Taxi")
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
+                    .shadow(color: .white.opacity(0.6), radius: 0, y: 1)
 
-    private var actionBackground: some View {
-        RoundedRectangle(cornerRadius: style == .chip ? ArcaTicketsDesign.chipRadius : ArcaTicketsDesign.cornerRadius, style: .continuous)
-            .fill(.ultraThinMaterial)
-            .overlay {
-                RoundedRectangle(cornerRadius: style == .chip ? ArcaTicketsDesign.chipRadius : ArcaTicketsDesign.cornerRadius, style: .continuous)
-                    .fill(
+                Image(systemName: "car.side.fill")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(
                         LinearGradient(
-                            colors: [
-                                ArcaTicketsDesign.taxiYellow.opacity(0.22),
-                                ArcaTicketsDesign.travelSand.opacity(0.18)
-                            ],
+                            colors: [ArcaTicketsDesign.taxiYellow, ArcaTicketsDesign.taxiYellowDeep],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
+                    .shadow(color: .black.opacity(0.15), radius: 2, y: 2)
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: style == .chip ? ArcaTicketsDesign.chipRadius : ArcaTicketsDesign.cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                ArcaTicketsDesign.taxiYellow.opacity(0.55),
-                                ArcaTicketsDesign.taxiYellowDeep.opacity(0.25)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.5
-                    )
-            }
-            .shadow(color: ArcaTicketsDesign.taxiYellowDeep.opacity(0.18), radius: style == .chip ? 6 : 10, y: style == .chip ? 3 : 5)
+            .rotationEffect(.degrees(tilt))
+        }
+        .frame(width: 88, height: 76)
+        .accessibilityHidden(true)
     }
 
     private func handleTap() {
@@ -205,18 +120,18 @@ struct TaxiContactEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Taxiunternehmen", text: $companyName)
-                        .textContentType(.organizationName)
                     TextField("Telefonnummer", text: $phoneNumber)
                         .keyboardType(.phonePad)
                         .textContentType(.telephoneNumber)
+                    TextField("Taxiunternehmen (optional)", text: $companyName)
+                        .textContentType(.organizationName)
                 } header: {
                     Text("Taxi")
                 } footer: {
-                    Text("Dein lokales Taxi — ein Tap auf „Unterwegs“ genügt zum Anrufen.")
+                    Text("Einmal eintragen — danach reicht ein Tap auf das Auto zum Anrufen.")
                 }
             }
-            .navigationTitle("Taxi eintragen")
+            .navigationTitle("Taxinummer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -227,6 +142,7 @@ struct TaxiContactEditorView: View {
                         save()
                         dismiss()
                     }
+                    .disabled(phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .onAppear {
@@ -234,7 +150,7 @@ struct TaxiContactEditorView: View {
                 phoneNumber = store.taxiContact.phoneNumber
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.height(280)])
     }
 
     private func save() {

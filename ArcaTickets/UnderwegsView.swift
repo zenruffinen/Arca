@@ -67,6 +67,11 @@ struct UnderwegsView: View {
         }
         .navigationTitle("Unterwegs")
         .navigationBarTitleDisplayMode(.large)
+        .overlay(alignment: .bottomTrailing) {
+            TaxiButtonView()
+                .padding(.trailing, 20)
+                .padding(.bottom, 108)
+        }
         .overlay(alignment: .bottom) {
             TicketsFAB(title: "Hinzufügen", useTravelGradient: true) {
                 showAddTicket = true

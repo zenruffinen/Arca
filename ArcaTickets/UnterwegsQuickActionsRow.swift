@@ -19,11 +19,6 @@ enum TravelQuickActionIconSize {
 
 struct UnterwegsQuickActionsRow: View {
     var body: some View {
-        HStack(spacing: 12) {
-            TaxiButtonView(style: .chip)
-                .frame(maxWidth: .infinity)
-            GolfButtonView(style: .chip)
-                .frame(maxWidth: .infinity)
-        }
+        GolfButtonView(style: .chip)
     }
 }
