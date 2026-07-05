@@ -7,6 +7,7 @@
 
 import SwiftUI
 import StoreKit
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss

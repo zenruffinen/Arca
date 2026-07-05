@@ -425,6 +425,10 @@ final class TicketStore: ObservableObject {
         for i in tickets.indices where tickets[i].folder == oldName {
             tickets[i].folder = trimmed
         }
+        if sharedFolders.contains(oldName) {
+            sharedFolders.remove(oldName)
+            sharedFolders.insert(trimmed)
+        }
         return true
     }
 
@@ -435,6 +439,7 @@ final class TicketStore: ObservableObject {
             tickets[i].folder = target
         }
         folders.removeAll { $0 == name }
+        sharedFolders.remove(name)
         return true
     }
 
