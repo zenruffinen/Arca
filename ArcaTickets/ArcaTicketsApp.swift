@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct ArcaTicketsApp: App {
     init() {
-        ArcaTicketsTabBar.configure()
+        // Arca Holiday v1: kein Tab-Bar-Styling nötig
     }
 
     @StateObject private var store = TicketStore()
@@ -53,7 +53,7 @@ struct ArcaTicketsApp: App {
                                 Image(systemName: "lock.shield.fill")
                                     .font(.system(size: 56))
                                     .foregroundStyle(.secondary)
-                                Text("ARCA TICKETS")
+                                Text("Arca Holiday")
                                     .font(.title2.bold())
                                     .foregroundStyle(.secondary)
                             }
