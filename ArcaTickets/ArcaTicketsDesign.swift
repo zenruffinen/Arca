@@ -292,11 +292,7 @@ struct TicketsToastBanner: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-            }
+            .ticketsGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
             .padding(.horizontal, 20)
             .accessibilityAddTraits(.isStaticText)

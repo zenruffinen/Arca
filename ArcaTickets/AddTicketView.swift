@@ -16,6 +16,7 @@ struct AddTicketView: View {
     var preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges"
     var importURL: URL?
     var renewalSource: TicketEntry?
+    var forHolidayBoarding: Bool = false
 
     @State private var title = ""
     @State private var folder: String
@@ -50,14 +51,18 @@ struct AddTicketView: View {
     init(
         preselectedFolder: String = TicketStore.defaultFolders.first ?? "Sonstiges",
         importURL: URL? = nil,
-        renewalSource: TicketEntry? = nil
+        renewalSource: TicketEntry? = nil,
+        forHolidayBoarding: Bool = false
     ) {
         self.preselectedFolder = preselectedFolder
         self.importURL = importURL
         self.renewalSource = renewalSource
+        self.forHolidayBoarding = forHolidayBoarding
         _folder = State(initialValue: renewalSource?.folder ?? preselectedFolder)
         _title = State(initialValue: renewalSource?.title ?? "")
         _notes = State(initialValue: renewalSource?.notes ?? "")
+        _pinOnAdd = State(initialValue: forHolidayBoarding)
+        _showTravelDetails = State(initialValue: forHolidayBoarding)
         if let source = renewalSource {
             _hasUses = State(initialValue: source.remainingUses != nil)
             _remainingUses = State(initialValue: source.remainingUses ?? 10)
@@ -95,7 +100,9 @@ struct AddTicketView: View {
                 } header: {
                     Text("Quelle")
                 } footer: {
-                    Text("Tipp: In Mail oder Safari uf Teile tippen → Arca Tickets.")
+                    Text(forHolidayBoarding
+                         ? "PDF us Mail, Foto vo Wallet oder Kamera — alles geit."
+                         : "Tipp: In Mail oder Safari uf Teile tippen → Arca Tickets.")
                         .font(.caption)
                 }
 
@@ -107,24 +114,26 @@ struct AddTicketView: View {
 
                 Section {
                     TextField("Titel", text: $title)
-                    Picker("Ordner", selection: Binding(
-                        get: { folder },
-                        set: { new in
-                            if new == FolderPicker.createNew {
-                                newFolderName = ""
-                                newFolderError = ""
-                                showNewFolderSheet = true
-                            } else {
-                                folder = new
+                    if !forHolidayBoarding {
+                        Picker("Ordner", selection: Binding(
+                            get: { folder },
+                            set: { new in
+                                if new == FolderPicker.createNew {
+                                    newFolderName = ""
+                                    newFolderError = ""
+                                    showNewFolderSheet = true
+                                } else {
+                                    folder = new
+                                }
                             }
+                        )) {
+                            ForEach(store.folders, id: \.self) { name in
+                                Text(name).tag(name)
+                            }
+                            Text("Neue Ordner…").tag(FolderPicker.createNew)
                         }
-                    )) {
-                        ForEach(store.folders, id: \.self) { name in
-                            Text(name).tag(name)
-                        }
-                        Text("Neue Ordner…").tag(FolderPicker.createNew)
+                        Toggle(ArcaTicketsStrings.pinOnUnterwegs, isOn: $pinOnAdd)
                     }
-                    Toggle(ArcaTicketsStrings.pinOnUnterwegs, isOn: $pinOnAdd)
                     Toggle("Ablaufdatum", isOn: $hasExpiry)
                     if hasExpiry {
                         DatePicker("Gültig bis", selection: $expiryDate, displayedComponents: [.date, .hourAndMinute])
@@ -168,7 +177,11 @@ struct AddTicketView: View {
                     }
                 }
             }
-            .navigationTitle(isRenewal ? "Ticket erneuere" : "Neus Ticket")
+            .navigationTitle(
+                isRenewal ? "Ticket erneuere"
+                : forHolidayBoarding ? ArcaTicketsStrings.addBoardingPass
+                : "Neus Ticket"
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -361,7 +374,9 @@ struct AddTicketView: View {
 
         TicketsHaptics.success()
         let hasFlight = !(saved.flightNumber?.isEmpty ?? true)
-        if pinOnAdd {
+        if forHolidayBoarding {
+            store.showToast("Boarding Pass debii ✈️")
+        } else if pinOnAdd {
             store.showToast("Uf Unterwägs agheftet ✈️")
         } else if hasFlight {
             store.showToast("Guete Flug! ✈️")

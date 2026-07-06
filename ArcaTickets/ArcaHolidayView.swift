@@ -41,24 +41,24 @@ enum ArcaHolidayKleck: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Center point on the vertical hero (paint-splatter klecks).
+    /// Center point on the vertical hero (paint-splatter klecks, 473×1024).
     var point: CGPoint {
         switch self {
-        case .golf:         CGPoint(x: 0.22, y: 0.30)
-        case .taxi:         CGPoint(x: 0.78, y: 0.30)
-        case .koffer:       CGPoint(x: 0.15, y: 0.76)
-        case .pass:         CGPoint(x: 0.38, y: 0.82)
-        case .notizen:      CGPoint(x: 0.62, y: 0.82)
-        case .boardingCard: CGPoint(x: 0.50, y: 0.93)
+        case .golf:         CGPoint(x: 0.22, y: 0.22)
+        case .taxi:         CGPoint(x: 0.76, y: 0.22)
+        case .koffer:       CGPoint(x: 0.20, y: 0.77)
+        case .pass:         CGPoint(x: 0.50, y: 0.77)
+        case .notizen:      CGPoint(x: 0.80, y: 0.77)
+        case .boardingCard: CGPoint(x: 0.50, y: 0.92)
         }
     }
 
     var hitSize: CGSize {
         switch self {
-        case .golf, .taxi:           CGSize(width: 0.22, height: 0.11)
-        case .koffer:                CGSize(width: 0.20, height: 0.12)
-        case .pass, .notizen:        CGSize(width: 0.18, height: 0.11)
-        case .boardingCard:          CGSize(width: 0.26, height: 0.09)
+        case .golf, .taxi:      CGSize(width: 0.15, height: 0.085)
+        case .koffer, .notizen: CGSize(width: 0.16, height: 0.09)
+        case .pass:             CGSize(width: 0.15, height: 0.09)
+        case .boardingCard:     CGSize(width: 0.22, height: 0.075)
         }
     }
 
@@ -95,44 +95,76 @@ enum ArcaHolidaySheet: Identifiable {
 struct ArcaHolidayView: View {
     @EnvironmentObject private var store: TicketStore
     @AppStorage("arcaHoliday.tapHintDismissed") private var tapHintDismissed = false
+    @Namespace private var glassNamespace
 
     @State private var activeSheet: ArcaHolidaySheet?
     @State private var tapHintVisible = false
     @State private var kleckWiggle = false
+    @State private var flightChipTap = 0
+    @State private var originKleck: ArcaHolidayKleck?
 
     private let heroAspect: CGFloat = 473.0 / 1024.0
 
     var body: some View {
-        GeometryReader { geo in
-            let size = LayoutSafety.size(geo.size)
+        ZStack {
+            GeometryReader { geo in
+                let size = LayoutSafety.size(geo.size)
 
-            ZStack {
-                Color.black.ignoresSafeArea()
+                ZStack {
+                    Color.black.ignoresSafeArea()
 
-                heroImage(in: size)
+                    heroImage(in: size)
 
-                if size.width > 1, size.height > 1 {
-                    ForEach(ArcaHolidayKleck.allCases) { kleck in
-                        ArcaHolidayKleckHotspot(kleck: kleck, containerSize: size) {
-                            open(kleck)
+                    if size.width > 1, size.height > 1 {
+                        ForEach(ArcaHolidayKleck.allCases) { kleck in
+                            ArcaHolidayKleckHotspot(
+                                kleck: kleck,
+                                containerSize: size,
+                                glassNamespace: glassNamespace,
+                                isOrigin: originKleck == kleck && activeSheet != nil
+                            ) {
+                                open(kleck)
+                            }
+                        }
+
+                        if let ticket = store.flightTodayTicket {
+                            flightTodayGlassChip(ticket: ticket, containerSize: size)
                         }
                     }
                 }
-
-                overlayChrome
             }
+            .ignoresSafeArea()
+
+            overlayChrome
         }
-        .ignoresSafeArea()
         .statusBarHidden(true)
-        .persistentSystemOverlays(.hidden)
-        .sheet(item: $activeSheet) { sheet in
+        .sheet(item: $activeSheet, onDismiss: { originKleck = nil }) { sheet in
             holidaySheet(for: sheet)
+                .presentationBackground(.ultraThinMaterial)
+                .presentationDragIndicator(.visible)
         }
         .onAppear {
             presentTapHintIfNeeded()
             withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
                 kleckWiggle = true
             }
+            if let sheet = store.pendingHolidaySheet {
+                activeSheet = sheet
+                store.pendingHolidaySheet = nil
+            }
+            FlightDayActivityManager.sync(with: store.flightTodayTicket)
+        }
+        .onChange(of: tapHintDismissed) { _, dismissed in
+            if !dismissed {
+                presentTapHintIfNeeded()
+            } else {
+                tapHintVisible = false
+            }
+        }
+        .onChange(of: store.pendingHolidaySheet) { _, sheet in
+            guard let sheet else { return }
+            activeSheet = sheet
+            store.pendingHolidaySheet = nil
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Arca Holiday — tipp uf d'Klecks")
@@ -150,17 +182,17 @@ struct ArcaHolidayView: View {
 
     private var overlayChrome: some View {
         VStack {
-            HStack(alignment: .top) {
-                grueeziBadge
-                    .padding(.leading, 14)
-                    .padding(.top, 6)
+            GlassEffectContainer(spacing: 16) {
+                HStack(alignment: .top) {
+                    grueeziBadge
 
-                Spacer()
+                    Spacer()
 
-                settingsButton
-                    .padding(.trailing, 14)
-                    .padding(.top, 6)
+                    settingsButton
+                }
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 6)
 
             Spacer()
 
@@ -171,7 +203,6 @@ struct ArcaHolidayView: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
-        .safeAreaPadding(.top, 4)
         .safeAreaPadding(.bottom, 4)
     }
 
@@ -185,7 +216,14 @@ struct ArcaHolidayView: View {
                 .foregroundStyle(Color(red: 0.95, green: 0.22, blue: 0.28))
         }
         .foregroundStyle(.white.opacity(0.92))
-        .shadow(color: .black.opacity(0.35), radius: 4, y: 2)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .ticketsGlass(
+            tint: ArcaTicketsDesign.travelOcean.opacity(0.45),
+            interactive: true,
+            in: Capsule()
+        )
+        .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
         .accessibilityLabel("Grüezi — willkomme i dr Ferie")
     }
 
@@ -196,16 +234,15 @@ struct ArcaHolidayView: View {
         } label: {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.88))
-                .padding(10)
-                .background(.ultraThinMaterial.opacity(0.55), in: Circle())
-                .overlay {
-                    Circle()
-                        .strokeBorder(.white.opacity(0.35), lineWidth: 1)
-                }
-                .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.25), radius: 6, y: 2)
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(width: 40, height: 40)
+                .ticketsGlass(
+                    tint: ArcaTicketsDesign.travelGlassPurple.opacity(0.4),
+                    interactive: true,
+                    in: Circle()
+                )
         }
-        .buttonStyle(UnterwegsKlecksButtonStyle())
+        .buttonStyle(.glass)
         .accessibilityLabel(ArcaTicketsStrings.tabSettings)
     }
 
@@ -217,22 +254,15 @@ struct ArcaHolidayView: View {
             Text("Tipp uf d'Klecks — alles debii! ✈️")
                 .font(.caption.weight(.semibold))
         }
-        .foregroundStyle(.white.opacity(0.9))
+        .foregroundStyle(.white.opacity(0.92))
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial.opacity(0.65), in: Capsule())
-        .overlay {
-            Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.5), ArcaTicketsDesign.travelSunset.opacity(0.45)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        }
-        .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.22), radius: 8, y: 3)
+        .ticketsGlass(
+            tint: ArcaTicketsDesign.travelSunset.opacity(0.35),
+            interactive: false,
+            in: Capsule()
+        )
+        .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.2), radius: 8, y: 3)
     }
 
     private func presentTapHintIfNeeded() {
@@ -248,6 +278,9 @@ struct ArcaHolidayView: View {
 
     private func open(_ kleck: ArcaHolidayKleck) {
         TicketsHaptics.mediumImpact()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+            originKleck = kleck
+        }
         switch kleck {
         case .pass: activeSheet = .pass
         case .notizen: activeSheet = .notizen
@@ -256,6 +289,52 @@ struct ArcaHolidayView: View {
         case .golf: activeSheet = .golf
         case .boardingCard: activeSheet = .boarding
         }
+    }
+
+    @ViewBuilder
+    private func flightTodayGlassChip(ticket: TicketEntry, containerSize: CGSize) -> some View {
+        let kleck = ArcaHolidayKleck.boardingCard
+        let chipX = LayoutSafety.dimension(kleck.point.x * containerSize.width, minimum: 0)
+        let chipY = LayoutSafety.dimension((kleck.point.y - 0.11) * containerSize.height, minimum: 60)
+
+        Button {
+            flightChipTap += 1
+            TicketsHaptics.lightImpact()
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                originKleck = .boardingCard
+                activeSheet = .boarding
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(ticket.flightTodayLine)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                Text("🛂 Boarding Card")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                Text(ticket.gateLine)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                Text(ticket.baggageLine)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .frame(maxWidth: min(containerSize.width * 0.72, 280), alignment: .leading)
+            .ticketsGlass(
+                tint: ArcaTicketsDesign.travelGlassCyan.opacity(0.38),
+                interactive: true,
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.22), radius: 14, y: 6)
+        }
+        .buttonStyle(.plain)
+        .glassEffectID("flight-chip", in: glassNamespace)
+        .sensoryFeedback(.selection, trigger: flightChipTap)
+        .position(x: chipX, y: chipY)
+        .transition(.scale(scale: 0.92).combined(with: .opacity))
+        .accessibilityLabel("Flug hüt — \(ticket.title), \(ticket.gateLine)")
+        .accessibilityHint("Tipp zum Öffne vo dr Boarding Card")
     }
 
     @ViewBuilder
@@ -286,16 +365,19 @@ struct ArcaHolidayView: View {
 private struct ArcaHolidayKleckHotspot: View {
     let kleck: ArcaHolidayKleck
     let containerSize: CGSize
+    var glassNamespace: Namespace.ID
+    var isOrigin: Bool
     var onTap: () -> Void
 
     @State private var rippleScale: CGFloat = 0.6
     @State private var rippleOpacity: Double = 0
+    @State private var tapCount = 0
 
     private var hitWidth: CGFloat {
-        LayoutSafety.dimension(kleck.hitSize.width * containerSize.width, minimum: 52)
+        LayoutSafety.dimension(kleck.hitSize.width * containerSize.width, minimum: 44)
     }
     private var hitHeight: CGFloat {
-        LayoutSafety.dimension(kleck.hitSize.height * containerSize.height, minimum: 52)
+        LayoutSafety.dimension(kleck.hitSize.height * containerSize.height, minimum: 44)
     }
     private var positionX: CGFloat {
         LayoutSafety.dimension(kleck.point.x * containerSize.width, minimum: 0)
@@ -306,6 +388,7 @@ private struct ArcaHolidayKleckHotspot: View {
 
     var body: some View {
         Button {
+            tapCount += 1
             playRipple()
             onTap()
         } label: {
@@ -315,12 +398,18 @@ private struct ArcaHolidayKleckHotspot: View {
                     .frame(width: hitWidth * 1.1, height: hitWidth * 1.1)
                     .scaleEffect(rippleScale)
 
-                Color.clear
+                Circle()
+                    .fill(.clear)
+                    .frame(width: hitWidth, height: hitHeight)
+                    .glassEffect(.regular.interactive().tint(kleck.rippleTint.opacity(0.2)), in: Circle())
             }
             .frame(width: hitWidth, height: hitHeight)
-            .contentShape(Rectangle())
+            .contentShape(Circle())
         }
         .buttonStyle(UnterwegsKlecksButtonStyle())
+        .glassEffectID("kleck-\(kleck.id)", in: glassNamespace)
+        .opacity(isOrigin ? 0.35 : 1)
+        .sensoryFeedback(.impact(weight: .medium, intensity: 0.85), trigger: tapCount)
         .position(x: positionX, y: positionY)
         .accessibilityLabel(kleck.label)
         .accessibilityHint(kleck.accessibilityHint)
@@ -396,11 +485,10 @@ struct HolidayNotizenSheet: View {
                     .focused($isFocused)
                     .scrollContentBackground(.hidden)
                     .padding(10)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(ArcaTicketsDesign.travelGlassPurple.opacity(0.35), lineWidth: 1)
-                    }
+                    .ticketsGlass(
+                        tint: ArcaTicketsDesign.travelGlassPurple.opacity(0.25),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
 
                 if draftText.isEmpty && !isFocused {
                     Text("z.B. Gate B12, Zimmerschlüssel, Restaurant-Tipp…")
@@ -484,11 +572,10 @@ struct HolidayKofferSheet: View {
             }
         }
         .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(ArcaTicketsDesign.golfFairway.opacity(0.3), lineWidth: 1)
-        }
+        .ticketsGlass(
+            tint: ArcaTicketsDesign.golfFairway.opacity(0.2),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
     }
 
     private var kofferPINSection: some View {
@@ -520,11 +607,10 @@ struct HolidayKofferSheet: View {
             .buttonStyle(UnterwegsKlecksButtonStyle())
         }
         .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(ArcaTicketsDesign.travelOcean.opacity(0.25), lineWidth: 1)
-        }
+        .ticketsGlass(
+            tint: ArcaTicketsDesign.travelOcean.opacity(0.2),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
         .sheet(isPresented: $showKofferPIN) {
             KofferPINSheet()
         }
@@ -547,21 +633,10 @@ struct HolidayKofferSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(20)
-        .background(
-            LinearGradient(
-                colors: [
-                    ArcaTicketsDesign.travelSand.opacity(0.35),
-                    ArcaTicketsDesign.travelSunset.opacity(0.12)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
+        .ticketsGlass(
+            tint: ArcaTicketsDesign.travelSunset.opacity(0.25),
             in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(ArcaTicketsDesign.travelSunset.opacity(0.25), lineWidth: 1)
-        }
     }
 }
 
@@ -649,11 +724,10 @@ struct HolidayTaxiSheet: View {
             }
         }
         .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(ArcaTicketsDesign.taxiYellow.opacity(0.4), lineWidth: 1)
-        }
+        .ticketsGlass(
+            tint: ArcaTicketsDesign.taxiYellow.opacity(0.3),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
     }
 
     private var homeTaxiSection: some View {
@@ -764,31 +838,53 @@ private struct HolidayContactCallRow: View {
 struct HolidayBoardingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: TicketStore
+    @State private var showAddTicket = false
+    @State private var ticketToDelete: TicketEntry?
+    @State private var showDeleteConfirm = false
 
-    private var pinnedTickets: [TicketEntry] {
-        store.unterwegsTickets()
+    private var boardingTickets: [TicketEntry] {
+        store.tickets
+            .filter(\.isValid)
+            .sorted { lhs, rhs in
+                if lhs.isPinned != rhs.isPinned { return lhs.isPinned }
+                return lhs.unterwegsSortDate < rhs.unterwegsSortDate
+            }
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    holidaySheetIntro(
-                        emoji: "🎫",
-                        title: "Boarding Card",
-                        subtitle: "Flug, Zug, Schiff — alles zum Zeige am Schalter."
-                    )
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        holidaySheetIntro(
+                            emoji: "🎫",
+                            title: "Boarding Card",
+                            subtitle: "Flug, Zug, Schiff — alles zum Zeige am Schalter. Tipp uf 🗑️ zum Lösche."
+                        )
 
-                    if pinnedTickets.isEmpty {
-                        boardingPlaceholder
-                    } else {
-                        ForEach(pinnedTickets) { ticket in
-                            BoardingPassCard(ticket: ticket)
+                        if boardingTickets.isEmpty {
+                            boardingEmptyState
+                        } else {
+                            ForEach(boardingTickets) { ticket in
+                                BoardingPassCard(ticket: ticket) {
+                                    deleteTicket(ticket)
+                                }
+                            }
                         }
                     }
+                    .padding(16)
+                    .padding(.bottom, boardingTickets.isEmpty ? 24 : 88)
                 }
-                .padding(16)
-                .padding(.bottom, 24)
+
+                if !boardingTickets.isEmpty {
+                    TicketsFAB(
+                        title: ArcaTicketsStrings.addBoardingPass,
+                        useTravelGradient: true
+                    ) {
+                        showAddTicket = true
+                    }
+                    .padding(.bottom, 24)
+                }
             }
             .background(holidaySheetBackground)
             .navigationTitle("Boarding Card")
@@ -797,43 +893,80 @@ struct HolidayBoardingSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ArcaTicketsStrings.done) { dismiss() }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showAddTicket = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel(ArcaTicketsStrings.addBoardingPass)
+                }
+            }
+            .sheet(isPresented: $showAddTicket) {
+                AddTicketView(forHolidayBoarding: true)
+            }
+            .alert(ArcaTicketsStrings.deleteTicketTitle, isPresented: $showDeleteConfirm) {
+                Button(ArcaTicketsStrings.cancel, role: .cancel) { ticketToDelete = nil }
+                Button(ArcaTicketsStrings.delete, role: .destructive) {
+                    if let ticket = ticketToDelete {
+                        TicketsHaptics.delete()
+                        store.deleteTicket(ticket)
+                        store.showToast("Ticket isch weg 🗑️")
+                    }
+                    ticketToDelete = nil
+                }
+            } message: {
+                if let ticket = ticketToDelete {
+                    Text("\u{201E}\(ticket.title)\u{201C} würklich lösche? Das gaht nöd rückgängig.")
+                }
             }
         }
         .presentationDetents([.large])
     }
 
-    private var boardingPlaceholder: some View {
-        VStack(spacing: 14) {
+    private func deleteTicket(_ ticket: TicketEntry) {
+        if ticket.needsDeleteConfirmation {
+            ticketToDelete = ticket
+            showDeleteConfirm = true
+        } else {
+            TicketsHaptics.delete()
+            store.deleteTicket(ticket)
+            store.showToast("Ticket isch weg 🗑️")
+        }
+    }
+
+    private var boardingEmptyState: some View {
+        VStack(spacing: 16) {
             Image(systemName: "airplane.departure")
                 .font(.system(size: 44))
                 .foregroundStyle(ArcaTicketsDesign.travelGlassCyan)
                 .symbolEffect(.pulse, options: .repeating)
 
-            Text("No kei Ticket agheftet")
+            Text("No kei Boarding Pass debii")
                 .font(.system(size: 17, weight: .bold, design: .rounded))
 
-            Text("In dr volle Arca Tickets App chunnt bald alles mit QR-Code und Ordner. Bis dänn: Pass und Notize debii — und gueti Reis! ✈️")
+            Text("Importier dis Ticket als PDF, Foto oder mit dr Kamera — denn zeigsch de QR-Code am Schalter.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            Button {
+                showAddTicket = true
+            } label: {
+                Label(ArcaTicketsStrings.addBoardingPass, systemImage: "plus.circle.fill")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.glassProminent)
+            .tint(ArcaTicketsDesign.travelOcean)
+            .controlSize(.large)
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .background(
-            LinearGradient(
-                colors: [
-                    ArcaTicketsDesign.travelSky.opacity(0.25),
-                    ArcaTicketsDesign.travelGlassCyan.opacity(0.12)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            ),
+        .ticketsGlass(
+            tint: ArcaTicketsDesign.travelGlassCyan.opacity(0.3),
             in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(ArcaTicketsDesign.travelGlassCyan.opacity(0.3), lineWidth: 1)
-        }
     }
 }
 

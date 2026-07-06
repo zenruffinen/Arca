@@ -15,6 +15,7 @@ struct CollapsibleContactCategoriesView: View {
 
     @State private var expandedCategories: Set<QuickContactCategory>
     @State private var contactToEdit: QuickContact?
+    @State private var newContactCategory: QuickContactCategory?
 
     private var groupedContacts: [(QuickContactCategory, [QuickContact])] {
         store.quickContactsGroupedByCategory()
@@ -44,6 +45,9 @@ struct CollapsibleContactCategoriesView: View {
         }
         .sheet(item: $contactToEdit) { contact in
             QuickContactEditorView(contact: contact)
+        }
+        .sheet(item: $newContactCategory) { category in
+            QuickContactEditorView(contact: nil, defaultCategory: category)
         }
     }
 
@@ -81,6 +85,34 @@ struct CollapsibleContactCategoriesView: View {
                         Divider()
                             .padding(.leading, 52)
                     }
+                }
+
+                if category == .familie {
+                    Divider()
+                        .padding(.leading, 52)
+                    Button {
+                        newContactCategory = .familie
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(ArcaTicketsDesign.tint(for: category.tintName))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Familiemitglied hinzufüege")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(ArcaTicketsDesign.tint(for: category.tintName))
+                                Text("No e Schwester, Bruder oder eigene/i Name")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.top, 4)

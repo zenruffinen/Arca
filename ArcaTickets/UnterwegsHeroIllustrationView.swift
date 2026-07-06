@@ -6,9 +6,6 @@
 //
 
 import SwiftUI
-#if canImport(UIKit)
-import UIKit
-#endif
 
 // MARK: - View mode preference
 
@@ -66,123 +63,6 @@ enum UnterwegsViewPreferences {
     }
 }
 
-// MARK: - Querformat-Hinweis (Portrait)
-
-private struct FerienQuerformatHint: View {
-    var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "iphone.landscape")
-                .font(.caption.weight(.bold))
-            Text("Dreh s' Natel — so chunnt d'Ferie am beschte druf")
-                .font(.caption.weight(.semibold))
-        }
-        .foregroundStyle(.white.opacity(0.86))
-        .padding(.horizontal, 15)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial.opacity(0.62), in: Capsule())
-        .overlay {
-            Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.48), ArcaTicketsDesign.travelGlassCyan.opacity(0.42)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        }
-        .shadow(color: ArcaTicketsDesign.travelOcean.opacity(0.2), radius: 7, y: 3)
-        .accessibilityLabel(ArcaTicketsStrings.voTipLandscape)
-    }
-}
-
-private struct FerienQuerformatHintController: ViewModifier {
-    @Binding var isPortrait: Bool
-    @Binding var hintVisible: Bool
-    var autoDismissSeconds: TimeInterval = 8
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { updateOrientation(for: geo.size) }
-                        .onChange(of: geo.size) { _, size in
-                            updateOrientation(for: size)
-                        }
-                }
-            }
-            .onAppear { presentHintIfPortrait() }
-            .onChange(of: isPortrait) { _, portrait in
-                if portrait {
-                    presentHintIfPortrait()
-                } else {
-                    dismissHint()
-                }
-            }
-    }
-
-    private func updateOrientation(for size: CGSize) {
-        guard size.width > 0, size.height > 0 else { return }
-        isPortrait = size.height > size.width
-    }
-
-    private func presentHintIfPortrait() {
-        guard isPortrait else { return }
-        withAnimation(.easeOut(duration: 0.35)) {
-            hintVisible = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + autoDismissSeconds) {
-            dismissHint()
-        }
-    }
-
-    private func dismissHint() {
-        withAnimation(.easeOut(duration: 0.45)) {
-            hintVisible = false
-        }
-    }
-}
-
-private extension View {
-    func ferienQuerformatHint(isPortrait: Binding<Bool>, hintVisible: Binding<Bool>) -> some View {
-        modifier(FerienQuerformatHintController(isPortrait: isPortrait, hintVisible: hintVisible))
-    }
-}
-
-// MARK: - Landscape lock (Einstieg only)
-
-#if canImport(UIKit)
-enum UnterwegsOrientationLock {
-    static func setLandscape(_ landscape: Bool) {
-        guard let scene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first(where: { $0.activationState == .foregroundActive })
-            ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
-        else { return }
-
-        let mask: UIInterfaceOrientationMask = landscape ? .landscape : .portrait
-        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
-    }
-}
-
-private struct UnterwegsLandscapeLockModifier: ViewModifier {
-    let active: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .onAppear {
-                guard active else { return }
-                UnterwegsOrientationLock.setLandscape(true)
-            }
-            .onDisappear {
-                guard active else { return }
-                UnterwegsOrientationLock.setLandscape(false)
-            }
-    }
-}
-#endif
-
 // MARK: - Hidden hotspot map (normalized 0…1 on illustration)
 
 private enum UnterwegsHeroHotspotAction {
@@ -221,8 +101,6 @@ private struct UnterwegsHeroHotspot: Identifiable {
 
 struct UnterwegsHeroIllustrationScene: View {
     private let aspectRatio: CGFloat = 1024.0 / 682.0
-    @State private var isPortrait = false
-    @State private var querformatHintVisible = false
 
     var body: some View {
         GlasPlakatwandFrame(cornerRadius: 14) {
@@ -230,14 +108,6 @@ struct UnterwegsHeroIllustrationScene: View {
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
         .frame(maxWidth: .infinity)
-        .overlay(alignment: .bottom) {
-            if querformatHintVisible && isPortrait {
-                FerienQuerformatHint()
-                    .padding(.bottom, 10)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-        }
-        .ferienQuerformatHint(isPortrait: $isPortrait, hintVisible: $querformatHintVisible)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Ferie-Grafik mit versteckte Schnellzuegriff")
     }
@@ -286,8 +156,6 @@ struct UnterwegsFerienEinstiegView: View {
     @AppStorage(UnterwegsViewPreferences.ferienTapHintDismissedKey) private var tapHintDismissed = false
     @State private var tapHintVisible = false
     @State private var swipeHintVisible = true
-    @State private var isPortrait = false
-    @State private var querformatHintVisible = false
     @State private var dragOffset: CGFloat = 0
 
     private let dismissThreshold: CGFloat = 90
@@ -313,10 +181,6 @@ struct UnterwegsFerienEinstiegView: View {
                 }
                 Spacer()
                 VStack(spacing: 10) {
-                    if querformatHintVisible && isPortrait {
-                        FerienQuerformatHint()
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
                     if tapHintVisible {
                         ferienTapHint
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -338,10 +202,6 @@ struct UnterwegsFerienEinstiegView: View {
         .persistentSystemOverlays(.hidden)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Zeerscht — tipp uf d'Szene oder s'ARCA-Tablet")
-        #if canImport(UIKit)
-        .modifier(UnterwegsLandscapeLockModifier(active: true))
-        #endif
-        .ferienQuerformatHint(isPortrait: $isPortrait, hintVisible: $querformatHintVisible)
         .onAppear {
             presentTapHintIfNeeded()
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) {

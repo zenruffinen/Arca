@@ -11,6 +11,7 @@ struct QuickContactsSection: View {
     @EnvironmentObject private var store: TicketStore
     @State private var contactToEdit: QuickContact?
     @State private var showManageAll = false
+    @State private var newContactCategory: QuickContactCategory?
 
     private var groupedContacts: [(QuickContactCategory, [QuickContact])] {
         store.quickContactsGroupedByCategory()
@@ -45,6 +46,9 @@ struct QuickContactsSection: View {
         }
         .sheet(isPresented: $showManageAll) {
             QuickContactsManagementView()
+        }
+        .sheet(item: $newContactCategory) { category in
+            QuickContactEditorView(contact: nil, defaultCategory: category)
         }
     }
 
@@ -89,9 +93,41 @@ struct QuickContactsSection: View {
                             .padding(.leading, 52)
                     }
                 }
+
+                if category == .familie {
+                    Divider()
+                        .padding(.leading, 52)
+                    addFamilyMemberButton
+                }
             }
             .boardingPassCard(tint: ArcaTicketsDesign.tint(for: category.tintName))
         }
+    }
+
+    private var addFamilyMemberButton: some View {
+        Button {
+            newContactCategory = .familie
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(ArcaTicketsDesign.tint(for: QuickContactCategory.familie.tintName))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Familiemitglied hinzufüege")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(ArcaTicketsDesign.tint(for: QuickContactCategory.familie.tintName))
+                    Text("Mutter, Vater, Schwester, Bruder — oder eigene/i")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func handleTap(on contact: QuickContact) {
@@ -162,6 +198,7 @@ struct QuickContactsManagementView: View {
 
     @State private var contactToEdit: QuickContact?
     @State private var showAddSheet = false
+    @State private var newFamilyMember = false
     @State private var showTemplatePicker = false
 
     private var groupedContacts: [(QuickContactCategory, [QuickContact])] {
@@ -206,6 +243,12 @@ struct QuickContactsManagementView: View {
                         Label("Kontakt hinzuefüege", systemImage: "plus.circle.fill")
                     }
 
+                    Button {
+                        newFamilyMember = true
+                    } label: {
+                        Label("Familiemitglied hinzufüege", systemImage: "person.badge.plus")
+                    }
+
                     if !store.availableQuickContactTemplates.isEmpty {
                         Button {
                             showTemplatePicker = true
@@ -235,6 +278,9 @@ struct QuickContactsManagementView: View {
             }
             .sheet(isPresented: $showAddSheet) {
                 QuickContactEditorView(contact: nil)
+            }
+            .sheet(isPresented: $newFamilyMember) {
+                QuickContactEditorView(contact: nil, defaultCategory: .familie)
             }
             .sheet(isPresented: $showTemplatePicker) {
                 QuickContactTemplatePickerView()
@@ -288,14 +334,20 @@ struct QuickContactEditorView: View {
     @State private var category: QuickContactCategory
     @State private var policyNumber: String
     @State private var insuranceType: InsuranceType?
+    @State private var familyRelationship: FamilyRelationship
 
-    init(contact: QuickContact?) {
+    init(contact: QuickContact?, defaultCategory: QuickContactCategory? = nil) {
         existingID = contact?.id
-        _label = State(initialValue: contact?.label ?? "")
+        let initialLabel = contact?.label ?? ""
+        let initialCategory = contact?.category ?? defaultCategory ?? .sonstiges
+        _label = State(initialValue: initialLabel)
         _phoneNumber = State(initialValue: contact?.phoneNumber ?? "")
-        _category = State(initialValue: contact?.category ?? .sonstiges)
+        _category = State(initialValue: initialCategory)
         _policyNumber = State(initialValue: contact?.policyNumber ?? "")
         _insuranceType = State(initialValue: contact?.insuranceType)
+        _familyRelationship = State(initialValue: initialCategory == .familie
+            ? FamilyRelationship.from(label: initialLabel)
+            : .mutter)
     }
 
     private var isEditing: Bool { existingID != nil }
@@ -304,12 +356,34 @@ struct QuickContactEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name", text: $label)
+                    if category == .familie {
+                        Picker("Beziehig", selection: $familyRelationship) {
+                            ForEach(FamilyRelationship.allCases) { relation in
+                                Text(relation.rawValue).tag(relation)
+                            }
+                        }
+                        .onChange(of: familyRelationship) { _, relation in
+                            if relation.isPreset {
+                                label = relation.rawValue
+                            }
+                        }
+
+                        if familyRelationship == .eigene {
+                            TextField("Name", text: $label)
+                        }
+                    } else {
+                        TextField("Name", text: $label)
+                    }
+
                     TextField("Telefonnummer", text: $phoneNumber)
                         .keyboardType(.phonePad)
                         .textContentType(.telephoneNumber)
                 } header: {
                     Text("Kontakt")
+                } footer: {
+                    if category == .familie {
+                        Text("Wähl Mutter, Vater, Schwester, Bruder — oder eigene/i für en andere Name.")
+                    }
                 }
 
                 Section {
@@ -317,6 +391,14 @@ struct QuickContactEditorView: View {
                         ForEach(QuickContactCategory.allCases) { cat in
                             Label(cat.rawValue, systemImage: cat.icon)
                                 .tag(cat)
+                        }
+                    }
+                    .onChange(of: category) { _, newCategory in
+                        guard newCategory == .familie else { return }
+                        let relation = FamilyRelationship.from(label: label)
+                        familyRelationship = relation
+                        if relation.isPreset {
+                            label = relation.rawValue
                         }
                     }
                 } header: {
@@ -354,25 +436,46 @@ struct QuickContactEditorView: View {
                         save()
                         dismiss()
                     }
-                    .disabled(label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled({
+                        if category == .familie, familyRelationship.isPreset { return false }
+                        return label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    }())
                 }
             }
         }
         .presentationDetents([.medium, .large])
+        .onAppear {
+            guard existingID == nil, category == .familie, label.isEmpty else { return }
+            let relation = store.suggestedFamilyRelationship()
+            familyRelationship = relation
+            if relation.isPreset {
+                label = relation.rawValue
+            }
+        }
     }
 
     private func save() {
-        let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPolicy = policyNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedLabel.isEmpty else { return }
+
+        let resolvedLabel: String
+        if category == .familie {
+            if familyRelationship.isPreset {
+                resolvedLabel = familyRelationship.rawValue
+            } else {
+                resolvedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        } else {
+            resolvedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !resolvedLabel.isEmpty else { return }
 
         let resolvedPolicy = trimmedPolicy.isEmpty ? nil : trimmedPolicy
         let resolvedInsuranceType = category == .versicherung ? insuranceType : nil
 
         if let existingID,
            var existing = store.quickContacts.first(where: { $0.id == existingID }) {
-            existing.label = trimmedLabel
+            existing.label = resolvedLabel
             existing.phoneNumber = trimmedPhone
             existing.category = category
             existing.policyNumber = resolvedPolicy
@@ -380,7 +483,7 @@ struct QuickContactEditorView: View {
             store.updateQuickContact(existing)
         } else {
             store.addQuickContact(QuickContact(
-                label: trimmedLabel,
+                label: resolvedLabel,
                 phoneNumber: trimmedPhone,
                 category: category,
                 policyNumber: resolvedPolicy,

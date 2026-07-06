@@ -7,6 +7,7 @@
 
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 // MARK: - Data
 
@@ -76,58 +77,64 @@ struct ArcaTicketsSmallView: View {
     }
 
     private func ticketContent(title: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 5) {
-                Image(systemName: "ticket.fill")
-                    .foregroundStyle(.blue)
-                Text("Arca Tickets")
-                    .font(.caption.weight(.bold))
-            }
-            Spacer(minLength: 6)
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(2)
-            if let folder = data.folder {
-                Text(folder)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 4)
-            HStack {
-                if let countdown = data.countdown {
-                    Text(countdown)
-                        .font(.caption2.weight(.medium))
+        Button(intent: WidgetShowNextTicketIntent()) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 5) {
+                    Image(systemName: "airplane.departure")
+                        .foregroundStyle(Color(red: 0.20, green: 0.85, blue: 0.95))
+                    Text("Arca Holiday")
+                        .font(.caption.weight(.bold))
+                }
+                Spacer(minLength: 6)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                if let folder = data.folder {
+                    Text(folder)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
-                if data.hasQR {
-                    Image(systemName: "qrcode")
-                        .font(.caption)
-                        .foregroundStyle(.blue)
+                Spacer(minLength: 4)
+                HStack {
+                    if let countdown = data.countdown {
+                        Text(countdown)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if data.hasQR {
+                        Image(systemName: "qrcode")
+                            .font(.caption)
+                            .foregroundStyle(Color(red: 0.10, green: 0.38, blue: 0.72))
+                    }
                 }
             }
+            .padding()
         }
-        .padding()
+        .buttonStyle(.plain)
         .containerBackground(.fill.tertiary, for: .widget)
     }
 
     private var emptyContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 5) {
-                Image(systemName: "ticket.fill")
-                    .foregroundStyle(.blue)
-                Text("Arca Tickets")
-                    .font(.caption.weight(.bold))
+        Button(intent: WidgetOpenArcaHolidayIntent()) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 5) {
+                    Image(systemName: "airplane.departure")
+                        .foregroundStyle(Color(red: 0.20, green: 0.85, blue: 0.95))
+                    Text("Arca Holiday")
+                        .font(.caption.weight(.bold))
+                }
+                Spacer()
+                Text("Kei Ticket")
+                    .font(.subheadline.weight(.semibold))
+                Text("Tipp zum Öffne")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
             }
-            Spacer()
-            Text("Kein Ticket")
-                .font(.subheadline.weight(.semibold))
-            Text("Ticket hinzufügen")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Spacer()
+            .padding()
         }
-        .padding()
+        .buttonStyle(.plain)
         .containerBackground(.fill.tertiary, for: .widget)
     }
 }
@@ -137,38 +144,41 @@ struct ArcaTicketsMediumView: View {
 
     var body: some View {
         if data.hasTicket, let title = data.title {
-            HStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("Nächstes Ticket", systemImage: "star.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.blue)
-                    Text(title)
-                        .font(.headline)
-                        .lineLimit(2)
-                    if let folder = data.folder {
-                        Label(folder, systemImage: "folder.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            Button(intent: WidgetShowNextTicketIntent()) {
+                HStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Nächsts Ticket", systemImage: "star.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.10, green: 0.38, blue: 0.72))
+                        Text(title)
+                            .font(.headline)
+                            .lineLimit(2)
+                        if let folder = data.folder {
+                            Label(folder, systemImage: "folder.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let countdown = data.countdown {
+                            Text(countdown)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.orange)
+                        }
                     }
-                    if let countdown = data.countdown {
-                        Text(countdown)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.orange)
+                    Spacer()
+                    if data.hasQR {
+                        VStack(spacing: 4) {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.system(size: 36))
+                                .foregroundStyle(Color(red: 0.10, green: 0.38, blue: 0.72))
+                            Text("QR")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-                Spacer()
-                if data.hasQR {
-                    VStack(spacing: 4) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 36))
-                            .foregroundStyle(.blue)
-                        Text("QR")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                .padding()
             }
-            .padding()
+            .buttonStyle(.plain)
             .containerBackground(.fill.tertiary, for: .widget)
         } else {
             ArcaTicketsSmallView(data: data)
@@ -189,21 +199,6 @@ struct ArcaTicketsWidgetEntryView: View {
                 ArcaTicketsSmallView(data: entry.data)
             }
         }
-        .widgetLink(for: entry.data)
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func widgetLink(for data: ArcaTicketsWidgetData) -> some View {
-        if let id = data.ticketID,
-           let url = URL(string: "arcatickets://ticket/\(id)") {
-            Link(destination: url) { self }
-        } else if let url = URL(string: "arcatickets://") {
-            Link(destination: url) { self }
-        } else {
-            self
-        }
     }
 }
 
@@ -216,8 +211,8 @@ struct ArcaTicketsWidget: Widget {
         StaticConfiguration(kind: kind, provider: ArcaTicketsProvider()) { entry in
             ArcaTicketsWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Nächstes Ticket")
-        .description("Zeigt dein baldigst ablaufendes Ticket mit Countdown.")
+        .configurationDisplayName("Arca Holiday")
+        .description("Nächsts Ticket — tipp zum Öffne vo dr Boarding Card.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -226,5 +221,6 @@ struct ArcaTicketsWidget: Widget {
 struct ArcaTicketsWidgetBundle: WidgetBundle {
     var body: some Widget {
         ArcaTicketsWidget()
+        FlightDayLiveActivityWidget()
     }
 }

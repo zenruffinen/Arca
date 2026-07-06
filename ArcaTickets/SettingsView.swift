@@ -13,19 +13,9 @@ struct SettingsView: View {
     @Environment(\.requestReview) private var requestReview
     @EnvironmentObject private var store: TicketStore
 
-    @State private var showFolderManagement = false
     @State private var showContactsManagement = false
-    @State private var showFolderImportPicker = false
-    @State private var folderImportResult: String?
-    @State private var showFolderImportAlert = false
-    @State private var folderImportFailed = false
-    @State private var tabOrder = TabOrderPreferences.reorderableTabOrder
-    @State private var leadTab = TabOrderPreferences.leadTab
     @State private var showReleaseNotes = false
-    @State private var dialectMode = SwissDialectPreferences.rotationMode
-    @State private var dialectFavoriteID = SwissDialectPreferences.favoritePhraseID
-    @State private var unterwegsViewMode = UnterwegsViewPreferences.viewMode
-    @State private var ferienEinstiegEnabled = UnterwegsViewPreferences.einstiegEnabled
+    @AppStorage("arcaHoliday.tapHintDismissed") private var tapHintDismissed = false
     @State private var showPrivacyDetail = false
 
     // Backup export
@@ -50,6 +40,7 @@ struct SettingsView: View {
     @State private var importErrorMessage = ""
     @State private var showImportConfirm = false
     @State private var importPickerStartFolder: URL?
+    @State private var showDeleteAllTicketsConfirm = false
 
     private var ticketsBackupType: UTType {
         TicketsBackupType.contentType
@@ -63,6 +54,10 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 aboutSection
+                holidaySection
+                ticketsSection
+                securitySection
+                contactsSection
 
                 Section {
                     HStack {
@@ -113,37 +108,28 @@ struct SettingsView: View {
 
                 legalSection
 
-                tabOrderSection
-                unterwegsDialectSection
-                organisationSection
-                familySection
-                remindersSection
-                securitySection
+                arcaTresorPromoSection
             }
             .scrollContentBackground(.hidden)
             .travelScreenBackground()
-            .navigationTitle("")
+            .navigationTitle("Istellige")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.secondary)
+            .alert(ArcaTicketsStrings.deleteAllTicketsTitle, isPresented: $showDeleteAllTicketsConfirm) {
+                Button(ArcaTicketsStrings.cancel, role: .cancel) {}
+                Button(ArcaTicketsStrings.delete, role: .destructive) {
+                    TicketsHaptics.delete()
+                    store.deleteAllTickets()
+                    store.showToast("Alli Tickets glöscht 🗑️")
                 }
+            } message: {
+                Text("Alli Boarding Passes, Bahncharte und anderi Ticket werded endgültig glöscht. Pass, Notize und Kontakt bliibed.")
             }
             .onAppear {
-                tabOrder = TabOrderPreferences.reorderableTabOrder
-                leadTab = TabOrderPreferences.leadTab
-                unterwegsViewMode = UnterwegsViewPreferences.viewMode
-                ferienEinstiegEnabled = UnterwegsViewPreferences.einstiegEnabled
                 consumePendingBackupURL()
             }
             .onChange(of: store.pendingBackupURL) { _, url in
                 guard url != nil else { return }
                 consumePendingBackupURL()
-            }
-            .sheet(isPresented: $showFolderManagement) {
-                FolderManagementView()
             }
             .sheet(isPresented: $showContactsManagement) {
                 QuickContactsManagementView()
@@ -335,25 +321,6 @@ struct SettingsView: View {
                     }
                 }
             }
-            .fileImporter(
-                isPresented: $showFolderImportPicker,
-                allowedContentTypes: [TicketsFolderShareType.contentType],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    guard let url = urls.first else { return }
-                    switch store.importSharedFolder(from: url) {
-                    case .success(let name):
-                        folderImportResult = name
-                        showFolderImportAlert = true
-                    case .failure:
-                        folderImportFailed = true
-                    }
-                case .failure:
-                    folderImportFailed = true
-                }
-            }
             .alert(ArcaTicketsStrings.importSuccess, isPresented: $showImportSuccess) {
                 Button(ArcaTicketsStrings.ok, role: .cancel) {}
             } message: {
@@ -363,18 +330,6 @@ struct SettingsView: View {
                 Button(ArcaTicketsStrings.ok, role: .cancel) {}
             } message: {
                 Text(importErrorMessage)
-            }
-            .alert("Ordner importiert", isPresented: $showFolderImportAlert) {
-                Button(ArcaTicketsStrings.ok, role: .cancel) { folderImportResult = nil }
-            } message: {
-                if let name = folderImportResult {
-                    Text("Ticket us dr geteilti Reise liged in „\(name)“.")
-                }
-            }
-            .alert(ArcaTicketsStrings.didNotWork, isPresented: $folderImportFailed) {
-                Button(ArcaTicketsStrings.retry, role: .cancel) {}
-            } message: {
-                Text("D'Datei isch kein gültige geteilti Arca-Tickets-Ordner.")
             }
         }
     }
@@ -498,21 +453,67 @@ struct SettingsView: View {
         }
     }
 
-    private func moveTab(from source: IndexSet, to destination: Int) {
-        tabOrder.move(fromOffsets: source, toOffset: destination)
-        TabOrderPreferences.save(tabOrder)
-        leadTab = TabOrderPreferences.leadTab
-    }
+    // MARK: - Sections
 
-    private func tabIconColor(for tab: ArcaTicketsTab) -> Color {
-        switch tab {
-        case .notfall: return .red
-        case .settings: return .secondary
-        default: return ArcaTicketsDesign.travelOcean
+    @ViewBuilder
+    private var holidaySection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { !tapHintDismissed },
+                set: { tapHintDismissed = !$0 }
+            )) {
+                Label("Kleck-Hinwiis", systemImage: "hand.tap.fill")
+            }
+        } header: {
+            Text("Ferie-Grafik")
+        } footer: {
+            Text("Beim erste Mal churz „Tipp uf d'Klecks“ — danach us oder wieder a über de Schalter.")
         }
     }
 
-    // MARK: - Sections
+    @ViewBuilder
+    private var ticketsSection: some View {
+        Section {
+            if store.tickets.isEmpty {
+                Label("Kei Tickets debii", systemImage: "ticket")
+                    .foregroundStyle(.secondary)
+            } else {
+                Button(role: .destructive) {
+                    showDeleteAllTicketsConfirm = true
+                } label: {
+                    Label(ArcaTicketsStrings.deleteAllTickets, systemImage: "trash")
+                }
+            }
+        } header: {
+            Text("Tickets")
+        } footer: {
+            Text("Einzeln lösche: Boarding Card öffne und uf 🗑️ tippen. Oder hie alli uf eimal weg.")
+        }
+    }
+
+    @ViewBuilder
+    private var contactsSection: some View {
+        Section {
+            Button {
+                showContactsManagement = true
+            } label: {
+                HStack {
+                    Label("Wichtigi Nummerä", systemImage: "phone.fill")
+                    Spacer()
+                    Text("\(store.quickContacts.count)")
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .foregroundStyle(.primary)
+        } header: {
+            Text("Notfall & Kontakt")
+        } footer: {
+            Text("Hotel, Familie, Notfall — erreichbar über de Kleck „Notizen“. \(LegalCopy.contactsCallFooter)")
+        }
+    }
 
     @ViewBuilder
     private var aboutSection: some View {
@@ -536,7 +537,7 @@ struct SettingsView: View {
                 requestReview()
             } label: {
                 HStack {
-                    Label("Arca Tickets bewerten", systemImage: "star.fill")
+                    Label("Arca Holiday bewerten", systemImage: "star.fill")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -545,157 +546,9 @@ struct SettingsView: View {
             }
             .foregroundStyle(.primary)
         } header: {
-            Text("Über Arca Tickets")
+            Text("Über Arca Holiday")
         } footer: {
-            Text("D'schlanki Schwester vo Arca — nur Ticket, nüt Überflüssigs. Speichere, zeig, rächtziitig erinnert.")
-        }
-    }
-
-    @ViewBuilder
-    private var tabOrderSection: some View {
-        Section {
-            Picker(selection: $leadTab) {
-                ForEach(TabOrderPreferences.LeadTab.allCases) { option in
-                    Text(option.label).tag(option)
-                }
-            } label: {
-                Label("Startseite", systemImage: "house.fill")
-            }
-            .onChange(of: leadTab) { _, tab in
-                TabOrderPreferences.setLeadTab(tab)
-                tabOrder = TabOrderPreferences.reorderableTabOrder
-            }
-
-            if tabOrder.count > 1 {
-                List {
-                    ForEach(tabOrder) { tab in
-                        HStack(spacing: 12) {
-                            Image(systemName: tab.icon)
-                                .foregroundStyle(tabIconColor(for: tab))
-                                .frame(width: 24)
-                            Text(tab.label)
-                            Spacer()
-                            Image(systemName: "line.3.horizontal")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    .onMove(perform: moveTab)
-                }
-                .listStyle(.plain)
-                .frame(minHeight: CGFloat(tabOrder.count) * 46)
-                .scrollDisabled(true)
-                .environment(\.editMode, .constant(.active))
-            }
-        } header: {
-            Text("Tab-Riihfolge")
-        } footer: {
-            Text("Leg fest, weli Registercharte bim Öffne zeerscht erschint. Istellige bliibed immer als letschte Tab unte.")
-        }
-    }
-
-    @ViewBuilder
-    private var unterwegsDialectSection: some View {
-        Section {
-            Toggle(isOn: $ferienEinstiegEnabled) {
-                Label("Zeerscht", systemImage: "photo.artframe")
-            }
-            .onChange(of: ferienEinstiegEnabled) { _, enabled in
-                UnterwegsViewPreferences.einstiegEnabled = enabled
-            }
-
-            Picker(selection: $unterwegsViewMode) {
-                ForEach(UnterwegsViewMode.allCases) { mode in
-                    Label(mode.label, systemImage: mode.settingsIcon).tag(mode)
-                }
-            } label: {
-                Label("Aasicht nach Zeerscht", systemImage: "map.fill")
-            }
-            .onChange(of: unterwegsViewMode) { _, mode in
-                UnterwegsViewPreferences.viewMode = mode
-            }
-
-            Picker(selection: $dialectMode) {
-                ForEach(SwissDialectRotationMode.allCases) { mode in
-                    Text(mode.label).tag(mode)
-                }
-            } label: {
-                Label("Spruch auf Unterwägs", systemImage: "textformat")
-            }
-            .onChange(of: dialectMode) { _, mode in
-                SwissDialectPreferences.rotationMode = mode
-            }
-
-            if dialectMode == .locked {
-                Picker(selection: $dialectFavoriteID) {
-                    ForEach(SwissDialectPhrases.all) { phrase in
-                        Text(phrase.text).tag(phrase.id)
-                    }
-                } label: {
-                    Label("Lieblings-Spruch", systemImage: "heart.fill")
-                }
-                .onChange(of: dialectFavoriteID) { _, id in
-                    SwissDialectPreferences.favoritePhraseID = id
-                }
-            }
-        } header: {
-            Text("Unterwägs")
-        } footer: {
-            Text("Beim Öffne vom Tab: Vollbild-Ferie-Grafik im Querformat mit versteckte Tippzone. Beim erste Mal churze Hinweis und dezents Pulsiere — danach optional dauerhaft Glas-Chreise über „Tipp-Hinwiis“. Jederzeit wieder über „Zeerscht“ obe rächts uf Unterwägs.")
-        }
-    }
-
-    @ViewBuilder
-    private var organisationSection: some View {
-        Section {
-            Button {
-                showContactsManagement = true
-            } label: {
-                HStack {
-                    Label("Wichtigi Nummerä", systemImage: "phone.fill")
-                    Spacer()
-                    Text("\(store.quickContacts.count)")
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .foregroundStyle(.primary)
-
-            Button {
-                showFolderManagement = true
-            } label: {
-                HStack {
-                    Label("Ordner verwalte", systemImage: "folder.badge.gearshape")
-                    Spacer()
-                    Text("\(store.folders.count)")
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .foregroundStyle(.primary)
-        } header: {
-            Text("Organisation")
-        } footer: {
-            Text("Notrufnummerä, Hotel, Fluggsellschaft und Familie — uf em Tab „Notfall“ griffbereit. \(LegalCopy.contactsCallFooter)")
-        }
-    }
-
-    @ViewBuilder
-    private var familySection: some View {
-        Section {
-            Button {
-                showFolderImportPicker = true
-            } label: {
-                Label("Geteilti Ordner importiere", systemImage: "square.and.arrow.down")
-            }
-        } header: {
-            Text("Familie")
-        } footer: {
-            Text("Schritt 1: Ordner teile · Schritt 2: AirDrop oder Nachrichte · Schritt 3: Datei öffne. \(LegalCopy.familyShareWarning) \(LegalCopy.familyImportFooter)")
+            Text("Eini Ferie-Grafik, sächs Klecks — genau für dini Reis gmacht.")
         }
     }
 
@@ -720,13 +573,49 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private var remindersSection: some View {
+    private var arcaTresorPromoSection: some View {
         Section {
-            LabeledContent("Ticket gspeicheret", value: "\(store.tickets.count)")
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                        .frame(width: 48, height: 48)
+                        .background(
+                            ArcaTicketsDesign.travelOcean.opacity(0.12),
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        )
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Bruchsch no meh?")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                        Text("Arca Tresor")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                    }
+                }
+
+                Text("Arca Holiday isch genau für dini Reis gmacht — Pass, Ticket, Notize, alles griffbereit. Wenn du de volle Tresor wotsch: Arca Tresor het Dokument, Passwort, Notize und no viel meh. Absolut geil für alles a einem Ort.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    ArcaTresorPromo.openInAppStore()
+                } label: {
+                    Label("Arca Tresor im App Store", systemImage: "arrow.up.right.square")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(ArcaTicketsDesign.travelOcean)
+            }
+            .padding(.vertical, 4)
+            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
         } header: {
-            Text("Erinnerungen")
+            Text("Dini Reise & meh vo Arca")
         } footer: {
-            Text("Abo und Saisoncharte: Erinnerig 30 Tag vor Ablauf. Alli andere Ticket: 1 Tag vorher.")
+            Text("Arca Holiday begleitet di uf dr Reis — Arca Tresor isch dr grosse Bruder für de volle Tresor.")
         }
     }
 
@@ -745,11 +634,10 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
-                    Label("Istellige im Arca-Stil: Über Arca Tickets, iCloud, Backup, Wüssisch?", systemImage: "gearshape.fill")
-                    Label("Vollständigs verschlüsseltes Backup (.arcaticketsbackup)", systemImage: "lock.shield.fill")
-                    Label("Tab-Riihfolge: Istellige bliibed unte in dr Tab-Leiste", systemImage: "arrow.up.arrow.down")
-                    Label("Notfall-Tab mit wichtige Nummerä und Usweisdate", systemImage: "phone.circle.fill")
-                    Label("Reiseordner teile und importiere", systemImage: "person.2.fill")
+                    Label("Ferie-Grafik mit sächs Klecks", systemImage: "photo.artframe")
+                    Label("Pass, Notize, Koffer, Taxi, Golf, Boarding Card", systemImage: "hand.tap.fill")
+                    Label("PIN und Face ID — App-Sperre", systemImage: "lock.fill")
+                    Label("iCloud und verschlüsselts Backup", systemImage: "icloud.fill")
                 } header: {
                     Text("Neu in Version \(appVersion)")
                 }
@@ -765,120 +653,15 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Folder management
+// MARK: - Arca Tresor cross-promo
 
-struct FolderManagementView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var store: TicketStore
-    @State private var newFolderName = ""
-    @State private var folderToRename: String?
-    @State private var renameText = ""
-    @State private var showAddAlert = false
-    @State private var shareItem: ShareURLItem?
-    @State private var shareGuideFolder: String?
+enum ArcaTresorPromo {
+    static let bundleID = "com.hansruffin.Arca"
+    private static let appStoreSearchURL = URL(string: "https://apps.apple.com/search?term=Arca%20Tresor")!
 
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(store.folders, id: \.self) { folder in
-                        HStack {
-                            Image(systemName: TicketFolderStyle.style(for: folder).icon)
-                                .foregroundStyle(ArcaTicketsDesign.tint(for: TicketFolderStyle.style(for: folder).tintName))
-                                .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(folder)
-                                Text(store.ticketCount(in: folder) == 1
-                                     ? "1 Ticket"
-                                     : "\(store.ticketCount(in: folder)) Tickets")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Menu {
-                                Button {
-                                    shareGuideFolder = folder
-                                } label: {
-                                    Label("Mit Familie teile", systemImage: "person.2.fill")
-                                }
-                                .disabled(store.ticketCount(in: folder) == 0)
-
-                                Button("Umbenenne") {
-                                    folderToRename = folder
-                                    renameText = folder
-                                }
-                                if store.folders.count > 1 {
-                                    Button(ArcaTicketsStrings.delete, role: .destructive) {
-                                        _ = store.deleteFolder(folder)
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis.circle")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Dini Ordner")
-                }
-
-                Section {
-                    Button {
-                        showAddAlert = true
-                    } label: {
-                        Label("Neue Ordner hinzuefüege", systemImage: "folder.badge.plus")
-                    }
-                }
-            }
-            .navigationTitle("Ordner verwalte")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(ArcaTicketsStrings.done) { dismiss() }
-                }
-            }
-            .alert("Neuer Ordner", isPresented: $showAddAlert) {
-                TextField("Ordnername", text: $newFolderName)
-                Button(ArcaTicketsStrings.cancel, role: .cancel) { newFolderName = "" }
-                Button(ArcaTicketsStrings.addFull) {
-                    _ = store.addFolder(named: newFolderName)
-                    newFolderName = ""
-                }
-            }
-            .alert("Ordner umbenenne", isPresented: Binding(
-                get: { folderToRename != nil },
-                set: { if !$0 { folderToRename = nil } }
-            )) {
-                TextField("Neue Name", text: $renameText)
-                Button(ArcaTicketsStrings.cancel, role: .cancel) { folderToRename = nil }
-                Button(ArcaTicketsStrings.save) {
-                    if let old = folderToRename {
-                        _ = store.renameFolder(from: old, to: renameText)
-                    }
-                    folderToRename = nil
-                }
-            }
-            .sheet(item: $shareItem) { item in
-                ShareSheet(activityItems: [item.url])
-            }
-            .sheet(item: Binding(
-                get: { shareGuideFolder.map { ShareGuideItem(name: $0) } },
-                set: { shareGuideFolder = $0?.name }
-            )) { item in
-                FolderShareGuideView(folderName: item.name) {
-                    shareGuideFolder = nil
-                    if let url = store.exportFolder(item.name) {
-                        TicketsHaptics.lightImpact()
-                        shareItem = ShareURLItem(url: url)
-                    }
-                }
-                .presentationDetents([.medium, .large])
-            }
-        }
+    static func openInAppStore() {
+        #if canImport(UIKit)
+        UIApplication.shared.open(appStoreSearchURL)
+        #endif
     }
-}
-
-private struct ShareGuideItem: Identifiable {
-    let name: String
-    var id: String { name }
 }

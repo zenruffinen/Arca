@@ -183,6 +183,7 @@ struct UnderwegsView: View {
 struct BoardingPassCard: View {
     @EnvironmentObject private var store: TicketStore
     let ticket: TicketEntry
+    var onDelete: (() -> Void)?
 
     @State private var localTicket: TicketEntry
     @State private var showQRFullscreen = false
@@ -190,8 +191,9 @@ struct BoardingPassCard: View {
     @State private var editText = ""
     @State private var editBoardingTime = Date()
 
-    init(ticket: TicketEntry) {
+    init(ticket: TicketEntry, onDelete: (() -> Void)? = nil) {
         self.ticket = ticket
+        self.onDelete = onDelete
         _localTicket = State(initialValue: ticket)
     }
 
@@ -254,20 +256,35 @@ struct BoardingPassCard: View {
 
             Spacer(minLength: 8)
 
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                    store.togglePin(for: localTicket)
-                    localTicket.isPinned.toggle()
+            HStack(spacing: 4) {
+                if let onDelete {
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.red.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                    .ticketsMinTapTarget()
+                    .accessibilityLabel(ArcaTicketsStrings.delete)
                 }
-            } label: {
-                Image(systemName: localTicket.isPinned ? "pin.fill" : "pin")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(localTicket.isPinned ? ArcaTicketsDesign.travelSunset : .secondary)
-                    .symbolEffect(.bounce, value: localTicket.isPinned)
+
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                        store.togglePin(for: localTicket)
+                        localTicket.isPinned.toggle()
+                    }
+                } label: {
+                    Image(systemName: localTicket.isPinned ? "pin.fill" : "pin")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(localTicket.isPinned ? ArcaTicketsDesign.travelSunset : .secondary)
+                        .symbolEffect(.bounce, value: localTicket.isPinned)
+                }
+                .buttonStyle(.plain)
+                .ticketsMinTapTarget()
+                .accessibilityLabel(localTicket.isPinned ? ArcaTicketsStrings.unpinFromUnterwegs : ArcaTicketsStrings.pinOnUnterwegs)
             }
-            .buttonStyle(.plain)
-            .ticketsMinTapTarget()
-            .accessibilityLabel(localTicket.isPinned ? ArcaTicketsStrings.unpinFromUnterwegs : ArcaTicketsStrings.pinOnUnterwegs)
         }
         .padding(16)
     }
@@ -305,36 +322,55 @@ struct BoardingPassCard: View {
     }
 
     private var travelFieldsSection: some View {
-        HStack(spacing: 0) {
-            travelFieldCell(.flightNumber, label: "Flug", value: localTicket.flightNumber, placeholder: "—")
-            fieldDivider
-            travelFieldCell(.seatNumber, label: "Sitz", value: localTicket.seatNumber, placeholder: "—")
-            fieldDivider
-            boardingTimeCell
-            if localTicket.gate != nil || editingField == .gate {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                travelFieldCell(.flightNumber, label: "Flug", value: localTicket.flightNumber, placeholder: "—")
                 fieldDivider
-                travelFieldCell(.gate, label: "Gate", value: localTicket.gate, placeholder: "—")
+                travelFieldCell(.seatNumber, label: "Sitz", value: localTicket.seatNumber, placeholder: "—")
+                fieldDivider
+                boardingTimeCell
+                if localTicket.gate != nil || editingField == .gate {
+                    fieldDivider
+                    travelFieldCell(.gate, label: "Gate", value: localTicket.gate, placeholder: "—")
+                } else {
+                    fieldDivider
+                    Button {
+                        editingField = .gate
+                        editText = ""
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text("Gate")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "plus")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+
+            if localTicket.baggageBelt != nil || editingField == .baggageBelt {
+                travelFieldCell(.baggageBelt, label: "Gepäck", value: localTicket.baggageBelt, placeholder: "—")
+                    .padding(.horizontal, 4)
             } else {
-                fieldDivider
                 Button {
-                    editingField = .gate
+                    editingField = .baggageBelt
                     editText = ""
                 } label: {
-                    VStack(spacing: 4) {
-                        Text("Gate")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "plus")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    Label("Gepäckband hinzufüege", systemImage: "plus.circle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 4)
     }
 
     private func travelFieldCell(_ field: TravelField, label: String, value: String?, placeholder: String) -> some View {
@@ -450,6 +486,9 @@ struct BoardingPassCard: View {
                 case .gate:
                     TextField("Gate", text: $editText)
                         .textInputAutocapitalization(.characters)
+                case .baggageBelt:
+                    TextField("Gepäckband", text: $editText)
+                        .keyboardType(.numberPad)
                 case .boardingTime:
                     DatePicker("Boarding-Zeit", selection: $editBoardingTime, displayedComponents: [.date, .hourAndMinute])
                 }
@@ -482,6 +521,8 @@ struct BoardingPassCard: View {
             localTicket.seatNumber = trimmed.isEmpty ? nil : trimmed
         case .gate:
             localTicket.gate = trimmed.isEmpty ? nil : trimmed
+        case .baggageBelt:
+            localTicket.baggageBelt = trimmed.isEmpty ? nil : trimmed
         case .boardingTime:
             localTicket.boardingTime = editBoardingTime
         }
@@ -495,6 +536,7 @@ enum TravelField: String, Identifiable {
     case seatNumber
     case boardingTime
     case gate
+    case baggageBelt
 
     var id: String { rawValue }
 
@@ -505,6 +547,7 @@ enum TravelField: String, Identifiable {
         case .seatNumber: return "Sitzplatz"
         case .boardingTime: return "Boarding-Zeit"
         case .gate: return "Gate"
+        case .baggageBelt: return "Gepäckband"
         }
     }
 }

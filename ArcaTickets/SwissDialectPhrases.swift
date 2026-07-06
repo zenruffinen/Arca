@@ -49,11 +49,15 @@ enum ArcaTicketsStrings {
     static let add = "Dezue tue"
     static let addFull = "Hinzuefüege"
     static let addFirstTrip = "Ersti Reise hinzuefüege"
+    static let addBoardingPass = "Boarding Pass hinzufüge"
     static let cancel = "Abbräche"
     static let save = "Speichere"
     static let backup = "Sichere"
     static let done = "Fertig"
     static let delete = "Lösche"
+    static let deleteTicketTitle = "Ticket lösche?"
+    static let deleteAllTickets = "Alli Tickets lösche"
+    static let deleteAllTicketsTitle = "Alli Tickets lösche?"
     static let edit = "Bearbeite"
     static let `continue` = "Witer"
     static let close = "Schliesse"
@@ -84,7 +88,6 @@ enum ArcaTicketsStrings {
     static let backupFailed = "Sicherig fehlgschlage"
 
     // VoiceOver (etwas standardisiert)
-    static let voTipLandscape = "Tipp: Am schönste im Querformat — dreh s'Natel"
     static let voZeerschtOpen = "Zeerscht im Vollbild öffne"
     static let voContinueTickets = "Witer zu Tickets und Plakatwand"
 }

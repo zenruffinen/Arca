@@ -18,6 +18,7 @@ final class TicketStore: ObservableObject {
             saveTickets()
             NotificationManager.rescheduleAll(for: tickets)
             WidgetDataUpdater.update(from: tickets)
+            FlightDayActivityManager.sync(with: flightTodayTicket)
         }
     }
     @Published var folders: [String] = [] {
@@ -52,6 +53,8 @@ final class TicketStore: ObservableObject {
     }
     @Published private(set) var isCloudSyncPending = false
     @Published var toastMessage: String?
+    /// Siri / Widget — öffnet ein Holiday-Sheet nach Entsperren.
+    @Published var pendingHolidaySheet: ArcaHolidaySheet?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
     @Published var pendingBackupURL: URL?
 
@@ -645,6 +648,21 @@ final class TicketStore: ObservableObject {
         }
     }
 
+    /// Nächsti freii Beziehig für neus Familiemitglied — sonst „Eigene/i“.
+    func suggestedFamilyRelationship() -> FamilyRelationship {
+        let existingLabels = Set(
+            quickContacts
+                .filter { $0.category == .familie }
+                .map(\.label)
+        )
+        for relation in FamilyRelationship.allCases where relation.isPreset {
+            if !existingLabels.contains(relation.rawValue) {
+                return relation
+            }
+        }
+        return .eigene
+    }
+
     func resetQuickContactsToDefaults() {
         quickContacts = QuickContactDefaults.seedContacts()
     }
@@ -737,6 +755,17 @@ final class TicketStore: ObservableObject {
         return valid.max(by: { $0.createdAt < $1.createdAt })
     }
 
+    /// Flug mit Boarding-Zeit hüt — für Hero-Chip und Live Activity.
+    var flightTodayTicket: TicketEntry? {
+        let todayFlights = tickets
+            .filter(\.isFlightToday)
+            .sorted { lhs, rhs in
+                if lhs.isPinned != rhs.isPinned { return lhs.isPinned }
+                return (lhs.boardingTime ?? .distantFuture) < (rhs.boardingTime ?? .distantFuture)
+            }
+        return todayFlights.first
+    }
+
     /// Tickets für den Tab „Unterwegs“: gepinnt + bald anstehende Reisen.
     func unterwegsTickets() -> [TicketEntry] {
         let now = Date()
@@ -764,6 +793,22 @@ final class TicketStore: ObservableObject {
             guard !Task.isCancelled else { return }
             toastMessage = nil
         }
+    }
+
+    func applyHolidayIntentNavigation(_ destination: String) {
+        switch destination {
+        case "boarding":
+            pendingHolidaySheet = .boarding
+        case "settings":
+            pendingHolidaySheet = .settings
+        default:
+            break
+        }
+    }
+
+    func consumeHolidayIntentNavigation() {
+        guard let destination = ArcaHolidayIntentNavigation.consumePending() else { return }
+        applyHolidayIntentNavigation(destination)
     }
 
     func togglePin(for entry: TicketEntry) {
@@ -855,6 +900,14 @@ final class TicketStore: ObservableObject {
         try? FileManager.default.removeItem(at: url)
         NotificationManager.removeReminder(for: entry)
         tickets.removeAll { $0.id == entry.id }
+    }
+
+    func deleteAllTickets() {
+        for ticket in tickets {
+            try? FileManager.default.removeItem(at: fileURL(for: ticket.fileName))
+            NotificationManager.removeReminder(for: ticket)
+        }
+        tickets = []
     }
 
     func resetAllData() {

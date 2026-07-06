@@ -39,6 +39,7 @@ struct TicketEntry: Identifiable, Codable, Hashable {
     var seatNumber: String?
     var boardingTime: Date?
     var gate: String?
+    var baggageBelt: String?
     var isPinned: Bool
 
     init(id: UUID = UUID(),
@@ -55,6 +56,7 @@ struct TicketEntry: Identifiable, Codable, Hashable {
          seatNumber: String? = nil,
          boardingTime: Date? = nil,
          gate: String? = nil,
+         baggageBelt: String? = nil,
          isPinned: Bool = false) {
         self.id = id
         self.title = title
@@ -70,6 +72,7 @@ struct TicketEntry: Identifiable, Codable, Hashable {
         self.seatNumber = seatNumber
         self.boardingTime = boardingTime
         self.gate = gate
+        self.baggageBelt = baggageBelt
         self.isPinned = isPinned
     }
 
@@ -89,6 +92,7 @@ struct TicketEntry: Identifiable, Codable, Hashable {
         seatNumber = try c.decodeIfPresent(String.self, forKey: .seatNumber)
         boardingTime = try c.decodeIfPresent(Date.self, forKey: .boardingTime)
         gate = try c.decodeIfPresent(String.self, forKey: .gate)
+        baggageBelt = try c.decodeIfPresent(String.self, forKey: .baggageBelt)
         isPinned = try c.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
     }
 
@@ -142,6 +146,7 @@ struct TicketEntry: Identifiable, Codable, Hashable {
             || !(seatNumber?.isEmpty ?? true)
             || boardingTime != nil
             || !(gate?.isEmpty ?? true)
+            || !(baggageBelt?.isEmpty ?? true)
     }
 
     /// Wichtige Tickets brauchen eine Lösch-Bestätigung.
@@ -445,6 +450,22 @@ enum SwissEmergencyDefaults {
     ]
 }
 
+enum FamilyRelationship: String, CaseIterable, Identifiable {
+    case mutter = "Mutter"
+    case vater = "Vater"
+    case schwester = "Schwester"
+    case bruder = "Bruder"
+    case eigene = "Eigene/i"
+
+    var id: String { rawValue }
+
+    var isPreset: Bool { self != .eigene }
+
+    static func from(label: String) -> FamilyRelationship {
+        Self.allCases.first { $0.isPreset && $0.rawValue == label } ?? .eigene
+    }
+}
+
 struct QuickContactTemplate: Identifiable {
     let label: String
     let phoneNumber: String
@@ -468,6 +489,8 @@ enum QuickContactDefaults {
         QuickContactTemplate(label: "Auslandskrankenversicherung", phoneNumber: "", category: .versicherung),
         QuickContactTemplate(label: "Mutter", phoneNumber: "", category: .familie),
         QuickContactTemplate(label: "Vater", phoneNumber: "", category: .familie),
+        QuickContactTemplate(label: "Schwester", phoneNumber: "", category: .familie),
+        QuickContactTemplate(label: "Bruder", phoneNumber: "", category: .familie),
         QuickContactTemplate(label: "Anwalt", phoneNumber: "", category: .sonstiges),
     ]
 
