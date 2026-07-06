@@ -23,6 +23,7 @@ struct TicketsBackupManifest: Codable {
     var quickContacts: [QuickContact]
     var personalIDCard: PersonalIDCard
     var taxiContact: TaxiContact?
+    var homeTaxiContact: TaxiContact?
     var golfContact: GolfContact?
     var travelNotes: TravelNotes?
     var opaSouvenirs: [SouvenirItem]?
@@ -37,6 +38,7 @@ struct TicketsBackupManifest: Codable {
         quickContacts: [QuickContact],
         personalIDCard: PersonalIDCard,
         taxiContact: TaxiContact? = nil,
+        homeTaxiContact: TaxiContact? = nil,
         golfContact: GolfContact? = nil,
         travelNotes: TravelNotes? = nil,
         opaSouvenirs: [SouvenirItem]? = nil,
@@ -50,6 +52,7 @@ struct TicketsBackupManifest: Codable {
         self.quickContacts = quickContacts
         self.personalIDCard = personalIDCard
         self.taxiContact = taxiContact
+        self.homeTaxiContact = homeTaxiContact
         self.golfContact = golfContact
         self.travelNotes = travelNotes
         self.opaSouvenirs = opaSouvenirs

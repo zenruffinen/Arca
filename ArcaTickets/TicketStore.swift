@@ -36,6 +36,9 @@ final class TicketStore: ObservableObject {
     @Published var taxiContact: TaxiContact = .empty {
         didSet { guard !isLoadingData else { return }; saveTaxiContact() }
     }
+    @Published var homeTaxiContact: TaxiContact = .empty {
+        didSet { guard !isLoadingData else { return }; saveHomeTaxiContact() }
+    }
     @Published var golfContact: GolfContact = .empty {
         didSet { guard !isLoadingData else { return }; saveGolfContact() }
     }
@@ -134,7 +137,7 @@ final class TicketStore: ObservableObject {
     static let sharedFolderSuffix = " (geteilt)"
 
     private func hasAnyExistingDataStore() -> Bool {
-        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "golf", "notes", "koffer_pin", "golfschlaeger", "opa_souvenirs"] {
+        for key in ["tickets", "folders", "sharedFolders", "contacts", "personal_card", "taxi", "taxi_home", "golf", "notes", "koffer_pin", "golfschlaeger", "opa_souvenirs"] {
             let url = dataURL(key)
             if FileManager.default.fileExists(atPath: url.path) { return true }
             if hasCloudPlaceholder(at: url) { return true }
@@ -353,6 +356,11 @@ final class TicketStore: ObservableObject {
         } else {
             taxiContact = taxiContactFromQuickContacts()
         }
+        if let decoded = loadJSON(TaxiContact.self, key: "taxi_home") {
+            homeTaxiContact = decoded
+        } else {
+            homeTaxiContact = homeTaxiContactFromQuickContacts()
+        }
         if let decoded = loadJSON(GolfContact.self, key: "golf") {
             golfContact = decoded
         } else {
@@ -373,6 +381,7 @@ final class TicketStore: ObservableObject {
     }
 
     private static let taxiQuickContactLabel = "Taxi"
+    private static let homeTaxiQuickContactLabel = "Taxi diheime"
     private static let golfQuickContactLabel = "Golf"
 
     /// Liest gespeicherte Taxi-Daten aus QuickContacts (Migration / iCloud-Sync mit Kontakten).
@@ -384,6 +393,34 @@ final class TicketStore: ObservableObject {
         }
         if let contact = quickContacts.first(where: {
             $0.category == .sonstiges && $0.label.localizedCaseInsensitiveContains("taxi")
+        }) {
+            return TaxiContact(companyName: contact.label, phoneNumber: contact.phoneNumber)
+        }
+        return .empty
+    }
+
+    /// Liest dihei-Taxi aus QuickContacts (Migration).
+    private func homeTaxiContactFromQuickContacts() -> TaxiContact {
+        if let contact = quickContacts.first(where: {
+            $0.label.caseInsensitiveCompare(Self.homeTaxiQuickContactLabel) == .orderedSame
+        }) {
+            return TaxiContact(companyName: contact.label, phoneNumber: contact.phoneNumber)
+        }
+        let vacationPhone = taxiContact.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let contact = quickContacts.first(where: { candidate in
+            let label = candidate.label.lowercased()
+            guard label.contains("taxi") || label.contains("tax") else { return false }
+            let phone = candidate.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !vacationPhone.isEmpty, phone == vacationPhone { return false }
+            return label.contains("diheime") || label.contains("daheim") || label.contains("home")
+        }) {
+            return TaxiContact(companyName: contact.label, phoneNumber: contact.phoneNumber)
+        }
+        if let contact = quickContacts.first(where: { candidate in
+            let label = candidate.label.lowercased()
+            guard label.contains("taxi") || label.contains("tax") else { return false }
+            let phone = candidate.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            return phone != vacationPhone
         }) {
             return TaxiContact(companyName: contact.label, phoneNumber: contact.phoneNumber)
         }
@@ -497,6 +534,36 @@ final class TicketStore: ObservableObject {
         syncTaxiToQuickContacts()
     }
 
+    private func saveHomeTaxiContact() {
+        saveJSON(homeTaxiContact, key: "taxi_home")
+        syncHomeTaxiToQuickContacts()
+    }
+
+    private func syncHomeTaxiToQuickContacts() {
+        let label = homeTaxiContact.companyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedLabel = label.isEmpty ? Self.homeTaxiQuickContactLabel : label
+        let phone = homeTaxiContact.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let idx = quickContacts.firstIndex(where: {
+            $0.label.caseInsensitiveCompare(Self.homeTaxiQuickContactLabel) == .orderedSame
+                || $0.label.caseInsensitiveCompare(resolvedLabel) == .orderedSame
+        }) {
+            if phone.isEmpty && label.isEmpty {
+                quickContacts.remove(at: idx)
+            } else {
+                quickContacts[idx].label = resolvedLabel
+                quickContacts[idx].phoneNumber = phone
+                quickContacts[idx].category = .sonstiges
+            }
+        } else if !phone.isEmpty {
+            addQuickContact(QuickContact(
+                label: resolvedLabel,
+                phoneNumber: phone,
+                category: .sonstiges
+            ))
+        }
+    }
+
     private func saveGolfContact() {
         saveJSON(golfContact, key: "golf")
         syncGolfToQuickContacts()
@@ -533,6 +600,7 @@ final class TicketStore: ObservableObject {
         saveQuickContacts()
         savePersonalIDCard()
         saveTaxiContact()
+        saveHomeTaxiContact()
         saveGolfContact()
         saveTravelNotes()
         saveOpaSouvenirs()
@@ -542,6 +610,10 @@ final class TicketStore: ObservableObject {
 
     func updateTaxiContact(_ contact: TaxiContact) {
         taxiContact = contact
+    }
+
+    func updateHomeTaxiContact(_ contact: TaxiContact) {
+        homeTaxiContact = contact
     }
 
     func updateGolfContact(_ contact: GolfContact) {
@@ -920,6 +992,7 @@ final class TicketStore: ObservableObject {
         quickContacts = QuickContactDefaults.seedContacts()
         personalIDCard = .empty
         taxiContact = .empty
+        homeTaxiContact = .empty
         golfContact = .empty
         travelNotes = .empty
         opaSouvenirs = []
@@ -1100,6 +1173,7 @@ final class TicketStore: ObservableObject {
             quickContacts: quickContacts,
             personalIDCard: personalIDCard,
             taxiContact: taxiContact,
+            homeTaxiContact: homeTaxiContact,
             golfContact: golfContact,
             travelNotes: travelNotes,
             opaSouvenirs: opaSouvenirs,
@@ -1184,6 +1258,9 @@ final class TicketStore: ObservableObject {
             if taxiContact == .empty, let importedTaxi = manifest.taxiContact {
                 taxiContact = importedTaxi
             }
+            if homeTaxiContact == .empty, let importedHomeTaxi = manifest.homeTaxiContact {
+                homeTaxiContact = importedHomeTaxi
+            }
             if golfContact == .empty, let importedGolf = manifest.golfContact {
                 golfContact = importedGolf
             }
@@ -1209,6 +1286,7 @@ final class TicketStore: ObservableObject {
             quickContacts = manifest.quickContacts
             personalIDCard = manifest.personalIDCard
             taxiContact = manifest.taxiContact ?? .empty
+            homeTaxiContact = manifest.homeTaxiContact ?? .empty
             golfContact = manifest.golfContact ?? .empty
             travelNotes = manifest.travelNotes ?? .empty
             opaSouvenirs = manifest.opaSouvenirs ?? []

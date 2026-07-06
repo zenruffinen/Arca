@@ -119,9 +119,7 @@ struct ArcaHolidayView: View {
                         ForEach(ArcaHolidayKleck.allCases) { kleck in
                             ArcaHolidayKleckHotspot(
                                 kleck: kleck,
-                                containerSize: size,
-                                glassNamespace: glassNamespace,
-                                isOrigin: originKleck == kleck && activeSheet != nil
+                                containerSize: size
                             ) {
                                 open(kleck)
                             }
@@ -365,8 +363,6 @@ struct ArcaHolidayView: View {
 private struct ArcaHolidayKleckHotspot: View {
     let kleck: ArcaHolidayKleck
     let containerSize: CGSize
-    var glassNamespace: Namespace.ID
-    var isOrigin: Bool
     var onTap: () -> Void
 
     @State private var rippleScale: CGFloat = 0.6
@@ -394,21 +390,22 @@ private struct ArcaHolidayKleckHotspot: View {
         } label: {
             ZStack {
                 Circle()
-                    .stroke(kleck.rippleTint.opacity(rippleOpacity), lineWidth: 3)
-                    .frame(width: hitWidth * 1.1, height: hitWidth * 1.1)
+                    .fill(kleck.rippleTint.opacity(rippleOpacity * 0.28))
+                    .frame(width: hitWidth * 1.05, height: hitWidth * 1.05)
                     .scaleEffect(rippleScale)
 
                 Circle()
-                    .fill(.clear)
+                    .stroke(kleck.rippleTint.opacity(rippleOpacity), lineWidth: 2.5)
+                    .frame(width: hitWidth * 1.1, height: hitWidth * 1.1)
+                    .scaleEffect(rippleScale)
+
+                Color.clear
                     .frame(width: hitWidth, height: hitHeight)
-                    .glassEffect(.regular.interactive().tint(kleck.rippleTint.opacity(0.2)), in: Circle())
             }
             .frame(width: hitWidth, height: hitHeight)
             .contentShape(Circle())
         }
-        .buttonStyle(UnterwegsKlecksButtonStyle())
-        .glassEffectID("kleck-\(kleck.id)", in: glassNamespace)
-        .opacity(isOrigin ? 0.35 : 1)
+        .buttonStyle(HolidayKleckHotspotButtonStyle(tint: kleck.rippleTint))
         .sensoryFeedback(.impact(weight: .medium, intensity: 0.85), trigger: tapCount)
         .position(x: positionX, y: positionY)
         .accessibilityLabel(kleck.label)
@@ -416,12 +413,29 @@ private struct ArcaHolidayKleckHotspot: View {
     }
 
     private func playRipple() {
-        rippleScale = 0.65
-        rippleOpacity = 0.85
-        withAnimation(.easeOut(duration: 0.55)) {
-            rippleScale = 1.35
+        rippleScale = 0.7
+        rippleOpacity = 0.9
+        withAnimation(.easeOut(duration: 0.5)) {
+            rippleScale = 1.4
             rippleOpacity = 0
         }
+    }
+}
+
+/// Press-only feedback — no permanent glass lid on the hero klecks.
+private struct HolidayKleckHotspotButtonStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                if configuration.isPressed {
+                    Circle()
+                        .fill(tint.opacity(0.18))
+                }
+            }
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.spring(response: 0.2, dampingFraction: 0.68), value: configuration.isPressed)
     }
 }
 
@@ -643,14 +657,7 @@ struct HolidayKofferSheet: View {
 struct HolidayTaxiSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: TicketStore
-    @State private var showEditor = false
-
-    private var homeTaxiContacts: [QuickContact] {
-        store.quickContacts.filter {
-            let label = $0.label.lowercased()
-            return label.contains("taxi") || label.contains("tax")
-        }
-    }
+    @State private var editingSlot: TaxiContactSlot?
 
     var body: some View {
         NavigationStack {
@@ -659,16 +666,11 @@ struct HolidayTaxiSheet: View {
                     holidaySheetIntro(
                         emoji: "🚕",
                         title: "Taxi — Urlaub & diheime",
-                        subtitle: "Ein Tap zum Aarufe. Lang drucke zum Bearbeite."
+                        subtitle: "Zwei Nummerä, zwei Orte — tipp zum Aarufe, Stift zum Ändere."
                     )
 
                     vacationTaxiCard
-
-                    if !homeTaxiContacts.isEmpty {
-                        homeTaxiSection
-                    }
-
-                    addTaxiHint
+                    homeTaxiCard
                 }
                 .padding(16)
                 .padding(.bottom, 24)
@@ -680,82 +682,104 @@ struct HolidayTaxiSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ArcaTicketsStrings.done) { dismiss() }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(ArcaTicketsStrings.edit) { showEditor = true }
-                }
             }
-            .sheet(isPresented: $showEditor) {
-                TaxiContactEditorView()
+            .sheet(item: $editingSlot) { slot in
+                TaxiContactEditorView(slot: slot)
             }
         }
         .presentationDetents([.medium, .large])
     }
 
     private var vacationTaxiCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Taxi im Urlaub", systemImage: "sun.max.fill")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
+        taxiSectionCard(
+            slot: .vacation,
+            contact: store.taxiContact,
+            icon: "sun.max.fill",
+            sectionTitle: "Taxi im Urlaub",
+            tint: ArcaTicketsDesign.taxiYellowDeep,
+            glassTint: ArcaTicketsDesign.taxiYellow.opacity(0.3)
+        )
+    }
 
-            let contact = store.taxiContact
+    private var homeTaxiCard: some View {
+        taxiSectionCard(
+            slot: .home,
+            contact: store.homeTaxiContact,
+            icon: "house.fill",
+            sectionTitle: "Taxi diheime",
+            tint: ArcaTicketsDesign.travelOcean,
+            glassTint: ArcaTicketsDesign.travelOcean.opacity(0.2)
+        )
+    }
+
+    private func taxiSectionCard(
+        slot: TaxiContactSlot,
+        contact: TaxiContact,
+        icon: String,
+        sectionTitle: String,
+        tint: Color,
+        glassTint: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(sectionTitle, systemImage: icon)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(tint)
+                Spacer()
+                Button {
+                    editingSlot = slot
+                } label: {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.title3)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(tint)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(sectionTitle) bearbeite")
+            }
+
             if contact.hasPhoneNumber {
                 taxiCallRow(
-                    title: contact.displayCompanyName.isEmpty ? "Taxi" : contact.displayCompanyName,
+                    title: contactDisplayName(contact, slot: slot),
                     phone: contact.displayPhoneNumber,
-                    tint: ArcaTicketsDesign.taxiYellowDeep
+                    tint: tint
                 ) {
                     if let url = contact.telURL {
                         TicketsHaptics.mediumImpact()
                         UIApplication.shared.open(url)
                     }
                 }
+                .contextMenu {
+                    Button {
+                        editingSlot = slot
+                    } label: {
+                        Label("Nummer ändere", systemImage: "pencil")
+                    }
+                }
             } else {
                 Button {
-                    showEditor = true
+                    editingSlot = slot
                 } label: {
-                    Label("Taxinummer iträge", systemImage: "plus.circle.fill")
+                    Label(slot.emptyCallLabel, systemImage: "plus.circle.fill")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
-                        .background(ArcaTicketsDesign.taxiYellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .foregroundStyle(tint)
+                        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(16)
         .ticketsGlass(
-            tint: ArcaTicketsDesign.taxiYellow.opacity(0.3),
+            tint: glassTint,
             in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
     }
 
-    private var homeTaxiSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Taxi diheime", systemImage: "house.fill")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(ArcaTicketsDesign.travelOcean)
-
-            ForEach(homeTaxiContacts) { contact in
-                taxiCallRow(
-                    title: contact.label,
-                    phone: contact.displayPhoneNumber,
-                    tint: ArcaTicketsDesign.travelOcean
-                ) {
-                    if let url = contact.telURL {
-                        TicketsHaptics.mediumImpact()
-                        UIApplication.shared.open(url)
-                    }
-                }
-            }
-        }
-    }
-
-    private var addTaxiHint: some View {
-        Text("Tipp: Trag d'Taxi diheime under Nummerä → Sonstiges oder Familie ii.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 4)
+    private func contactDisplayName(_ contact: TaxiContact, slot: TaxiContactSlot) -> String {
+        let trimmed = contact.companyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? slot.defaultDisplayName : trimmed
     }
 
     private func taxiCallRow(title: String, phone: String, tint: Color, action: @escaping () -> Void) -> some View {
