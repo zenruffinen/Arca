@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import ARCAKit
 
 struct PetSettingsView: View {
     @EnvironmentObject private var store: PetStore
@@ -66,6 +67,19 @@ struct PetSettingsView: View {
                     }
                 } header: {
                     Text("Über Arca Pet")
+                }
+
+                Section {
+                    NavigationLink {
+                        ARCAKitDemoView()
+                            .toolbarBackground(.hidden, for: .navigationBar)
+                    } label: {
+                        Label("ARCAKit-Demo", systemImage: "shippingbox.fill")
+                    }
+                } header: {
+                    Text("Entwickler")
+                } footer: {
+                    Text("Integrationstest: zeigt die extrahierte ARCA-DNA aus dem ARCAKit-Package. Keine produktive Funktion.")
                 }
             }
             .scrollContentBackground(.hidden)

@@ -10,6 +10,7 @@
 		90EC922B50484CB6A3EA38EC /* ArcaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B2C3D4E5F6A7488990ABCDE2 /* ArcaTicketsWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7488990ABCDE1 /* ArcaTicketsWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BA9694F72F8D782200FEB0F9 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */; };
+		ACA0C1DE00000000000000A1 /* ARCAKit in Frameworks */ = {isa = PBXBuildFile; productRef = ACA0C1DE00000000000000A2 /* ARCAKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -189,6 +190,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ACA0C1DE00000000000000A1 /* ARCAKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -275,6 +277,7 @@
 			);
 			name = ArcaPet;
 			packageProductDependencies = (
+				ACA0C1DE00000000000000A2 /* ARCAKit */,
 			);
 			productName = ArcaPet;
 			productReference = C3D4E5F6A7488990ABCD010 /* ArcaPet.app */;
@@ -437,6 +440,7 @@
 			mainGroup = BA7C67012F8CEAE0001B326B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				ACA0C1DE00000000000000A3 /* XCLocalSwiftPackageReference "../ARCAKit" */,
 				BA9694F22F8D6CB300FEB0F9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -1157,6 +1161,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		ACA0C1DE00000000000000A3 /* XCLocalSwiftPackageReference "../ARCAKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ARCAKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		BA9694F22F8D6CB300FEB0F9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1169,6 +1180,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		ACA0C1DE00000000000000A2 /* ARCAKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ARCAKit;
+		};
 		BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BA9694F22F8D6CB300FEB0F9 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */;
