@@ -295,6 +295,102 @@ struct QuickContactsManagementView: View {
     }
 }
 
+/// Push-sicheri Variante (ohne eigenes `NavigationStack`), damit Settings-Push nicht "sheet-artig" hängt.
+struct QuickContactsManagementPushView: View {
+    @EnvironmentObject private var store: TicketStore
+
+    @State private var contactToEdit: QuickContact?
+    @State private var showAddSheet = false
+    @State private var newFamilyMember = false
+    @State private var showTemplatePicker = false
+
+    private var groupedContacts: [(QuickContactCategory, [QuickContact])] {
+        store.quickContactsGroupedByCategory()
+    }
+
+    var body: some View {
+        List {
+            if groupedContacts.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "Kei Nummerä",
+                        systemImage: "phone.down.circle.fill",
+                        description: Text("Füeg wichtigi Kontakt hinzue — per Vorlage oder manuell.")
+                    )
+                }
+            } else {
+                ForEach(groupedContacts, id: \.0) { category, contacts in
+                    Section {
+                        ForEach(contacts) { contact in
+                            Button {
+                                contactToEdit = contact
+                            } label: {
+                                QuickContactListRow(contact: contact)
+                            }
+                            .foregroundStyle(.primary)
+                        }
+                        .onDelete { offsets in
+                            deleteContacts(in: contacts, at: offsets)
+                        }
+                    } header: {
+                        Label(category.rawValue, systemImage: category.icon)
+                    }
+                }
+            }
+
+            Section {
+                Button {
+                    showAddSheet = true
+                } label: {
+                    Label("Kontakt hinzuefüege", systemImage: "plus.circle.fill")
+                }
+
+                Button {
+                    newFamilyMember = true
+                } label: {
+                    Label("Familiemitglied hinzufüege", systemImage: "person.badge.plus")
+                }
+
+                if !store.availableQuickContactTemplates.isEmpty {
+                    Button {
+                        showTemplatePicker = true
+                    } label: {
+                        Label("Us Vorlage hinzuefüege", systemImage: "doc.on.doc")
+                    }
+                }
+            }
+
+            Section {
+                Button("Standard-Vorlage wiederherstelle", role: .destructive) {
+                    store.resetQuickContactsToDefaults()
+                }
+            } footer: {
+                Text("Schwiizer Notrufnummerä: Polizei 117, Feuer 118, Rettung 144, EU 112. \(LegalCopy.contactsCallFooter)")
+            }
+        }
+        .navigationTitle("Wichtigi Nummerä")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $contactToEdit) { contact in
+            QuickContactEditorView(contact: contact)
+        }
+        .sheet(isPresented: $showAddSheet) {
+            QuickContactEditorView(contact: nil)
+        }
+        .sheet(isPresented: $newFamilyMember) {
+            QuickContactEditorView(contact: nil, defaultCategory: .familie)
+        }
+        .sheet(isPresented: $showTemplatePicker) {
+            QuickContactTemplatePickerView()
+        }
+    }
+
+    private func deleteContacts(in contacts: [QuickContact], at offsets: IndexSet) {
+        for index in offsets {
+            store.deleteQuickContact(contacts[index])
+        }
+    }
+}
+
 private struct QuickContactListRow: View {
     let contact: QuickContact
 

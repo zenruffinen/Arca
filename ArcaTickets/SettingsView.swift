@@ -13,6 +13,7 @@ struct SettingsView: View {
     @Environment(\.requestReview) private var requestReview
     @EnvironmentObject private var store: TicketStore
 
+    @State private var settingsPath: [SettingsRoute] = []
     @State private var showContactsManagement = false
     @State private var showReleaseNotes = false
     @AppStorage("arcaHoliday.tapHintDismissed") private var tapHintDismissed = false
@@ -50,12 +51,28 @@ struct SettingsView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
 
+    /// SwiftUI kann den `NavigationStack`-Zustand über App-Runs hinweg restaurieren.
+    /// Wenn sich der Pfad-Typ über Releases ändert, kann das zu `comparisonTypeMismatch` führen.
+    /// Wir umgehen das, indem wir beim Öffnen der Einstellungen den Stack neu identifizieren
+    /// (damit es keine alte Restore-Navigation geben kann).
+
+    // MARK: - Icon styling
+
+    private func coloredLabel(_ title: String, systemImage: String, tint: Color) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemImage)
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(tint, tint.opacity(0.35))
+        }
+    }
+
     var body: some View {
-        NavigationStack {
-            List {
-                aboutSection
+        NavigationStack(path: $settingsPath) {
+            Form {
+                holidaySetupSection
                 holidaySection
-                ticketsSection
                 securitySection
                 contactsSection
 
@@ -81,15 +98,13 @@ struct SettingsView: View {
                         showExportPassword = false
                         showExportPasswordSheet = true
                     } label: {
-                        Label("Date sichere", systemImage: "square.and.arrow.up.fill")
-                            .foregroundStyle(.blue)
+                        coloredLabel("Date sichere", systemImage: "square.and.arrow.up.fill", tint: ArcaTicketsDesign.travelOcean)
                     }
 
                     Button {
                         showImportConfirm = true
                     } label: {
-                        Label("Date wiederherstelle", systemImage: "square.and.arrow.down.fill")
-                            .foregroundStyle(.green)
+                        coloredLabel("Date wiederherstelle", systemImage: "square.and.arrow.down.fill", tint: ArcaTicketsDesign.golfFairway)
                     }
                 } header: {
                     Text("Sichere und wiederherstelle")
@@ -108,6 +123,8 @@ struct SettingsView: View {
 
                 legalSection
 
+                // "Arca Holiday" / About + Promo ganz nach unten
+                aboutSection
                 arcaTresorPromoSection
             }
             .scrollContentBackground(.hidden)
@@ -125,11 +142,43 @@ struct SettingsView: View {
                 Text("Alli Boarding Passes, Bahncharte und anderi Ticket werded endgültig glöscht. Pass, Notize und Kontakt bliibed.")
             }
             .onAppear {
+                // Defensive: möglichen Restore-Pfad beim Öffnen neutralisieren.
+                // Wichtig nach Updates/Beta-Runs, wenn alte Restore-Daten existieren.
+                if !settingsPath.isEmpty {
+                    settingsPath.removeAll()
+                }
                 consumePendingBackupURL()
+                consumePendingSettingsRoute()
             }
             .onChange(of: store.pendingBackupURL) { _, url in
                 guard url != nil else { return }
                 consumePendingBackupURL()
+            }
+            .onChange(of: store.pendingSettingsRoute) { _, route in
+                guard route != nil else { return }
+                consumePendingSettingsRoute()
+            }
+            .navigationDestination(for: SettingsRoute.self) { route in
+                switch route {
+                case .reiseSetup:
+                    HolidayReiseSetupSettingsView()
+                case .taxi:
+                    TaxiSetupSettingsView()
+                case .boarding:
+                    BoardingInfoSettingsView()
+                case .tickets:
+                    TicketsManagementSettingsView()
+                case .wichtigeNummern:
+                    QuickContactsManagementPushView()
+                case .notizen:
+                    TravelNotesSettingsView()
+                case .pass:
+                    PersonalIDCardSettingsView()
+                case .kofferPIN:
+                    KofferPINSettingsPushView()
+                case .golf:
+                    GolfschlaegerSettingsPushView()
+                }
             }
             .sheet(isPresented: $showContactsManagement) {
                 QuickContactsManagementView()
@@ -332,6 +381,15 @@ struct SettingsView: View {
                 Text(importErrorMessage)
             }
         }
+        .id(store.settingsNavigationSeed)
+    }
+
+    private func consumePendingSettingsRoute() {
+        guard let route = store.pendingSettingsRoute else { return }
+        store.pendingSettingsRoute = nil
+        if settingsPath.last != route {
+            settingsPath.append(route)
+        }
     }
 
     // MARK: - Backup helpers
@@ -456,13 +514,56 @@ struct SettingsView: View {
     // MARK: - Sections
 
     @ViewBuilder
+    private var holidaySetupSection: some View {
+        Section {
+            // Reihenfolge nach Wichtigkeit / Dringlichkeit
+            NavigationLink(value: SettingsRoute.boarding) {
+                coloredLabel("Boarding / Flug-Infos", systemImage: "airplane", tint: ArcaTicketsDesign.travelGlassCyan)
+            }
+            NavigationLink(value: SettingsRoute.tickets) {
+                HStack {
+                    coloredLabel("Tickets verwalte", systemImage: "ticket.fill", tint: ArcaTicketsDesign.travelGlassCyan)
+                    Spacer()
+                    Text("\(store.tickets.count)")
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            NavigationLink(value: SettingsRoute.pass) {
+                coloredLabel("Pass / Visitenkarte", systemImage: "person.text.rectangle.fill", tint: Color(red: 0.95, green: 0.25, blue: 0.30))
+            }
+            NavigationLink(value: SettingsRoute.wichtigeNummern) {
+                coloredLabel("Wichtige Nummern / Familie", systemImage: "phone.fill", tint: ArcaTicketsDesign.travelOcean)
+            }
+            NavigationLink(value: SettingsRoute.taxi) {
+                coloredLabel("Taxi (Urlaub & Daheim)", systemImage: "car.side.fill", tint: ArcaTicketsDesign.taxiYellowDeep)
+            }
+            NavigationLink(value: SettingsRoute.kofferPIN) {
+                coloredLabel("Koffer-PIN", systemImage: "lock.fill", tint: ArcaTicketsDesign.travelOcean)
+            }
+            NavigationLink(value: SettingsRoute.notizen) {
+                coloredLabel("Notizen", systemImage: "note.text", tint: ArcaTicketsDesign.travelGlassPurple)
+            }
+            NavigationLink(value: SettingsRoute.golf) {
+                coloredLabel("Golf", systemImage: "figure.golf", tint: ArcaTicketsDesign.golfFairwayDeep)
+            }
+        } header: {
+            Text("Holiday Setup")
+        } footer: {
+            Text("Boarding/Gate, Pass, Nummern, Taxi, Koffer, Notizen — alles wo du aktiv bearbeitisch.")
+        }
+    }
+
+    @ViewBuilder
     private var holidaySection: some View {
         Section {
             Toggle(isOn: Binding(
                 get: { !tapHintDismissed },
                 set: { tapHintDismissed = !$0 }
             )) {
-                Label("Kleck-Hinwiis", systemImage: "hand.tap.fill")
+                coloredLabel("Kleck-Hinwiis", systemImage: "hand.tap.fill", tint: ArcaTicketsDesign.travelSunset)
             }
         } header: {
             Text("Ferie-Grafik")
@@ -474,20 +575,21 @@ struct SettingsView: View {
     @ViewBuilder
     private var ticketsSection: some View {
         Section {
-            if store.tickets.isEmpty {
-                Label("Kei Tickets debii", systemImage: "ticket")
-                    .foregroundStyle(.secondary)
-            } else {
-                Button(role: .destructive) {
-                    showDeleteAllTicketsConfirm = true
-                } label: {
-                    Label(ArcaTicketsStrings.deleteAllTickets, systemImage: "trash")
+            NavigationLink(value: SettingsRoute.tickets) {
+                HStack {
+                    coloredLabel("Tickets verwalte", systemImage: "ticket.fill", tint: ArcaTicketsDesign.travelGlassCyan)
+                    Spacer()
+                    Text("\(store.tickets.count)")
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
             }
         } header: {
             Text("Tickets")
         } footer: {
-            Text("Einzeln lösche: Boarding Card öffne und uf 🗑️ tippen. Oder hie alli uf eimal weg.")
+            Text("Tickets hinzufügen, importieren, bearbeiten und löschen machsch im Ticket-Manager.")
         }
     }
 
@@ -498,7 +600,7 @@ struct SettingsView: View {
                 showContactsManagement = true
             } label: {
                 HStack {
-                    Label("Wichtigi Nummerä", systemImage: "phone.fill")
+                    coloredLabel("Wichtigi Nummerä", systemImage: "phone.fill", tint: ArcaTicketsDesign.travelOcean)
                     Spacer()
                     Text("\(store.quickContacts.count)")
                         .foregroundStyle(.secondary)
@@ -522,7 +624,7 @@ struct SettingsView: View {
                 showReleaseNotes = true
             } label: {
                 HStack {
-                    Label("Version \(appVersion)", systemImage: "app.badge")
+                    coloredLabel("Version \(appVersion)", systemImage: "app.badge", tint: ArcaTicketsDesign.travelGlassPurple)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -531,13 +633,13 @@ struct SettingsView: View {
             }
             .foregroundStyle(.primary)
 
-            Label("Entwickler: Hans zen Ruffinen", systemImage: "person.fill")
+            coloredLabel("Entwickler: Hans zen Ruffinen", systemImage: "person.fill", tint: ArcaTicketsDesign.travelSunset)
 
             Button {
                 requestReview()
             } label: {
                 HStack {
-                    Label("Arca Holiday bewerten", systemImage: "star.fill")
+                    coloredLabel("Arca Holiday bewerten", systemImage: "star.fill", tint: ArcaTicketsDesign.travelSunYellow)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -559,7 +661,7 @@ struct SettingsView: View {
                 showPrivacyDetail = true
             } label: {
                 HStack {
-                    Label("Dateschutz & Hinweis", systemImage: "hand.raised.fill")
+                    coloredLabel("Dateschutz & Hinweis", systemImage: "hand.raised.fill", tint: ArcaTicketsDesign.travelSunset)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)
@@ -622,7 +724,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var securitySection: some View {
         Section {
-            Label("PIN und Face ID aktiv", systemImage: "lock.fill")
+            coloredLabel("PIN und Face ID aktiv", systemImage: "lock.fill", tint: ArcaTicketsDesign.golfFairway)
         } header: {
             Text("Sicherheit")
         } footer: {
@@ -634,10 +736,10 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
-                    Label("Ferie-Grafik mit sächs Klecks", systemImage: "photo.artframe")
-                    Label("Pass, Notize, Koffer, Taxi, Golf, Boarding Card", systemImage: "hand.tap.fill")
-                    Label("PIN und Face ID — App-Sperre", systemImage: "lock.fill")
-                    Label("iCloud und verschlüsselts Backup", systemImage: "icloud.fill")
+                    coloredLabel("Ferie-Grafik mit sächs Klecks", systemImage: "photo.artframe", tint: ArcaTicketsDesign.travelSunset)
+                    coloredLabel("Pass, Notize, Koffer, Taxi, Golf, Boarding Card", systemImage: "hand.tap.fill", tint: ArcaTicketsDesign.travelGlassCyan)
+                    coloredLabel("PIN und Face ID — App-Sperre", systemImage: "lock.fill", tint: ArcaTicketsDesign.golfFairway)
+                    coloredLabel("iCloud und verschlüsselts Backup", systemImage: "icloud.fill", tint: ArcaTicketsDesign.travelOcean)
                 } header: {
                     Text("Neu in Version \(appVersion)")
                 }
@@ -649,6 +751,343 @@ struct SettingsView: View {
                     Button(ArcaTicketsStrings.done) { showReleaseNotes = false }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Settings destinations (Holiday Setup)
+
+private struct HolidayReiseSetupSettingsView: View {
+    var body: some View {
+        List {
+            Section {
+                NavigationLink(value: SettingsRoute.boarding) {
+                    Label {
+                        Text("Boarding / Flug-Infos")
+                    } icon: {
+                        Image(systemName: "airplane")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(ArcaTicketsDesign.travelGlassCyan, ArcaTicketsDesign.travelGlassCyan.opacity(0.35))
+                    }
+                }
+                NavigationLink(value: SettingsRoute.tickets) {
+                    Label {
+                        Text("Tickets verwalte")
+                    } icon: {
+                        Image(systemName: "ticket.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(ArcaTicketsDesign.travelGlassCyan, ArcaTicketsDesign.travelGlassCyan.opacity(0.35))
+                    }
+                }
+                NavigationLink(value: SettingsRoute.pass) {
+                    Label {
+                        Text("Pass / Visitenkarte")
+                    } icon: {
+                        Image(systemName: "person.text.rectangle.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(Color(red: 0.95, green: 0.25, blue: 0.30), Color(red: 0.95, green: 0.25, blue: 0.30).opacity(0.35))
+                    }
+                }
+                NavigationLink(value: SettingsRoute.wichtigeNummern) {
+                    Label {
+                        Text("Wichtige Nummern / Familie")
+                    } icon: {
+                        Image(systemName: "phone.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelOcean.opacity(0.35))
+                    }
+                }
+                NavigationLink(value: SettingsRoute.taxi) {
+                    Label {
+                        Text("Taxi (Urlaub & Daheim)")
+                    } icon: {
+                        Image(systemName: "car.side.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep, ArcaTicketsDesign.taxiYellowDeep.opacity(0.35))
+                    }
+                }
+                NavigationLink(value: SettingsRoute.kofferPIN) {
+                    Label {
+                        Text("Koffer-PIN")
+                    } icon: {
+                        Image(systemName: "lock.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(ArcaTicketsDesign.travelOcean, ArcaTicketsDesign.travelOcean.opacity(0.35))
+                    }
+                }
+                NavigationLink(value: SettingsRoute.golf) {
+                    Label {
+                        Text("Golf (Bag-Tag & Club)")
+                    } icon: {
+                        Image(systemName: "figure.golf")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(ArcaTicketsDesign.golfFairwayDeep, ArcaTicketsDesign.golfFairwayDeep.opacity(0.35))
+                    }
+                }
+                NavigationLink(value: SettingsRoute.notizen) {
+                    Label {
+                        Text("Notizen")
+                    } icon: {
+                        Image(systemName: "note.text")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(ArcaTicketsDesign.travelGlassPurple, ArcaTicketsDesign.travelGlassPurple.opacity(0.35))
+                    }
+                }
+            } footer: {
+                Text("Die Klecks in der Ferien-Grafik sind bewusst nur noch „Anzeigen & Aktionen“. Bearbeitung passiert hier.")
+            }
+        }
+        .navigationTitle("Holiday Setup")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct TaxiSetupSettingsView: View {
+    @EnvironmentObject private var store: TicketStore
+    @State private var vacationCompany = ""
+    @State private var vacationPhone = ""
+    @State private var homeCompany = ""
+    @State private var homePhone = ""
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Nummer am Ferienort", text: $vacationPhone)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                TextField("Name vom Taxi (optional)", text: $vacationCompany)
+                    .textContentType(.organizationName)
+            } header: {
+                Text("Taxi im Urlaub")
+            } footer: {
+                Text("Wird im Taxi-Kleck als „Anrufen“-Button angezeigt.")
+            }
+
+            Section {
+                TextField("Nummer daheim", text: $homePhone)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                TextField("z.B. Züri-Taxi (optional)", text: $homeCompany)
+                    .textContentType(.organizationName)
+            } header: {
+                Text("Taxi daheim")
+            } footer: {
+                Text("Praktisch, wenn du wieder zuhause bist.")
+            }
+        }
+        .navigationTitle("Taxi")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(ArcaTicketsStrings.save) { save() }
+            }
+        }
+        .onAppear { load() }
+    }
+
+    private func load() {
+        vacationCompany = store.taxiContact.companyName
+        vacationPhone = store.taxiContact.phoneNumber
+        homeCompany = store.homeTaxiContact.companyName
+        homePhone = store.homeTaxiContact.phoneNumber
+    }
+
+    private func save() {
+        store.updateTaxiContact(TaxiContact(
+            companyName: vacationCompany.trimmingCharacters(in: .whitespacesAndNewlines),
+            phoneNumber: vacationPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        ))
+        store.updateHomeTaxiContact(TaxiContact(
+            companyName: homeCompany.trimmingCharacters(in: .whitespacesAndNewlines),
+            phoneNumber: homePhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        ))
+        TicketsHaptics.lightImpact()
+        store.showToast("Taxi-Nummern gespeichert")
+    }
+}
+
+private struct BoardingInfoSettingsView: View {
+    @EnvironmentObject private var store: TicketStore
+    @State private var showAddTicket = false
+
+    private var activeTickets: [TicketEntry] {
+        store.tickets
+            .filter(\.isValid)
+            .sorted { lhs, rhs in
+                if lhs.isPinned != rhs.isPinned { return lhs.isPinned }
+                return lhs.unterwegsSortDate < rhs.unterwegsSortDate
+            }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    showAddTicket = true
+                } label: {
+                    Label(ArcaTicketsStrings.addBoardingPass, systemImage: "plus.circle.fill")
+                }
+            }
+
+            Section {
+                if activeTickets.isEmpty {
+                    ContentUnavailableView("Noch keine Tickets", systemImage: "ticket")
+                } else {
+                    ForEach(activeTickets) { ticket in
+                        NavigationLink {
+                            TicketDetailView(ticket: ticket)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(ticket.title)
+                                    .font(.body.weight(.semibold))
+                                Text(ticket.flightTodayLine)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Tickets")
+            } footer: {
+                Text("Gate, Boarding-Zeit usw. bearbeitisch im Ticket-Detail (Bearbeiten).")
+            }
+        }
+        .navigationTitle("Boarding / Flug")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showAddTicket) {
+            AddTicketView(forHolidayBoarding: true)
+        }
+    }
+}
+
+private struct TravelNotesSettingsView: View {
+    @EnvironmentObject private var store: TicketStore
+    @FocusState private var isFocused: Bool
+    @State private var draftText = ""
+
+    var body: some View {
+        Form {
+            Section {
+                TextEditor(text: $draftText)
+                    .font(.system(.body, design: .rounded))
+                    .frame(minHeight: 180)
+                    .focused($isFocused)
+            } header: {
+                Text("Notizen")
+            } footer: {
+                Text("Wird im Notizen-Kleck angezeigt (dort nur lesen).")
+            }
+        }
+        .navigationTitle("Notizen")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { draftText = store.travelNotes.text }
+        .onDisappear { save() }
+    }
+
+    private func save() {
+        let trimmed = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notes = TravelNotes(
+            text: draftText,
+            updatedAt: trimmed.isEmpty && store.travelNotes.isEmpty ? store.travelNotes.updatedAt : Date()
+        )
+        if notes != store.travelNotes {
+            store.updateTravelNotes(notes)
+        }
+    }
+}
+
+private struct TicketsManagementSettingsView: View {
+    @EnvironmentObject private var store: TicketStore
+    @State private var showAddTicket = false
+    @State private var ticketToDelete: TicketEntry?
+    @State private var showDeleteConfirm = false
+    @State private var showDeleteAllConfirm = false
+
+    private var sortedTickets: [TicketEntry] {
+        store.tickets.sorted { $0.unterwegsSortDate < $1.unterwegsSortDate }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    showAddTicket = true
+                } label: {
+                    Label("Ticket hinzufügen / importieren", systemImage: "plus.circle.fill")
+                }
+            }
+
+            Section {
+                if sortedTickets.isEmpty {
+                    ContentUnavailableView("Keine Tickets", systemImage: "ticket")
+                } else {
+                    ForEach(sortedTickets) { ticket in
+                        NavigationLink {
+                            TicketDetailView(ticket: ticket)
+                        } label: {
+                            TicketRow(ticket: ticket, showPinIndicator: true)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                deleteTicket(ticket)
+                            } label: {
+                                Label(ArcaTicketsStrings.delete, systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Alle Tickets")
+            }
+
+            if !store.tickets.isEmpty {
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteAllConfirm = true
+                    } label: {
+                        Label(ArcaTicketsStrings.deleteAllTickets, systemImage: "trash")
+                    }
+                }
+            }
+        }
+        .navigationTitle("Tickets")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showAddTicket) {
+            AddTicketView(forHolidayBoarding: true)
+        }
+        .alert("Ticket löschen?", isPresented: $showDeleteConfirm) {
+            Button(ArcaTicketsStrings.cancel, role: .cancel) { ticketToDelete = nil }
+            Button(ArcaTicketsStrings.delete, role: .destructive) {
+                if let ticket = ticketToDelete {
+                    TicketsHaptics.delete()
+                    store.deleteTicket(ticket)
+                }
+                ticketToDelete = nil
+            }
+        } message: {
+            if let ticket = ticketToDelete {
+                Text("\u{201E}\(ticket.title)\u{201C} würklich lösche? Das gaht nöd rückgängig.")
+            }
+        }
+        .alert(ArcaTicketsStrings.deleteAllTicketsTitle, isPresented: $showDeleteAllConfirm) {
+            Button(ArcaTicketsStrings.cancel, role: .cancel) {}
+            Button(ArcaTicketsStrings.delete, role: .destructive) {
+                TicketsHaptics.delete()
+                store.deleteAllTickets()
+            }
+        } message: {
+            Text("Alli Tickets werded endgültig glöscht.")
+        }
+    }
+
+    private func deleteTicket(_ ticket: TicketEntry) {
+        if ticket.needsDeleteConfirmation {
+            ticketToDelete = ticket
+            showDeleteConfirm = true
+        } else {
+            TicketsHaptics.delete()
+            store.deleteTicket(ticket)
         }
     }
 }

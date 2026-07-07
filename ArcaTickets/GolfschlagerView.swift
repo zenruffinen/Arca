@@ -153,6 +153,7 @@ struct GolfschlagerFloatingDecoration: View {
 struct GolfschlaegerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: TicketStore
+    var allowsEditing: Bool = true
 
     @State private var clubName = ""
     @State private var phoneNumber = ""
@@ -211,29 +212,53 @@ struct GolfschlaegerSheet: View {
                         Text("Vorschau")
                     }
                 }
+
+                if !allowsEditing {
+                    Section {
+                        Button {
+                            openGolfSettings()
+                        } label: {
+                            Label("In Istellige bearbeite", systemImage: "gearshape.fill")
+                                .foregroundStyle(ArcaTicketsDesign.travelOcean)
+                        }
+                    } footer: {
+                        Text("Im Golf-Kleck isch nur Anzeige/Aktion — Bearbeitung passiert in Istellige.")
+                    }
+                }
             }
+            .disabled(!allowsEditing)
             .navigationTitle("Golfschläger")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ArcaTicketsStrings.cancel) { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(ArcaTicketsStrings.backup) {
-                        save()
-                        dismiss()
+                if allowsEditing {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(ArcaTicketsStrings.backup) {
+                            save()
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
                     }
-                    .fontWeight(.semibold)
-                }
-                if store.golfschlaegerInfo.hasContent {
-                    ToolbarItem(placement: .bottomBar) {
-                        Button("Reise-Info lösche", role: .destructive) {
-                            store.updateGolfschlaegerInfo(.empty)
-                            airlinePolicyNote = ""
-                            bagTagNumber = ""
-                            checkedIn = false
-                            note = ""
-                            TicketsHaptics.lightImpact()
+                    if store.golfschlaegerInfo.hasContent {
+                        ToolbarItem(placement: .bottomBar) {
+                            Button("Reise-Info lösche", role: .destructive) {
+                                store.updateGolfschlaegerInfo(.empty)
+                                airlinePolicyNote = ""
+                                bagTagNumber = ""
+                                checkedIn = false
+                                note = ""
+                                TicketsHaptics.lightImpact()
+                            }
+                        }
+                    }
+                } else {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            openGolfSettings()
+                        } label: {
+                            Image(systemName: "gearshape.fill")
                         }
                     }
                 }
@@ -241,6 +266,129 @@ struct GolfschlaegerSheet: View {
             .onAppear { loadDrafts() }
         }
         .presentationDetents([.large])
+    }
+
+    private func openGolfSettings() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            store.pendingSettingsRoute = .golf
+            store.pendingHolidaySheet = .settings
+        }
+    }
+
+    private func loadDrafts() {
+        clubName = store.golfContact.clubName
+        phoneNumber = store.golfContact.phoneNumber
+        airlinePolicyNote = store.golfschlaegerInfo.airlinePolicyNote
+        bagTagNumber = store.golfschlaegerInfo.bagTagNumber
+        checkedIn = store.golfschlaegerInfo.checkedIn
+        note = store.golfschlaegerInfo.note
+    }
+
+    private func save() {
+        store.updateGolfContact(GolfContact(
+            clubName: clubName.trimmingCharacters(in: .whitespacesAndNewlines),
+            phoneNumber: phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        ))
+        store.updateGolfschlaegerInfo(GolfschlaegerInfo(
+            airlinePolicyNote: airlinePolicyNote.trimmingCharacters(in: .whitespacesAndNewlines),
+            bagTagNumber: bagTagNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+            checkedIn: checkedIn,
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines)
+        ))
+        TicketsHaptics.mediumImpact()
+    }
+}
+
+/// Push-sicheri Variante (ohni `NavigationStack`/Detents), für Settings-Navigation.
+struct GolfschlaegerSettingsPushView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: TicketStore
+
+    @State private var clubName = ""
+    @State private var phoneNumber = ""
+    @State private var airlinePolicyNote = ""
+    @State private var bagTagNumber = ""
+    @State private var checkedIn = false
+    @State private var note = ""
+
+    private var bergeTicketCount: Int {
+        store.tickets.filter { $0.folder == "Berge" }.count
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Golfclub", text: $clubName)
+                    .textContentType(.organizationName)
+                TextField("Greenfee / Pro-Shop", text: $phoneNumber)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+            } header: {
+                Text("Golfclub")
+            } footer: {
+                if bergeTicketCount > 0 {
+                    Text("Du hesch \(bergeTicketCount) Ticket\(bergeTicketCount == 1 ? "" : "s") im Ordner „Berge“. Ein Tap uf de Klecks zum Aarufe.")
+                } else {
+                    Text("Din Golfclub im Wallis — Greenfee oder Pro-Shop, ein Tap uf de Klecks zum Aarufe.")
+                }
+            }
+
+            Section {
+                TextField("z. B. SWISS Golfbag bis 23 kg", text: $airlinePolicyNote, axis: .vertical)
+                    .lineLimit(2...4)
+                TextField("Bag-Tag / PIN", text: $bagTagNumber)
+                    .textInputAutocapitalization(.characters)
+                Toggle("Golfschläger igcheckt", isOn: $checkedIn)
+                TextField("Notiz (Reminder)", text: $note, axis: .vertical)
+                    .lineLimit(2...5)
+            } header: {
+                Text("Golfschläger Reise")
+            } footer: {
+                Text("Airline-Regeln, Bag-Tag am Flughafen und Check-in-Status — alles griffbereit wie beim Koffer-PIN.")
+            }
+
+            if !bagTagNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Section {
+                    ComicCurvedText(
+                        text: bagTagNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+                        style: .golfTag,
+                        foreground: ArcaTicketsDesign.golfFairwayDeep
+                    )
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color(.secondarySystemGroupedBackground))
+                } header: {
+                    Text("Vorschau")
+                }
+            }
+        }
+        .navigationTitle("Golfschläger")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(ArcaTicketsStrings.cancel) { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(ArcaTicketsStrings.backup) {
+                    save()
+                    dismiss()
+                }
+                .fontWeight(.semibold)
+            }
+            if store.golfschlaegerInfo.hasContent {
+                ToolbarItem(placement: .bottomBar) {
+                    Button("Reise-Info lösche", role: .destructive) {
+                        store.updateGolfschlaegerInfo(.empty)
+                        airlinePolicyNote = ""
+                        bagTagNumber = ""
+                        checkedIn = false
+                        note = ""
+                        TicketsHaptics.lightImpact()
+                    }
+                }
+            }
+        }
+        .onAppear { loadDrafts() }
     }
 
     private func loadDrafts() {

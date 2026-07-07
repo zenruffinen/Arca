@@ -11,6 +11,10 @@ import os
 
 final class TicketStore: ObservableObject {
     private var isLoadingData = false
+    
+    /// Ein stabiler Seed pro App-Launch, um SwiftUI State-Restoration
+    /// (v.a. NavigationStack-Pfade) gezielt zu umgehen.
+    let settingsNavigationSeed = UUID()
 
     @Published var tickets: [TicketEntry] = [] {
         didSet {
@@ -58,6 +62,8 @@ final class TicketStore: ObservableObject {
     @Published var toastMessage: String?
     /// Siri / Widget — öffnet ein Holiday-Sheet nach Entsperren.
     @Published var pendingHolidaySheet: ArcaHolidaySheet?
+    /// Deep-Link innerhalb der Einstellungen (z.B. „Taxi bearbeiten“).
+    @Published var pendingSettingsRoute: SettingsRoute?
     /// Backup von außen („Öffnen mit“) — wird in den Einstellungen verarbeitet.
     @Published var pendingBackupURL: URL?
 

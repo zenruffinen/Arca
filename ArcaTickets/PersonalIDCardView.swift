@@ -96,15 +96,14 @@ struct PersonalIDCardDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: TicketStore
     @State private var showEditor = false
+    var allowsEditing: Bool = true
 
     private var card: PersonalIDCard { store.personalIDCard }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                PersonalIDCardFieldsView(card: card) {
-                    showEditor = true
-                }
+                PersonalIDCardFieldsView(card: card, onEdit: allowsEditing ? { showEditor = true } : nil)
                 .padding(20)
             }
             .background(Color(.systemGroupedBackground))
@@ -114,8 +113,18 @@ struct PersonalIDCardDetailSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ArcaTicketsStrings.done) { dismiss() }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(ArcaTicketsStrings.edit) { showEditor = true }
+                if allowsEditing {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(ArcaTicketsStrings.edit) { showEditor = true }
+                    }
+                } else {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            openPassSettings()
+                        } label: {
+                            Label("In Istellige", systemImage: "gearshape.fill")
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $showEditor) {
@@ -123,6 +132,44 @@ struct PersonalIDCardDetailSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private func openPassSettings() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            store.pendingSettingsRoute = .pass
+            store.pendingHolidaySheet = .settings
+        }
+    }
+}
+
+// MARK: - Settings destination (NavigationStack push)
+//
+// Important: `PersonalIDCardDetailSheet` is intended for sheet presentation
+// and uses `.presentationDetents`. Using it as a pushed destination has caused
+// UI hangs on some devices/OS versions. Keep a dedicated settings screen.
+struct PersonalIDCardSettingsView: View {
+    @EnvironmentObject private var store: TicketStore
+    @State private var showEditor = false
+
+    private var card: PersonalIDCard { store.personalIDCard }
+
+    var body: some View {
+        ScrollView {
+            PersonalIDCardFieldsView(card: card, onEdit: { showEditor = true })
+                .padding(20)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Pass / Visitenkarte")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(ArcaTicketsStrings.edit) { showEditor = true }
+            }
+        }
+        .sheet(isPresented: $showEditor) {
+            PersonalIDCardEditorView(card: card)
+        }
     }
 }
 

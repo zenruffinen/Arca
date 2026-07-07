@@ -65,7 +65,6 @@ enum TaxiContactSlot: String, Identifiable {
 
 struct TaxiButtonView: View {
     @EnvironmentObject private var store: TicketStore
-    @State private var showEditSheet = false
 
     private var contact: TaxiContact { store.taxiContact }
 
@@ -77,26 +76,10 @@ struct TaxiButtonView: View {
                 .unterwegsKlecksTapTarget()
         }
         .buttonStyle(UnterwegsKlecksButtonStyle())
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.45).onEnded { _ in
-                TicketsHaptics.lightImpact()
-                showEditSheet = true
-            }
-        )
-        .contextMenu {
-            Button {
-                showEditSheet = true
-            } label: {
-                Label("Taxinummer bearbeite", systemImage: "pencil")
-            }
-        }
         .accessibilityLabel(contact.hasPhoneNumber
             ? "Taxi rufen, \(contact.displayCompanyName), \(contact.displayPhoneNumber)"
-            : "Taxi, Taxinummer iträge")
-        .accessibilityHint(contact.hasPhoneNumber ? "Aarufe" : "Nummer iträge")
-        .sheet(isPresented: $showEditSheet) {
-            TaxiContactEditorView(slot: .vacation)
-        }
+            : "Taxi, in Istellige hinterlege")
+        .accessibilityHint(contact.hasPhoneNumber ? "Aarufe" : "Istellige öffne")
     }
 
     private var klecksGraphic: some View {
@@ -124,7 +107,8 @@ struct TaxiButtonView: View {
             UIApplication.shared.open(url)
         } else {
             TicketsHaptics.lightImpact()
-            showEditSheet = true
+            store.pendingSettingsRoute = .taxi
+            store.pendingHolidaySheet = .settings
         }
     }
 }

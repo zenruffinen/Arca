@@ -339,7 +339,7 @@ struct ArcaHolidayView: View {
     private func holidaySheet(for sheet: ArcaHolidaySheet) -> some View {
         switch sheet {
         case .pass:
-            PersonalIDCardDetailSheet()
+            PersonalIDCardDetailSheet(allowsEditing: false)
         case .notizen:
             HolidayNotizenSheet()
         case .koffer:
@@ -347,13 +347,11 @@ struct ArcaHolidayView: View {
         case .taxi:
             HolidayTaxiSheet()
         case .golf:
-            GolfschlaegerSheet()
+            GolfschlaegerSheet(allowsEditing: false)
         case .boarding:
             HolidayBoardingSheet()
         case .settings:
-            NavigationStack {
-                SettingsView()
-            }
+            SettingsView()
         }
     }
 }
@@ -444,8 +442,6 @@ private struct HolidayKleckHotspotButtonStyle: ButtonStyle {
 struct HolidayNotizenSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: TicketStore
-    @FocusState private var isFocused: Bool
-    @State private var draftText = ""
 
     var body: some View {
         NavigationStack {
@@ -453,16 +449,22 @@ struct HolidayNotizenSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     holidaySheetIntro(
                         emoji: "📝",
-                        title: "Notize & Nummerä",
-                        subtitle: "Packliste, Gate-Hinwiis, Hotel — und d'wichtigste Telefon."
+                        title: "Notize",
+                        subtitle: "Packliste, Gate-Hinwiis, Hotel — alles kurz parat."
                     )
 
-                    notesEditor
+                    notesReadOnlyCard
 
-                    CollapsibleContactCategoriesView(
-                        title: "Telefonnummerä",
-                        defaultExpanded: [.notfall, .hotel, .familie]
-                    )
+                    Button {
+                        openNotizenSettings()
+                    } label: {
+                        Label("In Istellige bearbeite", systemImage: "gearshape.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .tint(ArcaTicketsDesign.travelGlassPurple)
                 }
                 .padding(16)
                 .padding(.bottom, 24)
@@ -473,57 +475,39 @@ struct HolidayNotizenSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ArcaTicketsStrings.done) {
-                        saveNotes()
                         dismiss()
                     }
                 }
             }
-            .onAppear {
-                draftText = store.travelNotes.text
-            }
-            .onDisappear { saveNotes() }
         }
         .presentationDetents([.large])
     }
 
-    private var notesEditor: some View {
+    private var notesReadOnlyCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Mini Notize", systemImage: "note.text")
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(ArcaTicketsDesign.travelGlassPurple)
 
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $draftText)
-                    .font(.system(.body, design: .rounded))
-                    .frame(minHeight: 120)
-                    .focused($isFocused)
-                    .scrollContentBackground(.hidden)
-                    .padding(10)
-                    .ticketsGlass(
-                        tint: ArcaTicketsDesign.travelGlassPurple.opacity(0.25),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    )
-
-                if draftText.isEmpty && !isFocused {
-                    Text("z.B. Gate B12, Zimmerschlüssel, Restaurant-Tipp…")
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 18)
-                        .allowsHitTesting(false)
-                }
-            }
+            Text(store.travelNotes.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                 ? "Kei Notize. Bearbeite in Istellige → Notizen."
+                 : store.travelNotes.text)
+                .font(.system(.body, design: .rounded))
+                .foregroundStyle(store.travelNotes.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : .primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .ticketsGlass(
+                    tint: ArcaTicketsDesign.travelGlassPurple.opacity(0.22),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
         }
     }
 
-    private func saveNotes() {
-        let trimmed = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let notes = TravelNotes(
-            text: draftText,
-            updatedAt: trimmed.isEmpty && store.travelNotes.isEmpty ? store.travelNotes.updatedAt : Date()
-        )
-        if notes != store.travelNotes {
-            store.updateTravelNotes(notes)
+    private func openNotizenSettings() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            store.pendingSettingsRoute = .notizen
+            store.pendingHolidaySheet = .settings
         }
     }
 }
@@ -563,7 +547,7 @@ struct HolidayKofferSheet: View {
         .presentationDetents([.large])
     }
 
-    @State private var showKofferPIN = false
+    @State private var pinRevealed = false
 
     private var insuranceContacts: [QuickContact] {
         store.quickContacts.filter { $0.category == .versicherung }
@@ -603,30 +587,63 @@ struct HolidayKofferSheet: View {
                 .foregroundStyle(.secondary)
 
             Button {
-                showKofferPIN = true
+                if store.kofferPIN != nil {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
+                        pinRevealed.toggle()
+                    }
+                } else {
+                    openKofferSettings()
+                }
             } label: {
                 HStack {
                     Image(systemName: store.kofferPIN != nil ? "suitcase.fill" : "plus.circle.fill")
                         .foregroundStyle(ArcaTicketsDesign.travelOcean)
-                    Text(store.kofferPIN != nil ? "Koffer-Code azeige" : "Koffer-Code iträge")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.tertiary)
+                    if let pin = store.kofferPIN, !pin.isEmpty {
+                        let display = pinRevealed ? pin : String(repeating: "•", count: pin.count)
+                        Text(display)
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: pinRevealed ? "eye.fill" : "eye.slash.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Koffer-Code iträge")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
                 .padding(14)
                 .background(ArcaTicketsDesign.travelOcean.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(UnterwegsKlecksButtonStyle())
+
+            Button {
+                openKofferSettings()
+            } label: {
+                Label("In Istellige bearbeite", systemImage: "gearshape.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.glass)
+            .tint(ArcaTicketsDesign.travelGlassPurple)
         }
         .padding(16)
         .ticketsGlass(
             tint: ArcaTicketsDesign.travelOcean.opacity(0.2),
             in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
-        .sheet(isPresented: $showKofferPIN) {
-            KofferPINSheet()
+    }
+
+    private func openKofferSettings() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            store.pendingSettingsRoute = .kofferPIN
+            store.pendingHolidaySheet = .settings
         }
     }
 
@@ -657,7 +674,6 @@ struct HolidayKofferSheet: View {
 struct HolidayTaxiSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: TicketStore
-    @State private var editingSlot: TaxiContactSlot?
 
     var body: some View {
         NavigationStack {
@@ -666,11 +682,10 @@ struct HolidayTaxiSheet: View {
                     holidaySheetIntro(
                         emoji: "🚕",
                         title: "Taxi — Urlaub & diheime",
-                        subtitle: "Zwei Nummerä, zwei Orte — tipp zum Aarufe, Stift zum Ändere."
+                        subtitle: "Zwei Nummerä, zwei Orte — tipp zum Aarufe. Bearbeite in Istellige."
                     )
 
-                    vacationTaxiCard
-                    homeTaxiCard
+                    taxiQuickActionsCard
                 }
                 .padding(16)
                 .padding(.bottom, 24)
@@ -683,107 +698,100 @@ struct HolidayTaxiSheet: View {
                     Button(ArcaTicketsStrings.done) { dismiss() }
                 }
             }
-            .sheet(item: $editingSlot) { slot in
-                TaxiContactEditorView(slot: slot)
-            }
         }
         .presentationDetents([.medium, .large])
     }
 
-    private var vacationTaxiCard: some View {
-        taxiSectionCard(
-            slot: .vacation,
-            contact: store.taxiContact,
-            icon: "sun.max.fill",
-            sectionTitle: "Taxi im Urlaub",
-            tint: ArcaTicketsDesign.taxiYellowDeep,
-            glassTint: ArcaTicketsDesign.taxiYellow.opacity(0.3)
-        )
-    }
-
-    private var homeTaxiCard: some View {
-        taxiSectionCard(
-            slot: .home,
-            contact: store.homeTaxiContact,
-            icon: "house.fill",
-            sectionTitle: "Taxi diheime",
-            tint: ArcaTicketsDesign.travelOcean,
-            glassTint: ArcaTicketsDesign.travelOcean.opacity(0.2)
-        )
-    }
-
-    private func taxiSectionCard(
-        slot: TaxiContactSlot,
-        contact: TaxiContact,
-        icon: String,
-        sectionTitle: String,
-        tint: Color,
-        glassTint: Color
-    ) -> some View {
+    private var taxiQuickActionsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(sectionTitle, systemImage: icon)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(tint)
-                Spacer()
-                Button {
-                    editingSlot = slot
-                } label: {
-                    Image(systemName: "pencil.circle.fill")
-                        .font(.title3)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(tint)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(sectionTitle) bearbeite")
-            }
+            Label("Schnell aarufe", systemImage: "phone.fill")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(ArcaTicketsDesign.taxiYellowDeep)
 
-            if contact.hasPhoneNumber {
-                taxiCallRow(
-                    title: contactDisplayName(contact, slot: slot),
-                    phone: contact.displayPhoneNumber,
-                    tint: tint
+            VStack(spacing: 10) {
+                taxiRow(
+                    title: displayName(store.taxiContact, fallback: "Taxi im Urlaub"),
+                    phone: store.taxiContact.displayPhoneNumber,
+                    tint: ArcaTicketsDesign.taxiYellowDeep,
+                    missingText: "Kei Urlaubs-Nummer hinterlegt."
                 ) {
-                    if let url = contact.telURL {
+                    if let url = store.taxiContact.telURL {
                         TicketsHaptics.mediumImpact()
                         UIApplication.shared.open(url)
                     }
                 }
-                .contextMenu {
-                    Button {
-                        editingSlot = slot
-                    } label: {
-                        Label("Nummer ändere", systemImage: "pencil")
+
+                taxiRow(
+                    title: displayName(store.homeTaxiContact, fallback: "Taxi diheime"),
+                    phone: store.homeTaxiContact.displayPhoneNumber,
+                    tint: ArcaTicketsDesign.travelOcean,
+                    missingText: "Kei Dihei-Nummer hinterlegt."
+                ) {
+                    if let url = store.homeTaxiContact.telURL {
+                        TicketsHaptics.mediumImpact()
+                        UIApplication.shared.open(url)
                     }
                 }
-            } else {
-                Button {
-                    editingSlot = slot
-                } label: {
-                    Label(slot.emptyCallLabel, systemImage: "plus.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .foregroundStyle(tint)
-                        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .buttonStyle(.plain)
             }
+
+            Button {
+                openTaxiSettings()
+            } label: {
+                Label("In Istellige bearbeite", systemImage: "gearshape.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.glassProminent)
+            .tint(ArcaTicketsDesign.travelGlassPurple)
         }
         .padding(16)
         .ticketsGlass(
-            tint: glassTint,
+            tint: ArcaTicketsDesign.taxiYellow.opacity(0.22),
             in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
     }
 
-    private func contactDisplayName(_ contact: TaxiContact, slot: TaxiContactSlot) -> String {
-        let trimmed = contact.companyName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? slot.defaultDisplayName : trimmed
+    @ViewBuilder
+    private func taxiRow(
+        title: String,
+        phone: String,
+        tint: Color,
+        missingText: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        if phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            HStack(spacing: 12) {
+                Image(systemName: "car.side.fill")
+                    .font(.title3)
+                    .foregroundStyle(tint.opacity(0.9))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    Text(missingText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(14)
+            .background(tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        } else {
+            HolidayTaxiCallRow(title: title, phone: phone, tint: tint, action: action)
+        }
     }
 
-    private func taxiCallRow(title: String, phone: String, tint: Color, action: @escaping () -> Void) -> some View {
-        HolidayTaxiCallRow(title: title, phone: phone, tint: tint, action: action)
+    private func displayName(_ contact: TaxiContact, fallback: String) -> String {
+        let trimmed = contact.companyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
+    }
+
+    private func openTaxiSettings() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            store.pendingSettingsRoute = .taxi
+            store.pendingHolidaySheet = .settings
+        }
     }
 }
 
@@ -862,9 +870,6 @@ private struct HolidayContactCallRow: View {
 struct HolidayBoardingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: TicketStore
-    @State private var showAddTicket = false
-    @State private var ticketToDelete: TicketEntry?
-    @State private var showDeleteConfirm = false
 
     private var boardingTickets: [TicketEntry] {
         store.tickets
@@ -877,38 +882,35 @@ struct HolidayBoardingSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        holidaySheetIntro(
-                            emoji: "🎫",
-                            title: "Boarding Card",
-                            subtitle: "Flug, Zug, Schiff — alles zum Zeige am Schalter. Tipp uf 🗑️ zum Lösche."
-                        )
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    holidaySheetIntro(
+                        emoji: "🎫",
+                        title: "Boarding Card",
+                        subtitle: "Flug, Zug, Schiff — alles zum Zeige am Schalter. Bearbeite in Istellige."
+                    )
 
-                        if boardingTickets.isEmpty {
-                            boardingEmptyState
-                        } else {
-                            ForEach(boardingTickets) { ticket in
-                                BoardingPassCard(ticket: ticket) {
-                                    deleteTicket(ticket)
-                                }
-                            }
+                    if boardingTickets.isEmpty {
+                        boardingEmptyState
+                    } else {
+                        ForEach(boardingTickets) { ticket in
+                            BoardingPassCard(ticket: ticket, allowsEditing: false)
                         }
                     }
-                    .padding(16)
-                    .padding(.bottom, boardingTickets.isEmpty ? 24 : 88)
-                }
 
-                if !boardingTickets.isEmpty {
-                    TicketsFAB(
-                        title: ArcaTicketsStrings.addBoardingPass,
-                        useTravelGradient: true
-                    ) {
-                        showAddTicket = true
+                    Button {
+                        openBoardingSettings()
+                    } label: {
+                        Label("In Istellige verwalte", systemImage: "gearshape.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
                     }
-                    .padding(.bottom, 24)
+                    .buttonStyle(.glassProminent)
+                    .tint(ArcaTicketsDesign.travelGlassPurple)
                 }
+                .padding(16)
+                .padding(.bottom, 24)
             }
             .background(holidaySheetBackground)
             .navigationTitle("Boarding Card")
@@ -917,45 +919,16 @@ struct HolidayBoardingSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ArcaTicketsStrings.done) { dismiss() }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showAddTicket = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel(ArcaTicketsStrings.addBoardingPass)
-                }
-            }
-            .sheet(isPresented: $showAddTicket) {
-                AddTicketView(forHolidayBoarding: true)
-            }
-            .alert(ArcaTicketsStrings.deleteTicketTitle, isPresented: $showDeleteConfirm) {
-                Button(ArcaTicketsStrings.cancel, role: .cancel) { ticketToDelete = nil }
-                Button(ArcaTicketsStrings.delete, role: .destructive) {
-                    if let ticket = ticketToDelete {
-                        TicketsHaptics.delete()
-                        store.deleteTicket(ticket)
-                        store.showToast("Ticket isch weg 🗑️")
-                    }
-                    ticketToDelete = nil
-                }
-            } message: {
-                if let ticket = ticketToDelete {
-                    Text("\u{201E}\(ticket.title)\u{201C} würklich lösche? Das gaht nöd rückgängig.")
-                }
             }
         }
         .presentationDetents([.large])
     }
 
-    private func deleteTicket(_ ticket: TicketEntry) {
-        if ticket.needsDeleteConfirmation {
-            ticketToDelete = ticket
-            showDeleteConfirm = true
-        } else {
-            TicketsHaptics.delete()
-            store.deleteTicket(ticket)
-            store.showToast("Ticket isch weg 🗑️")
+    private func openBoardingSettings() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            store.pendingSettingsRoute = .tickets
+            store.pendingHolidaySheet = .settings
         }
     }
 
@@ -975,9 +948,9 @@ struct HolidayBoardingSheet: View {
                 .multilineTextAlignment(.center)
 
             Button {
-                showAddTicket = true
+                openBoardingSettings()
             } label: {
-                Label(ArcaTicketsStrings.addBoardingPass, systemImage: "plus.circle.fill")
+                Label("In Istellige Tickets hinzuefüege", systemImage: "gearshape.fill")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .frame(maxWidth: .infinity)
             }
