@@ -70,6 +70,7 @@
 
 /* Begin PBXFileReference section */
 		A1C2D3E4F5A64B88C9D0E1F3 /* ArcaTickets.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ArcaTickets.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C3D4E5F6A7488990ABCD010 /* ArcaPet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ArcaPet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ArcaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B2C3D4E5F6A7488990ABCDE1 /* ArcaTicketsWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ArcaTicketsWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA7C670A2F8CEAE0001B326B /* Arca.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Arca.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -86,6 +87,14 @@
 			);
 			target = A1C2D3E4F5A64B88C9D0E1F4 /* ArcaTickets */;
 		};
+		C3D4E5F6A7488990ABCD013 /* Exceptions for "ArcaPet" folder in "ArcaPet" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ArcaPetInfo.plist,
+				PrivacyInfo.xcprivacy,
+			);
+			target = C3D4E5F6A7488990ABCD014 /* ArcaPet */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -100,6 +109,14 @@
 				A1C2D3E4F5A64B88C9D0E1FB /* Exceptions for "ArcaTickets" folder in "ArcaTickets" target */,
 			);
 			path = ArcaTickets;
+			sourceTree = "<group>";
+		};
+		C3D4E5F6A7488990ABCD012 /* ArcaPet */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C3D4E5F6A7488990ABCD013 /* Exceptions for "ArcaPet" folder in "ArcaPet" target */,
+			);
+			path = ArcaPet;
 			sourceTree = "<group>";
 		};
 		B2C3D4E5F6A7488990ABCDE3 /* ArcaTicketsWidget */ = {
@@ -168,6 +185,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C3D4E5F6A7488990ABCD016 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -176,6 +200,7 @@
 			children = (
 				BA7C670C2F8CEAE0001B326B /* arca */,
 				A1C2D3E4F5A64B88C9D0E1F2 /* ArcaTickets */,
+				C3D4E5F6A7488990ABCD012 /* ArcaPet */,
 				BA7C671A2F8CEAE1001B326B /* ArcaTests */,
 				BA7C67242F8CEAE1001B326B /* ArcaUITests */,
 				BA9694F52F8D782200FEB0F9 /* Frameworks */,
@@ -190,6 +215,7 @@
 			children = (
 				BA7C670A2F8CEAE0001B326B /* Arca.app */,
 				A1C2D3E4F5A64B88C9D0E1F3 /* ArcaTickets.app */,
+				C3D4E5F6A7488990ABCD010 /* ArcaPet.app */,
 				BA7C67172F8CEAE1001B326B /* ArcaTests.xctest */,
 				BA7C67212F8CEAE1001B326B /* ArcaUITests.xctest */,
 				AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */,
@@ -230,6 +256,28 @@
 			);
 			productName = ArcaTickets;
 			productReference = A1C2D3E4F5A64B88C9D0E1F3 /* ArcaTickets.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C3D4E5F6A7488990ABCD014 /* ArcaPet */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C3D4E5F6A7488990ABCD01A /* Build configuration list for PBXNativeTarget "ArcaPet" */;
+			buildPhases = (
+				C3D4E5F6A7488990ABCD015 /* Sources */,
+				C3D4E5F6A7488990ABCD016 /* Frameworks */,
+				C3D4E5F6A7488990ABCD017 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C3D4E5F6A7488990ABCD012 /* ArcaPet */,
+			);
+			name = ArcaPet;
+			packageProductDependencies = (
+			);
+			productName = ArcaPet;
+			productReference = C3D4E5F6A7488990ABCD010 /* ArcaPet.app */;
 			productType = "com.apple.product-type.application";
 		};
 		B2C3D4E5F6A7488990ABCDE4 /* ArcaTicketsWidget */ = {
@@ -360,6 +408,9 @@
 					A1C2D3E4F5A64B88C9D0E1F4 = {
 						CreatedOnToolsVersion = 26.4;
 					};
+					C3D4E5F6A7488990ABCD014 = {
+						CreatedOnToolsVersion = 26.4;
+					};
 					B2C3D4E5F6A7488990ABCDE4 = {
 						CreatedOnToolsVersion = 26.4;
 					};
@@ -395,6 +446,7 @@
 			targets = (
 				BA7C67092F8CEAE0001B326B /* Arca */,
 				A1C2D3E4F5A64B88C9D0E1F4 /* ArcaTickets */,
+				C3D4E5F6A7488990ABCD014 /* ArcaPet */,
 				BA7C67162F8CEAE1001B326B /* ArcaTests */,
 				BA7C67202F8CEAE1001B326B /* ArcaUITests */,
 				C91BAF9212454029914B1B98 /* ArcaWidget */,
@@ -446,6 +498,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C3D4E5F6A7488990ABCD017 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -485,6 +544,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BA7C671D2F8CEAE1001B326B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C3D4E5F6A7488990ABCD015 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -563,6 +629,68 @@
 				);
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaTickets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C3D4E5F6A7488990ABCD019 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ArcaPet/ArcaPet.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ArcaPet/ArcaPetInfo.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaPet;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		C3D4E5F6A7488990ABCD018 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ArcaPet/ArcaPet.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LE6TQB8QE5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ArcaPet/ArcaPetInfo.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hansruffin.ArcaPet;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -969,6 +1097,15 @@
 			buildConfigurations = (
 				A1C2D3E4F5A64B88C9D0E1F9 /* Debug */,
 				A1C2D3E4F5A64B88C9D0E1FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C3D4E5F6A7488990ABCD01A /* Build configuration list for PBXNativeTarget "ArcaPet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C3D4E5F6A7488990ABCD018 /* Debug */,
+				C3D4E5F6A7488990ABCD019 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -2,6 +2,7 @@
 *.xcuserstate
 *.xcuserdatad/
 DerivedData/
+.derivedData*/
 *.hmap
 *.ipa
 *.dSYM.zip
@@ -9,3 +10,6 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Obsidian (Arbeitsdateien des docs-Vaults)
+docs/.obsidian/
