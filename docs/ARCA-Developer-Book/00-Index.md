@@ -14,7 +14,7 @@ Schlankes Gerüst für code-nahe Dokumentation der ARCA Suite (Tickets, Holiday,
 ## Vault vs. Repo
 
 > [!info] Zwei Quellen, eine Wahrheit je Thema
-> - **Obsidian-Vault** = Master für Vision, Journal, Ideen, persönliche Notizen → siehe [[Vault-Link]]
+> - **Obsidian-Vault (ARCA Studio)** = Master für Vision, Journal, Ideen, persönliche Notizen → [Studio-Vault öffnen](obsidian://open?vault=Obsidian%20Vault&file=ARCA%20Developer%20Book)
 > - **Dieses Repo** (`docs/ARCA-Developer-Book/`) = code-nahe Spezifikationen, Ist-Stand, Architektur und KI-Aufträge
 
 Wenn Inhalt divergiert: Vision/Story im Vault, technische Fakten hier im Repo.
