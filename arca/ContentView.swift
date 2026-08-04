@@ -403,7 +403,6 @@ struct HomeView: View {
     @State private var quickAccessNote: NoteEntry? = nil
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
-    @AppStorage("homeRecentDocsCollapsed") private var recentDocsCollapsed = true
     @State private var isReorderingHomeFolders = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -444,45 +443,6 @@ struct HomeView: View {
         }
     }
 
-    // 4 Hauptkacheln in fester Reihenfolge (kein Reorder mehr)
-    private let tiles: [HomeTileSpec] = [
-        HomeTileSpec(id: "vault",     section: .vault,     title: "Passwörter", subtitle: "Deine Zugangsdaten\nsicher gespeichert", actionLabel: "Passwort hinzufügen", icon: "lock.fill",      colorTag: 2),
-        HomeTileSpec(id: "documents", section: .documents, title: "Dokumente",  subtitle: "Ausweispapiere,\nDokumente und mehr",    actionLabel: "Dokument hinzufügen", icon: "doc.fill",       colorTag: 5),
-        HomeTileSpec(id: "lists",     section: .lists,     title: "Tasks",      subtitle: "Aufgaben und\nChecklisten",              actionLabel: "Neue Aufgabe",        icon: "checklist",      colorTag: 3),
-        HomeTileSpec(id: "notes",     section: .notes,     title: "Notizen",    subtitle: "Ideen, Texte und\nErinnerungen",         actionLabel: "Neue Notiz",          icon: "note.text",      colorTag: 4),
-    ]
-
-    private func count(for id: String) -> Int {
-        switch id {
-        case "vault":     return store.vaultItems.count
-        case "documents": return store.documents.count
-        case "notes":     return store.notes.count
-        case "lists":     return store.lists.count
-        default:          return 0
-        }
-    }
-
-    private var recentActivities: [HomeActivityItem] {
-        var all: [HomeActivityItem] = []
-        for v in store.vaultItems {
-            all.append(HomeActivityItem(id: v.id, title: v.title, kind: .password, date: v.dateCreated))
-        }
-        for d in store.documents {
-            all.append(HomeActivityItem(id: d.id, title: d.title, kind: .document, date: d.dateAdded))
-        }
-        for n in store.notes {
-            all.append(HomeActivityItem(id: n.id, title: n.title, kind: .note, date: n.dateCreated))
-        }
-        for l in store.lists {
-            all.append(HomeActivityItem(id: l.id, title: l.title, kind: .task, date: l.dateCreated))
-        }
-        return Array(all.sorted(by: { $0.date > $1.date }).prefix(1))
-    }
-
-    private var recentDocuments: [DocumentEntry] {
-        Array(store.documents.sorted { $0.dateAdded > $1.dateAdded }.prefix(4))
-    }
-
     private func documentCount(in category: String) -> Int {
         store.documentCount(in: category)
     }
@@ -509,86 +469,90 @@ struct HomeView: View {
         )
     }
 
-    private var openTaskCount: Int {
-        store.lists.reduce(0) { $0 + $1.items.filter { !$0.isDone }.count }
-    }
+    // ── Der Strom: alle Einträge gemischt, jüngste zuerst ──
+    @State private var streamFilter: HomeStreamFilter = .alle
+    @State private var streamLimit: Int = 25
 
-    private var pillars: [ArcaPillarSpec] {
-        let blitzCount = store.notes.filter(\.isQuickIdea).count
-        return [
-            ArcaPillarSpec(
-                id: "documents", section: .documents,
-                title: "Dokumente", subtitle: "Pass, Tickets, Verträge",
-                icon: "doc.fill", tint: .orange,
-                count: store.documents.count,
-                detail: store.documents.isEmpty ? "Tippen zum Hinzufügen" : "\(store.documentCategories.count) Gruppen"
-            ),
-            ArcaPillarSpec(
-                id: "lists", section: .lists,
-                title: "Tasks", subtitle: "Einkauf & Projekte",
-                icon: "checklist", tint: .green,
-                count: store.lists.count,
-                detail: openTaskCount > 0 ? "\(openTaskCount) offen" : "Neue Liste"
-            ),
-            ArcaPillarSpec(
-                id: "vault", section: .vault,
-                title: "Passwörter", subtitle: "Wichtigste Zugangsdaten",
-                icon: "key.fill", tint: .blue,
-                count: store.vaultItems.count,
-                detail: store.vaultItems.isEmpty ? "Tresor leer" : "Gesichert"
-            ),
-            ArcaPillarSpec(
-                id: "notes", section: .notes,
-                title: "Notizen", subtitle: "Text & Sprache",
-                icon: "note.text", tint: .purple,
-                count: store.notes.count,
-                detail: blitzCount > 0 ? "\(blitzCount) Blitzidee\(blitzCount == 1 ? "" : "n")" : "Diktat möglich"
-            ),
-        ]
-    }
-
-    private let quickActions: [ArcaQuickAction] = [
-        ArcaQuickAction(id: "doc", title: "Dokument", icon: "doc.badge.plus", tint: .orange),
-        ArcaQuickAction(id: "task", title: "Task", icon: "plus.circle", tint: .green),
-        ArcaQuickAction(id: "note", title: "Notiz", icon: "square.and.pencil", tint: .purple),
-        ArcaQuickAction(id: "blitz", title: "Blitzidee", icon: "bolt.fill", tint: .yellow),
-        ArcaQuickAction(id: "qr", title: "QR-Scan", icon: "qrcode.viewfinder", tint: .teal),
-        ArcaQuickAction(id: "vault", title: "Passwort", icon: "key.fill", tint: .blue),
-    ]
-
-    private var quickActionsTopRow: [ArcaQuickAction] { Array(quickActions.prefix(3)) }
-    private var quickActionsBottomRow: [ArcaQuickAction] { Array(quickActions.suffix(3)) }
-
-    private func handleQuickAction(_ id: String) {
-        switch id {
-        case "doc":   selectedSection = .documents
-        case "task":  selectedSection = .lists
-        case "note":  selectedSection = .notes
-        case "blitz": store.pendingQuickCapture = true
-        case "qr":    showQRScanner = true
-        case "vault": selectedSection = .vault
-        default: break
+    private var streamItems: [FavoriteItem] {
+        var all: [FavoriteItem] = []
+        if streamFilter == .alle || streamFilter == .dokumente {
+            for d in store.documents {
+                let ort = d.subcategory.isEmpty ? d.category : "\(d.category) · \(d.subcategory)"
+                all.append(FavoriteItem(id: d.id, kind: .document, title: d.title,
+                                        subtitle: ort, pinned: false, date: d.dateAdded))
+            }
         }
+        if streamFilter == .alle || streamFilter == .notizen {
+            for n in store.notes {
+                all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
+                                        subtitle: n.isQuickIdea ? "Blitzidee" : "Notiz",
+                                        pinned: false, date: n.dateCreated))
+            }
+        }
+        if streamFilter == .alle || streamFilter == .tasks {
+            for l in store.lists {
+                let open = l.items.filter { !$0.isDone }.count
+                all.append(FavoriteItem(id: l.id, kind: .list, title: l.title,
+                                        subtitle: open > 0 ? "\(open) offen" : "Erledigt",
+                                        pinned: false, date: l.dateCreated))
+            }
+        }
+        if streamFilter == .alle || streamFilter == .passwoerter {
+            for v in store.vaultItems {
+                all.append(FavoriteItem(id: v.id, kind: .vault, title: v.title,
+                                        subtitle: "Mit Face ID öffnen", pinned: false, date: v.dateCreated))
+            }
+        }
+        return all.sorted { $0.date > $1.date }
+    }
+
+    private var totalEntryCount: Int {
+        store.vaultItems.count + store.documents.count + store.notes.count + store.lists.count
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            ArcaHomeHeader(
-                vault: store.vaultItems.count,
-                documents: store.documents.count,
-                tasks: store.lists.count,
-                notes: store.notes.count
-            ) {
-                logoTapCount += 1
-                if logoTapCount >= 5 {
-                    logoTapCount = 0
-                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                    showSpiderGame = true
+            // ── Kopf: Marke + Space-Zeile + QR-Scan ──
+            HStack(alignment: .center, spacing: 12) {
+                Button {
+                    logoTapCount += 1
+                    if logoTapCount >= 5 {
+                        logoTapCount = 0
+                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                        showSpiderGame = true
+                    }
+                } label: {
+                    ArcaGlassIcon(size: 40)
                 }
+                .buttonStyle(.plain)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Arca")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                    Text(totalEntryCount == 1 ? "Dein Space · 1 Eintrag" : "Dein Space · \(totalEntryCount) Einträge")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button { showQRScanner = true } label: {
+                    Image(systemName: "qrcode.viewfinder")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
-            .padding(.bottom, 12)
+            .padding(.bottom, 10)
+
+            // ── Suche ganz oben: „Alles durchsuchen" ──
+            HomeSearchBar(text: $searchText, focused: $isSearchFocused)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
 
             if isSearching {
                 ScrollView {
@@ -612,6 +576,12 @@ struct HomeView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
+
+                    // ── Hero: die Frage der App + Blitzidee als Antwort ──
+                    ArcaHeroCard {
+                        store.pendingQuickCapture = true
+                    }
+                    .padding(.horizontal, 20)
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     if !store.favoriteItems.isEmpty {
@@ -637,45 +607,62 @@ struct HomeView: View {
                         .transition(.scale.combined(with: .opacity))
                     }
 
-                    // ── 4 Säulen: Dokumente · Tasks · Passwörter · Notizen ──
-                    VStack(alignment: .leading, spacing: 12) {
-                        LazyVGrid(
-                            columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2),
-                            spacing: 10
-                        ) {
-                            ForEach(pillars) { pillar in
-                                ArcaPillarCard(pillar: pillar) {
-                                    selectedSection = pillar.section
+                    // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
+                    VStack(alignment: .leading, spacing: 10) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(HomeStreamFilter.allCases, id: \.self) { filter in
+                                    Button {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            streamFilter = filter
+                                            streamLimit = 25
+                                        }
+                                    } label: {
+                                        Text(filter.label)
+                                            .font(.system(size: 13, weight: streamFilter == filter ? .semibold : .regular))
+                                            .foregroundStyle(streamFilter == filter ? Color(.systemBackground) : .primary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(
+                                                streamFilter == filter
+                                                    ? Color.primary
+                                                    : Color(.secondarySystemGroupedBackground),
+                                                in: Capsule()
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-
-                    // ── Schnellaktionen ──
-                    VStack(alignment: .leading, spacing: 12) {
-                        ArcaSectionTitle(title: "Schnellaktion")
                             .padding(.horizontal, 20)
-
-                        VStack(spacing: 10) {
-                            HStack(spacing: 10) {
-                                ForEach(quickActionsTopRow) { item in
-                                    ArcaQuickActionChip(action: item) {
-                                        handleQuickAction(item.id)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                            }
-                            HStack(spacing: 10) {
-                                ForEach(quickActionsBottomRow) { item in
-                                    ArcaQuickActionChip(action: item) {
-                                        handleQuickAction(item.id)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                            }
                         }
-                        .padding(.horizontal, 20)
+
+                        if streamItems.isEmpty {
+                            Text("Noch nichts hier — wirf Arca eine Blitzidee zu.")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                        } else {
+                            LazyVStack(spacing: 8) {
+                                ForEach(streamItems.prefix(streamLimit)) { item in
+                                    HomeStreamRow(item: item) {
+                                        openFavorite(item)
+                                    }
+                                }
+                                if streamItems.count > streamLimit {
+                                    Button {
+                                        withAnimation { streamLimit += 25 }
+                                    } label: {
+                                        Text("Mehr anzeigen (\(streamItems.count - streamLimit))")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(.blue)
+                                            .padding(.vertical, 6)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
                     }
 
                     // ── Ordner-Schnellzugriff (gewählte, nicht leere Gruppen) ──
@@ -725,39 +712,6 @@ struct HomeView: View {
                         }
                     }
 
-                    if !recentDocuments.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ArcaCollapsibleSectionHeader(
-                                title: "Zuletzt hinzugefügt",
-                                count: recentDocuments.count,
-                                isCollapsed: recentDocsCollapsed
-                            ) {
-                                withAnimation(.easeInOut(duration: 0.25)) {
-                                    recentDocsCollapsed.toggle()
-                                }
-                            }
-                            .padding(.horizontal, 20)
-
-                            if !recentDocsCollapsed {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(recentDocuments) { doc in
-                                            ArcaRecentDocumentCard(
-                                                title: doc.title,
-                                                typeLabel: doc.type.rawValue,
-                                                tint: categoryColor(doc.category, overrides: store.categoryColors).accent
-                                            ) {
-                                                quickAccessPreviewURL = store.documentURL(for: doc.filename)
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal, 20)
-                                }
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-                        }
-                    }
-
                     Spacer().frame(height: 24)
                     }
                     .frame(maxWidth: homeContentMaxWidth)
@@ -767,9 +721,6 @@ struct HomeView: View {
                 .scrollDismissesKeyboard(.interactively)
             }
 
-            HomeSearchBar(text: $searchText, focused: $isSearchFocused)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
         }
         .background(Color(.systemGroupedBackground))
         .sheet(isPresented: $showQRScanner) {
@@ -1086,6 +1037,157 @@ struct HomeFavoriteCard: View {
                 Label("Aus Favoriten entfernen", systemImage: "star.slash")
             }
         }
+    }
+}
+
+// MARK: - Hero („Was willst du dir merken?")
+
+/// Die Bühne des Space: Begrüßung, die Frage der App und der Blitz
+/// als Antwort. Die Bögen dahinter sind das Arca-Motiv (die Arche).
+struct ArcaHeroCard: View {
+    let action: () -> Void
+
+    private static let blitz = Color(red: 1.00, green: 0.45, blue: 0.10)
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<11:  return "Guten Morgen"
+        case 11..<18: return "Guten Tag"
+        default:      return "Guten Abend"
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            // Arca-Bögen, angeschnitten in der oberen rechten Ecke
+            ZStack {
+                ForEach(0..<3, id: \.self) { ring in
+                    Circle()
+                        .trim(from: 0.5, to: 1.0)
+                        .stroke(Self.blitz.opacity(0.16 + Double(ring) * 0.14),
+                                style: StrokeStyle(lineWidth: 13, lineCap: .round))
+                        .frame(width: 150 - CGFloat(ring) * 44,
+                               height: 150 - CGFloat(ring) * 44)
+                }
+            }
+            .offset(x: 22, y: 46)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(greeting)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Self.blitz)
+                Text("Was willst du dir merken?")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: 200, alignment: .leading)
+
+                Button(action: action) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Blitzidee")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("· auch per Diktat")
+                            .font(.system(size: 11))
+                            .opacity(0.75)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Self.blitz, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+        }
+        .background(Self.blitz.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+// MARK: - Der Strom (gemischte Einträge mit Filter-Chips)
+
+enum HomeStreamFilter: CaseIterable {
+    case alle, dokumente, notizen, tasks, passwoerter
+
+    var label: String {
+        switch self {
+        case .alle:        return "Alle"
+        case .dokumente:   return "Dokumente"
+        case .notizen:     return "Notizen"
+        case .tasks:       return "Tasks"
+        case .passwoerter: return "Passwörter"
+        }
+    }
+}
+
+struct HomeStreamRow: View {
+    let item: FavoriteItem
+    let onTap: () -> Void
+
+    private var icon: String {
+        switch item.kind {
+        case .document: return "doc.fill"
+        case .note:     return "note.text"
+        case .list:     return "checklist"
+        case .vault:    return "lock.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch item.kind {
+        case .document: return .orange
+        case .note:     return .purple
+        case .list:     return .green
+        case .vault:    return .blue
+        }
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 34, height: 34)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text("\(item.subtitle) · \(item.date.formatted(.relative(presentation: .named)))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(item.kind == .vault ? tint : .secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                // Der Tresor bleibt sichtbar verschlossen
+                if item.kind == .vault {
+                    Image(systemName: "eye.slash")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                item.kind == .vault
+                    ? Color(.secondarySystemGroupedBackground).opacity(0.6)
+                    : Color(.secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 12)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
