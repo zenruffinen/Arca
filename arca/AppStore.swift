@@ -98,6 +98,8 @@ final class AppStore: ObservableObject {
     @Published var pendingScrollCategory: String? = nil
     @Published var pendingSection: ArcaSection? = nil
     @Published var pendingQuickCapture: Bool = false
+    /// Blitzidee per „halten": Diktat startet sofort, ohne extra Tipp aufs Mikro
+    @Published var quickCaptureAutoRecord: Bool = false
 
     /// true solange iCloud-Platzhalter noch heruntergeladen werden (UI-Hinweis).
     @Published private(set) var isCloudSyncPending = false

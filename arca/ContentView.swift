@@ -25,7 +25,7 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // Reihenfolge der wischbaren Tabs
-    private let swipeSections: [ArcaSection] = [.home, .spaceHub, .settings]
+    private let swipeSections: [ArcaSection] = [.home, .settings]
 
     var body: some View {
         Group {
@@ -74,8 +74,10 @@ struct ContentView: View {
         .onChange(of: selectedSection) { _, section in
             if section != .documents { store.pendingScrollCategory = nil }
         }
-        .sheet(isPresented: $store.pendingQuickCapture) {
-            QuickCaptureSheet { title, text in
+        .sheet(isPresented: $store.pendingQuickCapture, onDismiss: {
+            store.quickCaptureAutoRecord = false
+        }) {
+            QuickCaptureSheet(autoRecord: store.quickCaptureAutoRecord) { title, text in
                 store.addQuickIdea(title: title, text: text)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
@@ -190,37 +192,35 @@ struct ArcaTabBar: View {
 
     /// Space gilt auch als aktiv, wenn man in einem seiner Bereiche steckt
     private var spaceActive: Bool {
-        [.spaceHub, .vault, .documents, .notes, .lists].contains(selected)
+        [.home, .spaceHub, .vault, .documents, .notes, .lists].contains(selected)
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            tabButton(icon: "house", label: "Home", active: selected == .home) {
+            tabButton(icon: "square.grid.2x2", label: "Space", active: spaceActive) {
                 selected = .home
             }
 
-            // Erfassen: der schwebende Plus-Knopf — ein Tipp, und Arca merkt es sich
+            // Blitzidee in der Mitte: ein Tipp, und Arca merkt es sich
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 store.pendingQuickCapture = true
             } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
-                    .background(ArcaWarm.terrakotta, in: Circle())
-                    .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
+                VStack(spacing: 4) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .frame(height: 26)
+                    Text("Blitzidee")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.primary.opacity(0.55))
+                }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
-            .offset(y: -16)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Erfassen")
+            .accessibilityLabel("Blitzidee erfassen")
 
-            tabButton(icon: "square.grid.2x2", label: "Space", active: spaceActive) {
-                selected = .spaceHub
-            }
-
-            tabButton(icon: "ellipsis.circle", label: "Mehr", active: selected == .settings) {
+            tabButton(icon: "gearshape", label: "Mehr", active: selected == .settings) {
                 selected = .settings
             }
         }
@@ -435,6 +435,31 @@ struct HomeView: View {
         horizontalSizeClass == .regular ? 700 : .infinity
     }
 
+    /// Bereichs-Knopf: kompakte Kachel für den Sprung in ein Zimmer.
+    private func bereichButton(_ title: String, icon: String, tint: Color, section: ArcaSection) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                selectedSection = section
+            }
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 34, height: 34)
+                    .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+
     /// Favorit antippen: Dokument → Vorschau, Notiz → Blatt,
     /// Liste/Passwort → in die jeweilige Sektion (Tresor bleibt verschlossen).
     private func openFavorite(_ fav: FavoriteItem) {
@@ -560,8 +585,8 @@ struct HomeView: View {
             .padding(.top, 8)
             .padding(.bottom, 10)
 
-            // ── Hero: Begrüßung, die Frage der App und die große Suche ──
-            ArcaHeroCard(name: userName, searchText: $searchText, searchFocused: $isSearchFocused)
+            // ── Suche ganz oben: „Alles durchsuchen" ──
+            HomeSearchBar(text: $searchText, focused: $isSearchFocused)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
 
@@ -587,6 +612,15 @@ struct HomeView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
+
+                    // ── Hero: Begrüßung nach Tageszeit + die Frage der App ──
+                    ArcaHeroCard(name: userName) {
+                        store.pendingQuickCapture = true
+                    } onDictate: {
+                        store.quickCaptureAutoRecord = true
+                        store.pendingQuickCapture = true
+                    }
+                    .padding(.horizontal, 20)
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     if !store.favoriteItems.isEmpty {
@@ -623,18 +657,10 @@ struct HomeView: View {
                                             streamLimit = 25
                                         }
                                     } label: {
-                                        Group {
-                                            // Passwörter zeigen nur das Schloss (Brief 04.08.)
-                                            if filter == .passwoerter {
-                                                Image(systemName: "lock.fill")
-                                                    .font(.system(size: 13, weight: .semibold))
-                                            } else {
-                                                Text(filter.label)
-                                                    .font(.system(size: 13, weight: streamFilter == filter ? .semibold : .regular))
-                                            }
-                                        }
+                                        Text(filter.label)
+                                            .font(.system(size: 13, weight: streamFilter == filter ? .semibold : .regular))
                                         .foregroundStyle(streamFilter == filter ? Color(.systemBackground) : .primary)
-                                        .padding(.horizontal, filter == .passwoerter ? 13 : 13)
+                                        .padding(.horizontal, 13)
                                         .padding(.vertical, 7)
                                         .background {
                                             if streamFilter == filter {
@@ -682,6 +708,19 @@ struct HomeView: View {
                             }
                             .padding(.horizontal, 20)
                         }
+                    }
+
+                    // ── Bereiche: der gezielte Griff ins Zimmer ──
+                    VStack(alignment: .leading, spacing: 10) {
+                        ArcaSectionTitle(title: "Bereiche")
+                            .padding(.horizontal, 20)
+                        HStack(spacing: 8) {
+                            bereichButton("Dokumente", icon: "doc.fill", tint: .orange, section: .documents)
+                            bereichButton("Notizen", icon: "note.text", tint: .purple, section: .notes)
+                            bereichButton("Tasks", icon: "checklist", tint: .green, section: .lists)
+                            bereichButton("Passwörter", icon: "lock.fill", tint: .blue, section: .vault)
+                        }
+                        .padding(.horizontal, 20)
                     }
 
                     // ── Ordner-Schnellzugriff (gewählte, nicht leere Gruppen) ──
@@ -1015,8 +1054,8 @@ struct HomeFavoriteCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            // Wallet-Stil (Brief 04.08.): weiße Karte, nur das Icon trägt Farbe,
-            // alle Karten gleich groß, viel Luft
+            // Sanft getönte Karten wie in der Skizze — die Typ-Farbe trägt
+            // Hintergrund-Hauch, Icon und (bei „fest") Rand + Plakette
             VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 17, weight: .semibold))
@@ -1033,23 +1072,26 @@ struct HomeFavoriteCard: View {
             }
             .padding(12)
             .frame(width: 124, height: 92, alignment: .leading)
-            .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 14))
+            .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(item.pinned ? ArcaWarm.terrakotta.opacity(0.55) : ArcaWarm.haarlinie,
-                                  lineWidth: item.pinned ? 1.5 : 1)
+                    .strokeBorder(item.pinned ? tint.opacity(0.65) : Color.clear, lineWidth: 1.5)
             )
             .overlay(alignment: .topTrailing) {
                 if item.pinned {
-                    Image(systemName: "pin.fill")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(4)
-                        .background(ArcaWarm.terrakotta, in: Circle())
-                        .offset(x: 5, y: -5)
+                    HStack(spacing: 3) {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 7, weight: .bold))
+                        Text("fest")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(tint, in: Capsule())
+                    .offset(x: 4, y: -8)
                 }
             }
-            .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -1065,25 +1107,26 @@ struct HomeFavoriteCard: View {
     }
 }
 
-// MARK: - Hero („Was möchtest du heute finden?")
+// MARK: - Hero („Was willst du dir merken?")
 
-/// Die Bühne des Space: Begrüßung, die Frage der App und die große
-/// Suche als Antwort. Die Bögen dahinter sind das Arca-Motiv (die
-/// Arche) — dezent, 10–15 % Deckkraft (Redesign-Brief 04.08.).
+/// Die Bühne des Space: Begrüßung nach Tageszeit (mit Namen und einem
+/// kleinen Anstoß), die Frage der App und der Blitz als Antwort.
+/// Die Bögen dahinter sind das Arca-Motiv (die Arche).
 struct ArcaHeroCard: View {
     let name: String
-    @Binding var searchText: String
-    var searchFocused: FocusState<Bool>.Binding
+    let onCapture: () -> Void
+    let onDictate: () -> Void
 
     private var greeting: String {
         let base: String
+        let anstoss: String
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<11:  base = "Guten Morgen"
-        case 11..<18: base = "Guten Tag"
-        default:      base = "Guten Abend"
+        case 5..<11:  base = "Guten Morgen"; anstoss = "neue Ideen?"
+        case 11..<18: base = "Guten Tag";    anstoss = "was gibt's Neues?"
+        default:      base = "Guten Abend";  anstoss = "noch ein Gedanke?"
         }
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return n.isEmpty ? base : "\(base), \(n)"
+        return n.isEmpty ? "\(base) — \(anstoss)" : "\(base), \(n) — \(anstoss)"
     }
 
     var body: some View {
@@ -1093,25 +1136,46 @@ struct ArcaHeroCard: View {
                 ForEach(0..<3, id: \.self) { ring in
                     Circle()
                         .trim(from: 0.5, to: 1.0)
-                        .stroke(ArcaWarm.terrakotta.opacity(0.10 + Double(ring) * 0.025),
+                        .stroke(ArcaWarm.terrakotta.opacity(0.18 + Double(ring) * 0.16),
                                 style: StrokeStyle(lineWidth: 13, lineCap: .round))
                         .frame(width: 150 - CGFloat(ring) * 44,
                                height: 150 - CGFloat(ring) * 44)
                 }
             }
-            .offset(x: 26, y: 40)
+            .offset(x: 24, y: 42)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(greeting)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(ArcaWarm.terrakotta)
-                Text("Was möchtest du heute finden?")
+                Text("Was willst du dir merken?")
                     .font(.system(size: 21, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
-                    .frame(maxWidth: 230, alignment: .leading)
+                    .frame(maxWidth: 210, alignment: .leading)
 
-                HomeSearchBar(text: $searchText, focused: searchFocused)
-                    .padding(.top, 10)
+                Button(action: onCapture) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Blitzidee")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("halten = Diktat")
+                            .font(.system(size: 11))
+                            .opacity(0.75)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 10)
+                    .background(ArcaWarm.terrakotta, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        onDictate()
+                    }
+                )
+                .padding(.top, 12)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
@@ -6896,6 +6960,7 @@ struct DocumentCategoryManagerView: View {
 // MARK: - QuickCaptureSheet
 
 struct QuickCaptureSheet: View {
+    var autoRecord: Bool = false
     let onSave: (String, String) -> Void
 
     private let blitzOrange = Color(red: 1.00, green: 0.45, blue: 0.10)
@@ -6996,6 +7061,10 @@ struct QuickCaptureSheet: View {
                 }
 
                 Spacer()
+            }
+            .onAppear {
+                // „Halten = Diktat": Aufnahme startet sofort
+                if autoRecord && !speech.isRecording { beginRecording() }
             }
             .navigationTitle("⚡ Blitzideen")
             .navigationBarTitleDisplayMode(.inline)
