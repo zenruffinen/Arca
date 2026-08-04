@@ -289,7 +289,8 @@ struct ArcaFolderQuickCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .arcaCardBackground(tint: tint, cornerRadius: ArcaDesign.chipRadius)
+        .glassEffect(.regular.tint(tint.opacity(0.10)),
+                     in: RoundedRectangle(cornerRadius: ArcaDesign.chipRadius))
 
         if let action {
             Button(action: action) { content }.buttonStyle(.plain)

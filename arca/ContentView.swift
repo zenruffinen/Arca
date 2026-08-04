@@ -465,7 +465,7 @@ struct HomeView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(tint)
                     .frame(width: 44, height: 44)
-                    .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 13))
+                    .glassEffect(.regular.tint(tint.opacity(0.14)), in: RoundedRectangle(cornerRadius: 13))
                 Text(title)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
@@ -489,8 +489,7 @@ struct HomeView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(tint)
                     .frame(width: 34, height: 34)
-                    .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
                 Text(title)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
@@ -537,8 +536,7 @@ struct HomeView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(8)
-                        .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
                 }
@@ -598,8 +596,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
         .padding(.leading, 16)
     }
 
@@ -800,8 +797,7 @@ struct HomeView: View {
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 14))
-                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
                             .padding(.horizontal, 20)
                         } else {
                             ScrollView(.horizontal, showsIndicators: false) {
@@ -1119,8 +1115,7 @@ struct HomeSearchBar: View {
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 10)
-        .background(ArcaWarm.karte, in: Capsule())
-        .overlay(Capsule().strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+        .glassEffect(.regular, in: Capsule())
     }
 }
 
@@ -1372,7 +1367,7 @@ struct HomeFavoriteCard: View {
             }
             .padding(12)
             .frame(width: breite, height: 118, alignment: .leading)
-            .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+            .glassEffect(.regular.tint(tint.opacity(0.14)), in: RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
                     .strokeBorder(item.pinned ? tint.opacity(0.65) : Color.clear, lineWidth: 1.5)
@@ -1563,13 +1558,11 @@ struct HomeStreamRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(
-                item.kind == .vault ? ArcaWarm.creme : ArcaWarm.karte,
+            .glassEffect(
+                item.kind == .vault
+                    ? .regular.tint(ArcaWarm.creme.opacity(0.65))
+                    : .regular,
                 in: RoundedRectangle(cornerRadius: 14)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(ArcaWarm.haarlinie, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -1653,12 +1646,7 @@ struct SpaceHubView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(14)
-                        .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 16))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .strokeBorder(ArcaWarm.haarlinie, lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
                     }
                     .buttonStyle(.plain)
                 }
