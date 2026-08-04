@@ -403,10 +403,6 @@ struct HomeView: View {
     @State private var quickAccessNote: NoteEntry? = nil
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
-    // Schnellzugriff (Quick Access)
-    @AppStorage("quickAccessKind") private var quickAccessKind: String = ""
-    @AppStorage("quickAccessId") private var quickAccessId: String = ""
-    @AppStorage("quickAccessTitle") private var quickAccessTitle: String = ""
     @AppStorage("homeRecentDocsCollapsed") private var recentDocsCollapsed = true
     @State private var isReorderingHomeFolders = false
 
@@ -423,36 +419,28 @@ struct HomeView: View {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var hasQuickAccess: Bool { !quickAccessKind.isEmpty }
-
     /// Auf dem iPad (regular) wird der Startinhalt zentriert und in der Breite
     /// begrenzt, damit er auf großen Bildschirmen nicht gestreckt/leer wirkt.
     private var homeContentMaxWidth: CGFloat {
         horizontalSizeClass == .regular ? 700 : .infinity
     }
 
-    private func handleQuickAccessTap() {
-        if quickAccessKind == "doc" {
-            if let uuid = UUID(uuidString: quickAccessId),
-               let doc = store.documents.first(where: { $0.id == uuid }) {
+    /// Favorit antippen: Dokument → Vorschau, Notiz → Blatt,
+    /// Liste/Passwort → in die jeweilige Sektion (Tresor bleibt verschlossen).
+    private func openFavorite(_ fav: FavoriteItem) {
+        switch fav.kind {
+        case .document:
+            if let doc = store.documents.first(where: { $0.id == fav.id }) {
                 quickAccessPreviewURL = store.documentURL(for: doc.filename)
-            } else {
-                store.unpinQuickAccess()
             }
-        } else if quickAccessKind == "category" {
-            if store.documentCategories.contains(quickAccessId) {
-                store.pendingScrollCategory = quickAccessId
-                selectedSection = .documents
-            } else {
-                store.unpinQuickAccess()
-            }
-        } else if quickAccessKind == "note" {
-            if let uuid = UUID(uuidString: quickAccessId),
-               let note = store.notes.first(where: { $0.id == uuid }) {
+        case .note:
+            if let note = store.notes.first(where: { $0.id == fav.id }) {
                 quickAccessNote = note
-            } else {
-                store.unpinQuickAccess()
             }
+        case .list:
+            selectedSection = .lists
+        case .vault:
+            selectedSection = .vault
         }
     }
 
@@ -625,14 +613,27 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
 
-                    if hasQuickAccess {
-                        QuickAccessTile(
-                            title: quickAccessTitle,
-                            kind: quickAccessKind,
-                            onTap: handleQuickAccessTap,
-                            onUnpin: { store.unpinQuickAccess() }
-                        )
-                        .padding(.horizontal, 20)
+                    // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
+                    if !store.favoriteItems.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ArcaSectionTitle(title: "Favoriten")
+                                .padding(.horizontal, 20)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(store.favoriteItems) { fav in
+                                        HomeFavoriteCard(item: fav) {
+                                            openFavorite(fav)
+                                        } onTogglePin: {
+                                            store.toggleFavoritePin(kind: fav.kind, id: fav.id)
+                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                        } onRemove: {
+                                            store.toggleFavorite(kind: fav.kind, id: fav.id)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
                         .transition(.scale.combined(with: .opacity))
                     }
 
@@ -783,7 +784,7 @@ struct HomeView: View {
                 .environmentObject(store)
         }
         .quickLookPreview($quickAccessPreviewURL)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: hasQuickAccess)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: store.favoriteItems.count)
         .animation(.easeInOut(duration: 0.2), value: isSearching)
     }
 }
@@ -1017,70 +1018,72 @@ struct SearchResultRow: View {
 
 // MARK: - Quick Access Tile
 
-struct QuickAccessTile: View {
-    let title: String
-    let kind: String
+struct HomeFavoriteCard: View {
+    let item: FavoriteItem
     let onTap: () -> Void
-    let onUnpin: () -> Void
+    let onTogglePin: () -> Void
+    let onRemove: () -> Void
 
     private var icon: String {
-        switch kind {
-        case "doc":      return "doc.fill"
-        case "category": return "folder.fill"
-        case "note":     return "note.text"
-        default:         return "star.fill"
+        switch item.kind {
+        case .document: return "doc.fill"
+        case .note:     return "note.text"
+        case .list:     return "checklist"
+        case .vault:    return "lock.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch item.kind {
+        case .document: return .orange
+        case .note:     return .purple
+        case .list:     return .green
+        case .vault:    return .blue
         }
     }
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 12) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
+            VStack(alignment: .leading, spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(tint)
+                Text(item.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(item.subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .padding(10)
+            .frame(width: 118, alignment: .leading)
+            .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(item.pinned ? tint.opacity(0.7) : Color.clear, lineWidth: 1.5)
+            )
+            .overlay(alignment: .topTrailing) {
+                if item.pinned {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 11))
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundStyle(Color(red: 1.0, green: 0.85, blue: 0.0))
-                        .padding(3)
-                        .background(.white, in: Circle())
+                        .padding(4)
+                        .background(tint, in: Circle())
                         .offset(x: 5, y: -5)
                 }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("SCHNELLZUGRIFF")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .tracking(1.0)
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                }
-                Spacer()
-                Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white)
             }
-            .padding(12)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.00, green: 0.55, blue: 0.10),  // bright orange
-                        Color(red: 0.95, green: 0.25, blue: 0.30)   // red-orange
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .shadow(color: Color.orange.opacity(0.45), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button(role: .destructive, action: onUnpin) {
-                Label("Lösen", systemImage: "pin.slash")
+            Button(action: onTogglePin) {
+                Label(item.pinned ? "Nadel lösen" : "Fest anpinnen",
+                      systemImage: item.pinned ? "pin.slash" : "pin.fill")
+            }
+            Divider()
+            Button(role: .destructive, action: onRemove) {
+                Label("Aus Favoriten entfernen", systemImage: "star.slash")
             }
         }
     }
@@ -1855,8 +1858,8 @@ struct VaultView: View {
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
                             } label: {
-                                Label(item.isFavorite ? "Lösen" : "Anpinnen",
-                                      systemImage: item.isFavorite ? "pin.slash" : "pin.fill")
+                                Label(item.isFavorite ? "Aus Favoriten" : "Favorit",
+                                      systemImage: item.isFavorite ? "star.slash" : "star.fill")
                             }
                             Divider()
                             Button(role: .destructive) {
@@ -1873,8 +1876,8 @@ struct VaultView: View {
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
                             } label: {
-                                Label(item.isFavorite ? "Lösen" : "Anpinnen",
-                                      systemImage: item.isFavorite ? "pin.slash" : "pin.fill")
+                                Label(item.isFavorite ? "Aus Favoriten" : "Favorit",
+                                      systemImage: item.isFavorite ? "star.slash" : "star.fill")
                             }
                             .tint(.orange)
                             Button {
@@ -2191,9 +2194,9 @@ struct VaultRow: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
-            // Angepinnt
+            // Favorit
             if item.isFavorite {
-                Image(systemName: "pin.fill")
+                Image(systemName: "star.fill")
                     .font(.system(size: 9))
                     .foregroundStyle(.orange.opacity(0.8))
             }
@@ -2966,9 +2969,12 @@ struct DocumentsView: View {
         }
         .swipeActions(edge: .leading) {
             Button {
-                store.pinDocumentForQuickAccess(doc)
+                store.toggleFavorite(kind: .document, id: doc.id)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } label: { Label("Anpinnen", systemImage: "pin.fill") }
+            } label: {
+                Label(doc.isFavorite ? "Entfernen" : "Favorit",
+                      systemImage: doc.isFavorite ? "star.slash" : "star.fill")
+            }
             .tint(.orange)
             Button {
                 renameText = doc.title
@@ -3046,10 +3052,11 @@ struct DocumentsView: View {
             }
             Divider()
             Button {
-                store.pinDocumentForQuickAccess(doc)
+                store.toggleFavorite(kind: .document, id: doc.id)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } label: {
-                Label("Auf Start anpinnen", systemImage: "pin.fill")
+                Label(doc.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten",
+                      systemImage: doc.isFavorite ? "star.slash" : "star.fill")
             }
             Divider()
             Button(role: .destructive) {
@@ -3142,13 +3149,6 @@ struct DocumentsView: View {
                                         } else {
                                             Label("In Schnellansicht anzeigen", systemImage: "house")
                                         }
-                                    }
-
-                                    Button {
-                                        store.pinCategoryForQuickAccess(category)
-                                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                                    } label: {
-                                        Label("Auf Start anpinnen", systemImage: "pin.fill")
                                     }
 
                                     Divider()
@@ -4273,10 +4273,11 @@ struct NotesView: View {
                             }
                             Divider()
                             Button {
-                                store.pinNoteForQuickAccess(note)
+                                store.toggleFavorite(kind: .note, id: note.id)
                                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                             } label: {
-                                Label("Auf Start anpinnen", systemImage: "pin.fill")
+                                Label(note.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten",
+                                      systemImage: note.isFavorite ? "star.slash" : "star.fill")
                             }
                             Divider()
                             Button(role: .destructive) {
@@ -4980,8 +4981,8 @@ struct ListsView: View {
                                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     }
                                 } label: {
-                                    Label(list.isFavorite ? "Lösen" : "Anpinnen",
-                                          systemImage: list.isFavorite ? "pin.slash" : "pin.fill")
+                                    Label(list.isFavorite ? "Aus Favoriten" : "Favorit",
+                                          systemImage: list.isFavorite ? "star.slash" : "star.fill")
                                 }
                                 Divider()
                                 Button(role: .destructive) {
@@ -5008,8 +5009,8 @@ struct ListsView: View {
                                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     }
                                 } label: {
-                                    Label(list.isFavorite ? "Lösen" : "Anpinnen",
-                                          systemImage: list.isFavorite ? "pin.slash" : "pin.fill")
+                                    Label(list.isFavorite ? "Aus Favoriten" : "Favorit",
+                                          systemImage: list.isFavorite ? "star.slash" : "star.fill")
                                 }
                                 .tint(.orange)
                                 Button {
@@ -5176,7 +5177,7 @@ struct ListRow: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             if list.isFavorite {
-                Image(systemName: "pin.fill")
+                Image(systemName: "star.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.orange)
             }

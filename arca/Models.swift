@@ -25,6 +25,7 @@ struct VaultEntry: Identifiable, Codable, Hashable {
     var password: String
     var url: String = ""
     var isFavorite: Bool = false
+    var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
     var dateCreated: Date = Date()
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
 
@@ -55,6 +56,7 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         password    = try c.decode(String.self,          forKey: .password)
         url         = try c.decodeIfPresent(String.self, forKey: .url)         ?? ""
         isFavorite  = try c.decodeIfPresent(Bool.self,   forKey: .isFavorite)  ?? false
+        favoritePinned = try c.decodeIfPresent(Bool.self, forKey: .favoritePinned) ?? false
         dateCreated = try c.decodeIfPresent(Date.self,   forKey: .dateCreated) ?? Date()
         colorTag    = try c.decodeIfPresent(Int.self,    forKey: .colorTag)    ?? 0
     }
@@ -66,6 +68,7 @@ struct NoteEntry: Identifiable, Codable, Hashable {
     var text: String
     var isPinned: Bool = false
     var isFavorite: Bool = false
+    var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
     var dateCreated: Date = Date()
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
     var isQuickIdea: Bool = false  // Blitzidee via Action Button
@@ -96,6 +99,7 @@ struct NoteEntry: Identifiable, Codable, Hashable {
         text         = try c.decode(String.self,          forKey: .text)
         isPinned     = try c.decodeIfPresent(Bool.self,   forKey: .isPinned)     ?? false
         isFavorite   = try c.decodeIfPresent(Bool.self,   forKey: .isFavorite)   ?? false
+        favoritePinned = try c.decodeIfPresent(Bool.self, forKey: .favoritePinned) ?? false
         dateCreated  = try c.decodeIfPresent(Date.self,   forKey: .dateCreated)  ?? Date()
         colorTag     = try c.decodeIfPresent(Int.self,    forKey: .colorTag)     ?? 0
         isQuickIdea  = try c.decodeIfPresent(Bool.self,   forKey: .isQuickIdea)  ?? false
@@ -123,6 +127,8 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
     var dateAdded: Date
     var category: String = "Sonstiges"
     var subcategory: String = ""
+    var isFavorite: Bool = false
+    var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
 
     init(id: UUID = UUID(), title: String, type: DocumentType, filename: String, dateAdded: Date, category: String = "Sonstiges", subcategory: String = "") {
         self.id = id; self.title = title; self.type = type; self.filename = filename
@@ -138,6 +144,8 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
         dateAdded   = try c.decodeIfPresent(Date.self,         forKey: .dateAdded)   ?? Date()
         category    = try c.decodeIfPresent(String.self,       forKey: .category)    ?? "Sonstiges"
         subcategory = try c.decodeIfPresent(String.self,       forKey: .subcategory) ?? ""
+        isFavorite  = try c.decodeIfPresent(Bool.self,         forKey: .isFavorite)  ?? false
+        favoritePinned = try c.decodeIfPresent(Bool.self,      forKey: .favoritePinned) ?? false
     }
 }
 
@@ -161,6 +169,7 @@ struct ListEntry: Identifiable, Codable, Hashable {
     var title: String
     var items: [ChecklistItem] = []
     var isFavorite: Bool = false
+    var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
     var dateCreated: Date = Date()
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
 
@@ -185,6 +194,7 @@ struct ListEntry: Identifiable, Codable, Hashable {
         title       = try c.decode(String.self,                    forKey: .title)
         items       = try c.decodeIfPresent([ChecklistItem].self,  forKey: .items)       ?? []
         isFavorite  = try c.decodeIfPresent(Bool.self,             forKey: .isFavorite)  ?? false
+        favoritePinned = try c.decodeIfPresent(Bool.self,          forKey: .favoritePinned) ?? false
         dateCreated = try c.decodeIfPresent(Date.self,             forKey: .dateCreated) ?? Date()
         colorTag    = try c.decodeIfPresent(Int.self,              forKey: .colorTag)    ?? 0
     }
@@ -194,4 +204,21 @@ struct ListEntry: Identifiable, Codable, Hashable {
 struct ArcaList: Codable {
     var list: ListEntry
     var exportDate: Date
+}
+
+// MARK: - Favoriten
+
+/// Vereinheitlichter Favorit für die Start-Reihe — reines Anzeige-Modell,
+/// gespeist aus den vier Beständen (isFavorite/favoritePinned dort).
+enum FavoriteKind: String {
+    case document, note, list, vault
+}
+
+struct FavoriteItem: Identifiable, Hashable {
+    let id: UUID
+    let kind: FavoriteKind
+    let title: String
+    let subtitle: String
+    let pinned: Bool
+    let date: Date
 }

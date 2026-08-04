@@ -1221,10 +1221,6 @@ final class AppStore: ObservableObject {
         if let idx = homeFolderQuickView.firstIndex(of: old) {
             homeFolderQuickView[idx] = trimmed
         }
-        if UserDefaults.standard.string(forKey: "quickAccessKind") == "category",
-           UserDefaults.standard.string(forKey: "quickAccessId") == old {
-            pinCategoryForQuickAccess(trimmed)
-        }
     }
 
     func deleteCategory(_ name: String) {
@@ -1442,6 +1438,7 @@ final class AppStore: ObservableObject {
         } else {
             migrateHomeFolderQuickViewIfNeeded()
         }
+        migrateQuickAccessToFavorites()
         updateWidgetData()
     }
 
@@ -1485,34 +1482,95 @@ final class AppStore: ObservableObject {
         }
     }
 
-    // MARK: - Schnellzugriff
+    // MARK: - Favoriten (Stern auf jedem Eintrag; „fest" = ganz vorn)
 
-    func pinDocumentForQuickAccess(_ doc: DocumentEntry) {
-        UserDefaults.standard.set("doc",            forKey: "quickAccessKind")
-        UserDefaults.standard.set(doc.id.uuidString, forKey: "quickAccessId")
-        UserDefaults.standard.set(doc.title,         forKey: "quickAccessTitle")
-        updateWidgetData()
+    /// Die Favoriten-Reihe auf dem Start: alle Typen gemischt,
+    /// festgepinnte zuerst, danach die jüngsten vorn.
+    var favoriteItems: [FavoriteItem] {
+        var all: [FavoriteItem] = []
+        for d in documents where d.isFavorite {
+            all.append(FavoriteItem(id: d.id, kind: .document, title: d.title,
+                                    subtitle: d.type.rawValue, pinned: d.favoritePinned, date: d.dateAdded))
+        }
+        for n in notes where n.isFavorite {
+            all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
+                                    subtitle: n.isQuickIdea ? "Blitzidee" : "Notiz",
+                                    pinned: n.favoritePinned, date: n.dateCreated))
+        }
+        for l in lists where l.isFavorite {
+            let open = l.items.filter { !$0.isDone }.count
+            all.append(FavoriteItem(id: l.id, kind: .list, title: l.title,
+                                    subtitle: open > 0 ? "\(open) offen" : "Erledigt",
+                                    pinned: l.favoritePinned, date: l.dateCreated))
+        }
+        for v in vaultItems where v.isFavorite {
+            all.append(FavoriteItem(id: v.id, kind: .vault, title: v.title,
+                                    subtitle: "Face ID", pinned: v.favoritePinned, date: v.dateCreated))
+        }
+        return all.sorted { a, b in
+            if a.pinned != b.pinned { return a.pinned }
+            return a.date > b.date
+        }
     }
 
-    func pinCategoryForQuickAccess(_ category: String) {
-        UserDefaults.standard.set("category", forKey: "quickAccessKind")
-        UserDefaults.standard.set(category,   forKey: "quickAccessId")
-        UserDefaults.standard.set(category,   forKey: "quickAccessTitle")
-        updateWidgetData()
+    func toggleFavorite(kind: FavoriteKind, id: UUID) {
+        switch kind {
+        case .document:
+            if let i = documents.firstIndex(where: { $0.id == id }) {
+                documents[i].isFavorite.toggle()
+                if !documents[i].isFavorite { documents[i].favoritePinned = false }
+            }
+        case .note:
+            if let i = notes.firstIndex(where: { $0.id == id }) {
+                notes[i].isFavorite.toggle()
+                if !notes[i].isFavorite { notes[i].favoritePinned = false }
+            }
+        case .list:
+            if let i = lists.firstIndex(where: { $0.id == id }) {
+                lists[i].isFavorite.toggle()
+                if !lists[i].isFavorite { lists[i].favoritePinned = false }
+            }
+        case .vault:
+            if let i = vaultItems.firstIndex(where: { $0.id == id }) {
+                vaultItems[i].isFavorite.toggle()
+                if !vaultItems[i].isFavorite { vaultItems[i].favoritePinned = false }
+            }
+        }
     }
 
-    func pinNoteForQuickAccess(_ note: NoteEntry) {
-        UserDefaults.standard.set("note",                                           forKey: "quickAccessKind")
-        UserDefaults.standard.set(note.id.uuidString,                              forKey: "quickAccessId")
-        UserDefaults.standard.set(note.title.isEmpty ? "Notiz" : note.title,       forKey: "quickAccessTitle")
-        updateWidgetData()
+    func toggleFavoritePin(kind: FavoriteKind, id: UUID) {
+        switch kind {
+        case .document:
+            if let i = documents.firstIndex(where: { $0.id == id }) { documents[i].favoritePinned.toggle() }
+        case .note:
+            if let i = notes.firstIndex(where: { $0.id == id }) { notes[i].favoritePinned.toggle() }
+        case .list:
+            if let i = lists.firstIndex(where: { $0.id == id }) { lists[i].favoritePinned.toggle() }
+        case .vault:
+            if let i = vaultItems.firstIndex(where: { $0.id == id }) { vaultItems[i].favoritePinned.toggle() }
+        }
     }
 
-    func unpinQuickAccess() {
-        UserDefaults.standard.set("", forKey: "quickAccessKind")
-        UserDefaults.standard.set("", forKey: "quickAccessId")
-        UserDefaults.standard.set("", forKey: "quickAccessTitle")
-        updateWidgetData()
+    /// Der alte Einzel-Schnellzugriff wird einmalig zum festgepinnten
+    /// Favoriten (Dokument/Notiz) bzw. zur Ordner-Schnellansicht (Gruppe).
+    private func migrateQuickAccessToFavorites() {
+        let ud = UserDefaults.standard
+        guard let kind = ud.string(forKey: "quickAccessKind"), !kind.isEmpty else { return }
+        let idString = ud.string(forKey: "quickAccessId") ?? ""
+        if kind == "doc", let id = UUID(uuidString: idString),
+           let idx = documents.firstIndex(where: { $0.id == id }) {
+            documents[idx].isFavorite = true
+            documents[idx].favoritePinned = true
+        } else if kind == "note", let id = UUID(uuidString: idString),
+                  let idx = notes.firstIndex(where: { $0.id == id }) {
+            notes[idx].isFavorite = true
+            notes[idx].favoritePinned = true
+        } else if kind == "category",
+                  documentCategories.contains(idString),
+                  !homeFolderQuickView.contains(idString) {
+            homeFolderQuickView.append(idString)
+        }
+        ["quickAccessKind", "quickAccessId", "quickAccessTitle"].forEach { ud.removeObject(forKey: $0) }
     }
 
     func addVaultEntry(title: String, username: String, password: String, url: String = "", colorTag: Int = 0) {
