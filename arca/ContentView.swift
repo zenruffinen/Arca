@@ -795,6 +795,10 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
                     .id("seitenAnfang")
 
+                    // ── Heute: der Blick in den Kalender ──
+                    HomeCalendarCard()
+                        .padding(.horizontal, 20)
+
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     VStack(alignment: .leading, spacing: 10) {
                         ArcaSectionTitle(title: "Favoriten", icon: "star")
