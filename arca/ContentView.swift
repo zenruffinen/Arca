@@ -81,6 +81,10 @@ struct ContentView: View {
                 store.addQuickIdea(title: title, text: text)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
+            // Die schöne Idee-Karte: halbhoch, Glas, runde Ecken
+            .presentationDetents([.medium, .large])
+            .presentationCornerRadius(28)
+            .presentationBackground(.ultraThinMaterial)
         }
         .overlay(alignment: .top) {
             if store.isCloudSyncPending {
@@ -253,9 +257,10 @@ struct ArcaTabBar: View {
         } label: {
             Image(systemName: active ? icon + ".fill" : icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.45))
+                .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
                 .symbolRenderingMode(.hierarchical)
                 .frame(width: 54, height: 44)
+                .contentShape(Rectangle())
                 .background(
                     active ? Color.primary.opacity(0.06) : Color.clear,
                     in: Capsule()
@@ -1418,53 +1423,53 @@ struct ArcaHeroCard: View {
     let onCapture: () -> Void
     let onDictate: () -> Void
 
-    private var greeting: String {
+    private var basisGruss: String {
         let base: String
-        let anstoss: String
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<11:  base = "Guten Morgen"; anstoss = "neue Ideen?"
-        case 11..<18: base = "Guten Tag";    anstoss = "was gibt's Neues?"
-        default:      base = "Guten Abend";  anstoss = "noch ein Gedanke?"
+        case 5..<11:  base = "Guten Morgen"
+        case 11..<18: base = "Guten Tag"
+        default:      base = "Guten Abend"
         }
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return n.isEmpty ? "\(base) — \(anstoss)" : "\(base), \(n) — \(anstoss)"
+        return n.isEmpty ? base : "\(base), \(n)"
+    }
+
+    private var anstoss: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<11:  return "Neue Ideen? Das Plus wartet."
+        case 11..<18: return "Was gibt's Neues? Das Plus wartet."
+        default:      return "Noch ein Gedanke? Das Plus wartet."
+        }
     }
 
     var body: some View {
-        // Die Bögen liegen im Hintergrund und diktieren die Höhe nicht mehr —
-        // die Karte bleibt so flach wie ihr Text.
-        VStack(alignment: .leading, spacing: 4) {
-                Text(greeting)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(ArcaWarm.terrakotta)
-                Text("Was willst du dir merken?")
-                    .font(.system(size: 21, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: 210, alignment: .leading)
-                // Aufgeräumt (Craft-Leiste): Der Plus-Knopf unten rechts
-                // beantwortet die Frage — tippen = Blitzidee, halten = Diktat.
-                Text("Tipp aufs Plus — halten für Diktat")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 6)
+        // Schmale Begrüßungszeile: nur Gruß + Anstoß, die Bögen als
+        // Hintergrund — kein großes Frage-Feld mehr (aufgeräumt 04.08.).
+        VStack(alignment: .leading, spacing: 3) {
+            Text(basisGruss)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+            Text(anstoss)
+                .font(.system(size: 12))
+                .foregroundStyle(ArcaWarm.terrakotta)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(alignment: .topTrailing) {
-            // Arca-Bögen (Regenbogen-Motiv): außen zart, innen kräftig —
-            // konzentrisch um denselben Mittelpunkt, unten angeschnitten
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(alignment: .trailing) {
+            // Arca-Bögen (Regenbogen-Motiv): außen zart, innen kräftig
             ZStack {
                 ForEach(0..<3, id: \.self) { ring in
                     Circle()
                         .trim(from: 0.5, to: 1.0)
                         .stroke(ArcaWarm.terrakotta.opacity(0.22 + Double(ring) * 0.30),
-                                style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                        .frame(width: 160 - CGFloat(ring) * 48,
-                               height: 160 - CGFloat(ring) * 48)
+                                style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .frame(width: 110 - CGFloat(ring) * 34,
+                               height: 110 - CGFloat(ring) * 34)
                 }
             }
-            .frame(width: 170, height: 170)
-            .offset(x: 20, y: 34)
+            .frame(width: 120, height: 120)
+            .offset(x: 6, y: 26)
         }
         .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.55)), in: RoundedRectangle(cornerRadius: 20))
         .clipShape(RoundedRectangle(cornerRadius: 20))
@@ -7376,7 +7381,7 @@ struct QuickCaptureSheet: View {
                 // „Halten = Diktat": Aufnahme startet sofort
                 if autoRecord && !speech.isRecording { beginRecording() }
             }
-            .navigationTitle("⚡ Blitzideen")
+            .navigationTitle("Idee?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
