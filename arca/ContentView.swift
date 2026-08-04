@@ -699,6 +699,13 @@ struct HomeView: View {
         store.vaultItems.count + store.documents.count + store.notes.count + store.lists.count
     }
 
+    /// Drei Favoriten-Karten passen nebeneinander auf den Schirm
+    /// (20+20 Außenrand, 2 × 8 Abstand — der Rest geteilt durch drei).
+    private var favoritenKartenBreite: CGFloat {
+        let breite = min(UIScreen.main.bounds.width, homeContentMaxWidth)
+        return max(96, (breite - 56) / 3)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // ── Kopf: Marke + Space-Zeile + QR-Scan ──
@@ -806,7 +813,8 @@ struct HomeView: View {
                                         HomeFavoriteCard(
                                             item: fav,
                                             previewURL: doc.map { store.documentURL(for: $0.filename) },
-                                            docType: doc?.type ?? .pdf
+                                            docType: doc?.type ?? .pdf,
+                                            breite: favoritenKartenBreite
                                         ) {
                                             openFavorite(fav)
                                         } onTogglePin: {
@@ -852,23 +860,23 @@ struct HomeView: View {
                                             streamLimit = 25
                                         }
                                     } label: {
-                                        Text(filter.label)
-                                            .font(.system(size: 13, weight: streamFilter == filter ? .semibold : .regular))
-                                        .foregroundStyle(streamFilter == filter ? Color(.systemBackground) : .primary)
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 7)
-                                        .background {
-                                            if streamFilter == filter {
-                                                Capsule().fill(Color.primary)
-                                            } else {
-                                                Capsule().fill(.ultraThinMaterial)
-                                            }
+                                        // Liquid-Glass-Blasen (iOS 27): gewählt = dunkel gefüllt,
+                                        // die übrigen schweben als Glas über dem Warmweiß
+                                        if streamFilter == filter {
+                                            Text(filter.label)
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundStyle(Color(.systemBackground))
+                                                .padding(.horizontal, 13)
+                                                .padding(.vertical, 7)
+                                                .background(Capsule().fill(Color.primary))
+                                        } else {
+                                            Text(filter.label)
+                                                .font(.system(size: 13))
+                                                .foregroundStyle(.primary)
+                                                .padding(.horizontal, 13)
+                                                .padding(.vertical, 7)
+                                                .glassEffect(.regular, in: Capsule())
                                         }
-                                        .overlay(
-                                            Capsule().strokeBorder(
-                                                streamFilter == filter ? Color.clear : ArcaWarm.haarlinie,
-                                                lineWidth: 1)
-                                        )
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -1316,6 +1324,8 @@ struct HomeFavoriteCard: View {
     // Dokumente zeigen eine echte Mini-Vorschau statt des Icons
     var previewURL: URL? = nil
     var docType: DocumentType = .pdf
+    /// Kartenbreite — vom Start so berechnet, dass drei auf den Schirm passen
+    var breite: CGFloat = 118
     let onTap: () -> Void
     let onTogglePin: () -> Void
     let onRemove: () -> Void
@@ -1361,7 +1371,7 @@ struct HomeFavoriteCard: View {
                     .lineLimit(1)
             }
             .padding(12)
-            .frame(width: 124, height: 118, alignment: .leading)
+            .frame(width: breite, height: 118, alignment: .leading)
             .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
