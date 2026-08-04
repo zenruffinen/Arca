@@ -1376,16 +1376,17 @@ struct HomeFavoriteCard: View {
             .glassEffect(.regular.tint(tint.opacity(0.09)), in: RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .topTrailing) {
                 if item.pinned {
+                    // Glastropfen statt Farb-Plakette
                     HStack(spacing: 3) {
                         Image(systemName: "pin.fill")
                             .font(.system(size: 7, weight: .bold))
                         Text("fest")
                             .font(.system(size: 9, weight: .semibold))
                     }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(tint, in: Capsule())
+                    .foregroundStyle(tint)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .glassEffect(.regular, in: Capsule())
                     .offset(x: 4, y: -8)
                 }
             }
