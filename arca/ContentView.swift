@@ -703,7 +703,14 @@ struct HomeView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(store.favoriteItems) { fav in
-                                        HomeFavoriteCard(item: fav) {
+                                        let doc = fav.kind == .document
+                                            ? store.documents.first(where: { $0.id == fav.id })
+                                            : nil
+                                        HomeFavoriteCard(
+                                            item: fav,
+                                            previewURL: doc.map { store.documentURL(for: $0.filename) },
+                                            docType: doc?.type ?? .pdf
+                                        ) {
                                             openFavorite(fav)
                                         } onTogglePin: {
                                             store.toggleFavoritePin(kind: fav.kind, id: fav.id)
@@ -1145,6 +1152,9 @@ struct SearchResultRow: View {
 
 struct HomeFavoriteCard: View {
     let item: FavoriteItem
+    // Dokumente zeigen eine echte Mini-Vorschau statt des Icons
+    var previewURL: URL? = nil
+    var docType: DocumentType = .pdf
     let onTap: () -> Void
     let onTogglePin: () -> Void
     let onRemove: () -> Void
@@ -1172,9 +1182,13 @@ struct HomeFavoriteCard: View {
             // Sanft getönte Karten wie in der Skizze — die Typ-Farbe trägt
             // Hintergrund-Hauch, Icon und (bei „fest") Rand + Plakette
             VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(tint)
+                if let previewURL {
+                    DocThumbnail(url: previewURL, type: docType)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
                 Spacer(minLength: 0)
                 Text(item.title)
                     .font(.system(size: 13, weight: .semibold))
@@ -1186,7 +1200,7 @@ struct HomeFavoriteCard: View {
                     .lineLimit(1)
             }
             .padding(12)
-            .frame(width: 124, height: 92, alignment: .leading)
+            .frame(width: 124, height: 118, alignment: .leading)
             .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
