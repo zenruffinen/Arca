@@ -456,29 +456,6 @@ struct HomeView: View {
         horizontalSizeClass == .regular ? 700 : .infinity
     }
 
-    /// Bereichs-Knopf: kompakte Kachel für den Sprung in ein Zimmer.
-    private func bereichButton(_ title: String, icon: String, tint: Color, section: ArcaSection) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                selectedSection = section
-            }
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 34, height: 34)
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
-                Text(title)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.plain)
-    }
 
     /// Ausgeklappter Ordner: seine Dokumente direkt auf dem Start,
     /// mit Mini-Vorschau — ein Tipp öffnet die Vollansicht.
@@ -995,19 +972,6 @@ struct HomeView: View {
                             }
                             .padding(.horizontal, 20)
                         }
-                    }
-
-                    // ── Bereiche: der gezielte Griff ins Zimmer ──
-                    VStack(alignment: .leading, spacing: 10) {
-                        ArcaSectionTitle(title: "Bereiche")
-                            .padding(.horizontal, 20)
-                        // Tasks haben ihren eigenen Reiter in der Leiste
-                        HStack(spacing: 8) {
-                            bereichButton("Dokumente", icon: "doc.fill", tint: .orange, section: .documents)
-                            bereichButton("Notizen", icon: "note.text", tint: .purple, section: .notes)
-                            bereichButton("Passwörter", icon: "lock.fill", tint: .blue, section: .vault)
-                        }
-                        .padding(.horizontal, 20)
                     }
 
                     Spacer().frame(height: 24)
