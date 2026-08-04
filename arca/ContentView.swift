@@ -693,10 +693,8 @@ struct HomeView: View {
             let schluessel = store.documentCategories.contains(d.category) ? d.category : "Unsortiert"
             zaehler[schluessel, default: 0] += 1
         }
-        var namen = store.documentCategories
-        if (zaehler["Unsortiert"] ?? 0) > 0, !namen.contains("Unsortiert") {
-            namen.insert("Unsortiert", at: 0)
-        }
+        // Unsortiert steht immer fest an erster Stelle
+        let namen = ["Unsortiert"] + store.documentCategories.filter { $0 != "Unsortiert" }
         return namen.map { ($0, zaehler[$0] ?? 0) }
     }
 
