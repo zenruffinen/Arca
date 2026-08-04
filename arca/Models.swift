@@ -126,12 +126,12 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
     var type: DocumentType
     var filename: String
     var dateAdded: Date
-    var category: String = "Eingang"
+    var category: String = "Unsortiert"
     var subcategory: String = ""
     var isFavorite: Bool = false
     var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
 
-    init(id: UUID = UUID(), title: String, type: DocumentType, filename: String, dateAdded: Date, category: String = "Eingang", subcategory: String = "") {
+    init(id: UUID = UUID(), title: String, type: DocumentType, filename: String, dateAdded: Date, category: String = "Unsortiert", subcategory: String = "") {
         self.id = id; self.title = title; self.type = type; self.filename = filename
         self.dateAdded = dateAdded; self.category = category; self.subcategory = subcategory
     }
@@ -143,7 +143,7 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
         type        = try c.decode(DocumentType.self,          forKey: .type)
         filename    = try c.decode(String.self,                forKey: .filename)
         dateAdded   = try c.decodeIfPresent(Date.self,         forKey: .dateAdded)   ?? Date()
-        category    = try c.decodeIfPresent(String.self,       forKey: .category)    ?? "Eingang"
+        category    = try c.decodeIfPresent(String.self,       forKey: .category)    ?? "Unsortiert"
         subcategory = try c.decodeIfPresent(String.self,       forKey: .subcategory) ?? ""
         isFavorite  = try c.decodeIfPresent(Bool.self,         forKey: .isFavorite)  ?? false
         favoritePinned = try c.decodeIfPresent(Bool.self,      forKey: .favoritePinned) ?? false

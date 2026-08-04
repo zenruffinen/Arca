@@ -486,7 +486,7 @@ struct HomeView: View {
         // „Eingang" ist die virtuelle Gruppe für alles ohne bekannte Gruppe
         let docs = store.documents
             .filter { doc in
-                category == "Eingang"
+                category == "Unsortiert"
                     ? !store.documentCategories.contains(doc.category)
                     : doc.category == category
             }
@@ -663,12 +663,12 @@ struct HomeView: View {
     private var dokumentGruppen: [(name: String, anzahl: Int)] {
         var zaehler: [String: Int] = [:]
         for d in store.documents {
-            let schluessel = store.documentCategories.contains(d.category) ? d.category : "Eingang"
+            let schluessel = store.documentCategories.contains(d.category) ? d.category : "Unsortiert"
             zaehler[schluessel, default: 0] += 1
         }
         var namen = store.documentCategories.filter { (zaehler[$0] ?? 0) > 0 }
-        if (zaehler["Eingang"] ?? 0) > 0, !namen.contains("Eingang") {
-            namen.insert("Eingang", at: 0)
+        if (zaehler["Unsortiert"] ?? 0) > 0, !namen.contains("Unsortiert") {
+            namen.insert("Unsortiert", at: 0)
         }
         return namen.map { ($0, zaehler[$0] ?? 0) }
     }
@@ -907,7 +907,7 @@ struct HomeView: View {
                                         VStack(spacing: 6) {
                                             ArcaFolderQuickCard(
                                                 name: gruppe.name,
-                                                icon: gruppe.name == "Eingang" ? "tray.fill" : categoryIcon(gruppe.name),
+                                                icon: gruppe.name == "Unsortiert" ? "tray.fill" : categoryIcon(gruppe.name),
                                                 tint: farben.accent,
                                                 bg: farben.bg,
                                                 count: gruppe.anzahl,
@@ -3179,14 +3179,14 @@ struct DocumentsView: View {
     @State private var showTextInput = false
     @State private var textTitle = ""
     @State private var textContent = ""
-    @State private var textCategory: String = "Eingang"
+    @State private var textCategory: String = "Unsortiert"
     @State private var searchText = ""
 
     // Zwischenspeicher für Kategorie-Auswahl nach Datei-Import
     @State private var pendingTitle = ""
     @State private var pendingFilename = ""
     @State private var pendingType: DocumentType = .pdf
-    @State private var pendingCategory: String = "Eingang"
+    @State private var pendingCategory: String = "Unsortiert"
     @State private var showCategoryPicker = false
     @State private var scanReady = false
     @State private var downloadingDoc: DocumentEntry? = nil
@@ -7144,7 +7144,7 @@ func categoryIcon(_ name: String) -> String {
     case "Rechnungen": return "eurosign.circle"
     case "Verträge":   return "signature"
     case "Gesundheit": return "heart.text.square"
-    case "Eingang":    return "tray.fill"
+    case "Unsortiert":    return "tray.fill"
     default:           return "folder"
     }
 }
