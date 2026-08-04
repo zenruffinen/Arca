@@ -102,6 +102,8 @@ final class AppStore: ObservableObject {
     @Published var quickCaptureAutoRecord: Bool = false
     /// Erfassen vom Start: Zielsektion öffnet direkt ihr „Neu"-Blatt
     @Published var pendingNewEntry: ArcaSection? = nil
+    /// Space-Tab erneut angetippt → Start springt nach oben (Zähler als Signal)
+    @Published var homeSprungNachOben: Int = 0
 
     /// true solange iCloud-Platzhalter noch heruntergeladen werden (UI-Hinweis).
     @Published private(set) var isCloudSyncPending = false

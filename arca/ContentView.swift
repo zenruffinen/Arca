@@ -198,7 +198,12 @@ struct ArcaTabBar: View {
     var body: some View {
         HStack(spacing: 0) {
             tabButton(icon: "square.grid.2x2", label: "Space", active: spaceActive) {
-                selected = .home
+                // Schon auf dem Start? Dann nach oben springen.
+                if selected == .home {
+                    store.homeSprungNachOben += 1
+                } else {
+                    selected = .home
+                }
             }
 
             // Blitzidee in der Mitte: ein Tipp, und Arca merkt es sich
@@ -417,6 +422,9 @@ struct HomeView: View {
     @AppStorage("arcaUserNameAsked") private var userNameAsked: Bool = false
     @State private var showNamePrompt = false
     @State private var namePromptInput = ""
+    // Ausgeklappte Ordner und Tasklisten auf dem Start
+    @State private var expandedFolders: Set<String> = []
+    @State private var expandedLists: Set<UUID> = []
     @State private var isReorderingHomeFolders = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -492,6 +500,107 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
+    }
+
+    /// Ausgeklappter Ordner: seine Dokumente direkt auf dem Start,
+    /// mit Mini-Vorschau — ein Tipp öffnet die Vollansicht.
+    private func folderDocumentRows(_ category: String) -> some View {
+        let docs = store.documents
+            .filter { $0.category == category }
+            .sorted { $0.dateAdded > $1.dateAdded }
+        return VStack(spacing: 6) {
+            if docs.isEmpty {
+                Text("Dieser Ordner ist noch leer.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            } else {
+                ForEach(docs) { doc in
+                    Button {
+                        quickAccessPreviewURL = store.documentURL(for: doc.filename)
+                    } label: {
+                        HStack(spacing: 10) {
+                            DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(doc.title)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                Text("\(doc.type.rawValue) · \(doc.dateAdded.formatted(.relative(presentation: .named)))")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(8)
+                        .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.leading, 16)
+    }
+
+    /// Aufgeklappte Taskliste im Strom: Punkte direkt abhaken.
+    private func toggleTask(listID: UUID, itemID: UUID) {
+        guard let li = store.lists.firstIndex(where: { $0.id == listID }),
+              let ti = store.lists[li].items.firstIndex(where: { $0.id == itemID }) else { return }
+        store.lists[li].items[ti].isDone.toggle()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func listeAufgeklappt(_ liste: ListEntry) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if liste.items.isEmpty {
+                Text("Noch keine Aufgaben in dieser Liste.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 6)
+            } else {
+                ForEach(liste.items) { punkt in
+                    Button {
+                        toggleTask(listID: liste.id, itemID: punkt.id)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: punkt.isDone ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 16))
+                                .foregroundStyle(punkt.isDone ? .green : .secondary)
+                            Text(punkt.text)
+                                .font(.system(size: 13))
+                                .strikethrough(punkt.isDone)
+                                .foregroundStyle(punkt.isDone ? .secondary : .primary)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    selectedSection = .lists
+                }
+            } label: {
+                Text("Zur Liste →")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(ArcaWarm.terrakotta)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+        .padding(.leading, 16)
     }
 
     /// Ist der Eintrag hinter einer Strom-Zeile bereits Favorit?
@@ -654,6 +763,7 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollDismissesKeyboard(.interactively)
             } else {
+                ScrollViewReader { leseProxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
 
@@ -665,6 +775,7 @@ struct HomeView: View {
                         store.pendingQuickCapture = true
                     }
                     .padding(.horizontal, 20)
+                    .id("seitenAnfang")
 
                     // ── Erfassen: jeder Typ in einem Tipp, Blatt öffnet direkt ──
                     VStack(alignment: .leading, spacing: 10) {
@@ -774,8 +885,20 @@ struct HomeView: View {
                             LazyVStack(spacing: 8) {
                                 ForEach(streamItems.prefix(streamLimit)) { item in
                                     let istFav = istFavorit(item)
-                                    HomeStreamRow(item: item) {
-                                        openFavorite(item)
+                                    HomeStreamRow(item: item,
+                                                  expanded: item.kind == .list && expandedLists.contains(item.id)) {
+                                        if item.kind == .list {
+                                            // Tasks klappen auf und lassen sich direkt abhaken
+                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                                if expandedLists.contains(item.id) {
+                                                    expandedLists.remove(item.id)
+                                                } else {
+                                                    expandedLists.insert(item.id)
+                                                }
+                                            }
+                                        } else {
+                                            openFavorite(item)
+                                        }
                                     }
                                     // Gedrückt halten → Favorit, direkt im Strom
                                     .contextMenu {
@@ -794,6 +917,11 @@ struct HomeView: View {
                                                 Label("Fest anpinnen / lösen", systemImage: "pin.fill")
                                             }
                                         }
+                                    }
+                                    if item.kind == .list, expandedLists.contains(item.id),
+                                       let liste = store.lists.first(where: { $0.id == item.id }) {
+                                        listeAufgeklappt(liste)
+                                            .transition(.opacity.combined(with: .move(edge: .top)))
                                     }
                                 }
                                 if streamItems.count > streamLimit {
@@ -864,7 +992,32 @@ struct HomeView: View {
                             } else {
                                 VStack(spacing: 8) {
                                     ForEach(homeQuickViewFolders, id: \.self) { category in
-                                        homeFolderRow(category, tappable: true)
+                                        let colors = categoryColor(category, overrides: store.categoryColors)
+                                        VStack(spacing: 6) {
+                                            // Tippen klappt auf, der Pfeil springt in den Bereich
+                                            ArcaFolderQuickCard(
+                                                name: category,
+                                                icon: categoryIcon(category),
+                                                tint: colors.accent,
+                                                bg: colors.bg,
+                                                count: documentCount(in: category),
+                                                action: {
+                                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                                        if expandedFolders.contains(category) {
+                                                            expandedFolders.remove(category)
+                                                        } else {
+                                                            expandedFolders.insert(category)
+                                                        }
+                                                    }
+                                                },
+                                                isExpanded: expandedFolders.contains(category),
+                                                onOpen: { openDocuments(category: category) }
+                                            )
+                                            if expandedFolders.contains(category) {
+                                                folderDocumentRows(category)
+                                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                            }
+                                        }
                                     }
                                 }
                                 .padding(.horizontal, 20)
@@ -879,6 +1032,13 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollDismissesKeyboard(.interactively)
+                // Space-Tab erneut angetippt → sanft nach oben
+                .onChange(of: store.homeSprungNachOben) { _, _ in
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        leseProxy.scrollTo("seitenAnfang", anchor: .top)
+                    }
+                }
+                }
             }
 
         }
@@ -1334,6 +1494,8 @@ enum HomeStreamFilter: CaseIterable {
 
 struct HomeStreamRow: View {
     let item: FavoriteItem
+    /// Tasklisten: aufgeklappt zeigt der Pfeil nach unten
+    var expanded: Bool = false
     let onTap: () -> Void
 
     private var icon: String {
@@ -1385,6 +1547,7 @@ struct HomeStreamRow: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(item.kind == .list && expanded ? 90 : 0))
                 }
             }
             .padding(.horizontal, 12)

@@ -243,6 +243,10 @@ struct ArcaFolderQuickCard: View {
     let bg: Color
     let count: Int
     var action: (() -> Void)? = nil
+    /// Ausklapp-Zustand (Ordner öffnet sich direkt auf dem Start)
+    var isExpanded: Bool = false
+    /// Sprung in den Dokumente-Bereich (kleiner Pfeil rechts)
+    var onOpen: (() -> Void)? = nil
 
     var body: some View {
         let content = HStack(spacing: 10) {
@@ -266,6 +270,22 @@ struct ArcaFolderQuickCard: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(bg.opacity(0.7), in: Capsule())
+
+            if let onOpen {
+                Button(action: onOpen) {
+                    Image(systemName: "arrow.right.circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(tint.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ordner im Dokumente-Bereich öffnen")
+            }
+            if onOpen != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
