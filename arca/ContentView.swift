@@ -491,6 +491,16 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
+    /// Ist der Eintrag hinter einer Strom-Zeile bereits Favorit?
+    private func istFavorit(_ item: FavoriteItem) -> Bool {
+        switch item.kind {
+        case .document: return store.documents.first(where: { $0.id == item.id })?.isFavorite ?? false
+        case .note:     return store.notes.first(where: { $0.id == item.id })?.isFavorite ?? false
+        case .list:     return store.lists.first(where: { $0.id == item.id })?.isFavorite ?? false
+        case .vault:    return store.vaultItems.first(where: { $0.id == item.id })?.isFavorite ?? false
+        }
+    }
+
     /// Favorit antippen: Dokument → Vorschau, Notiz → Blatt,
     /// Liste/Passwort → in die jeweilige Sektion (Tresor bleibt verschlossen).
     private func openFavorite(_ fav: FavoriteItem) {
@@ -750,8 +760,27 @@ struct HomeView: View {
                         } else {
                             LazyVStack(spacing: 8) {
                                 ForEach(streamItems.prefix(streamLimit)) { item in
+                                    let istFav = istFavorit(item)
                                     HomeStreamRow(item: item) {
                                         openFavorite(item)
+                                    }
+                                    // Gedrückt halten → Favorit, direkt im Strom
+                                    .contextMenu {
+                                        Button {
+                                            store.toggleFavorite(kind: item.kind, id: item.id)
+                                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                        } label: {
+                                            Label(istFav ? "Aus Favoriten entfernen" : "Zu Favoriten",
+                                                  systemImage: istFav ? "star.slash" : "star.fill")
+                                        }
+                                        if istFav {
+                                            Button {
+                                                store.toggleFavoritePin(kind: item.kind, id: item.id)
+                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                            } label: {
+                                                Label("Fest anpinnen / lösen", systemImage: "pin.fill")
+                                            }
+                                        }
                                     }
                                 }
                                 if streamItems.count > streamLimit {
