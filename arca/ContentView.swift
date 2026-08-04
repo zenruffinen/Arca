@@ -1371,11 +1371,8 @@ struct HomeFavoriteCard: View {
             }
             .padding(12)
             .frame(width: breite, height: 118, alignment: .leading)
-            .glassEffect(.regular.tint(tint.opacity(0.14)), in: RoundedRectangle(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(item.pinned ? tint.opacity(0.65) : Color.clear, lineWidth: 1.5)
-            )
+            // Ganz Glas, kein Rahmen — „fest" zeigt allein die Plakette
+            .glassEffect(.regular.tint(tint.opacity(0.09)), in: RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .topTrailing) {
                 if item.pinned {
                     HStack(spacing: 3) {
