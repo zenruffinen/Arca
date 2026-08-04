@@ -435,6 +435,37 @@ struct HomeView: View {
         horizontalSizeClass == .regular ? 700 : .infinity
     }
 
+    /// Erfassen-Knopf: springt in den Bereich und öffnet dort sofort
+    /// das „Neu"-Blatt (bzw. den QR-Scanner bei section == nil).
+    private func erfassenButton(_ title: String, icon: String, tint: Color, section: ArcaSection?) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            if let section {
+                store.pendingNewEntry = section
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    selectedSection = section
+                }
+            } else {
+                showQRScanner = true
+            }
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 44, height: 44)
+                    .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 13))
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+
     /// Bereichs-Knopf: kompakte Kachel für den Sprung in ein Zimmer.
     private func bereichButton(_ title: String, icon: String, tint: Color, section: ArcaSection) -> some View {
         Button {
@@ -622,11 +653,40 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 20)
 
+                    // ── Erfassen: jeder Typ in einem Tipp, Blatt öffnet direkt ──
+                    VStack(alignment: .leading, spacing: 10) {
+                        ArcaSectionTitle(title: "Erfassen")
+                            .padding(.horizontal, 20)
+                        HStack(spacing: 8) {
+                            erfassenButton("Dokument", icon: "doc.badge.plus", tint: .orange, section: .documents)
+                            erfassenButton("Notiz", icon: "square.and.pencil", tint: .purple, section: .notes)
+                            erfassenButton("Task", icon: "plus.circle", tint: .green, section: .lists)
+                            erfassenButton("Passwort", icon: "key.fill", tint: .blue, section: .vault)
+                            erfassenButton("QR-Scan", icon: "qrcode.viewfinder", tint: .teal, section: nil)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
-                    if !store.favoriteItems.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            ArcaSectionTitle(title: "Favoriten")
-                                .padding(.horizontal, 20)
+                    VStack(alignment: .leading, spacing: 10) {
+                        ArcaSectionTitle(title: "Favoriten")
+                            .padding(.horizontal, 20)
+                        if store.favoriteItems.isEmpty {
+                            // Leerzustand: zeigen, dass es die Reihe gibt — und wie man sie füllt
+                            HStack(spacing: 10) {
+                                Image(systemName: "star")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(ArcaWarm.terrakotta)
+                                Text("Halte einen Eintrag gedrückt und wähle „Zu Favoriten“ — er erscheint dann hier.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                            .padding(.horizontal, 20)
+                        } else {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(store.favoriteItems) { fav in
@@ -643,8 +703,8 @@ struct HomeView: View {
                                 .padding(.horizontal, 20)
                             }
                         }
-                        .transition(.scale.combined(with: .opacity))
                     }
+                    .transition(.scale.combined(with: .opacity))
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
                     VStack(alignment: .leading, spacing: 10) {
@@ -1131,18 +1191,20 @@ struct ArcaHeroCard: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Arca-Bögen, angeschnitten in der oberen rechten Ecke
+            // Arca-Bögen (Regenbogen-Motiv): außen zart, innen kräftig —
+            // konzentrisch um denselben Mittelpunkt, unten angeschnitten
             ZStack {
                 ForEach(0..<3, id: \.self) { ring in
                     Circle()
                         .trim(from: 0.5, to: 1.0)
-                        .stroke(ArcaWarm.terrakotta.opacity(0.18 + Double(ring) * 0.16),
-                                style: StrokeStyle(lineWidth: 13, lineCap: .round))
-                        .frame(width: 150 - CGFloat(ring) * 44,
-                               height: 150 - CGFloat(ring) * 44)
+                        .stroke(ArcaWarm.terrakotta.opacity(0.22 + Double(ring) * 0.30),
+                                style: StrokeStyle(lineWidth: 16, lineCap: .round))
+                        .frame(width: 190 - CGFloat(ring) * 56,
+                               height: 190 - CGFloat(ring) * 56)
                 }
             }
-            .offset(x: 24, y: 42)
+            .frame(width: 200, height: 200)
+            .offset(x: 28, y: 44)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(greeting)
@@ -2042,6 +2104,13 @@ struct VaultView: View {
                 ToolbarItem(placement: .navigationBarTrailing) { vaultTrailingToolbar }
             }
             .sheet(isPresented: $showNewEntry) { vaultNewEntrySheet }
+            // Erfassen vom Start: „Neu"-Blatt direkt öffnen
+            .onAppear {
+                if store.pendingNewEntry == .vault {
+                    store.pendingNewEntry = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showNewEntry = true }
+                }
+            }
             .sheet(item: $selectedItem) { item in VaultDetailView(item: item) }
         }
     }
@@ -3045,6 +3114,13 @@ struct DocumentsView: View {
                 }
             }
             // Quelle wählen Sheet
+            // Erfassen vom Start: Quellen-Blatt direkt öffnen
+            .onAppear {
+                if store.pendingNewEntry == .documents {
+                    store.pendingNewEntry = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showAddMenu = true }
+                }
+            }
             .sheet(isPresented: $showAddMenu, onDismiss: {
                 if let src = pendingSource {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -4469,6 +4545,13 @@ struct NotesView: View {
                     showNewNote = false
                 }
             }
+            // Erfassen vom Start: „Neu"-Blatt direkt öffnen
+            .onAppear {
+                if store.pendingNewEntry == .notes {
+                    store.pendingNewEntry = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showNewNote = true }
+                }
+            }
             .sheet(item: $selectedNote) { note in NoteDetailView(note: note) }
             .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
         }
@@ -5150,6 +5233,13 @@ struct ListsView: View {
                     store.addList(title: title, colorTag: color)
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     showNewList = false
+                }
+            }
+            // Erfassen vom Start: „Neu"-Blatt direkt öffnen
+            .onAppear {
+                if store.pendingNewEntry == .lists {
+                    store.pendingNewEntry = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showNewList = true }
                 }
             }
             .sheet(item: $selectedList) { list in ListDetailView(list: list) }
