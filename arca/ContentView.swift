@@ -840,9 +840,10 @@ struct HomeView: View {
                                     }
                                 }
                                 .padding(.horizontal, 20)
-                                // Luft nach oben, damit die „fest"-Plakette
-                                // nicht von der Scroll-Kante abgeschnitten wird
+                                // Luft nach oben (fest-Plakette) und unten,
+                                // damit die Scroll-Kante das Glas nicht anschneidet
                                 .padding(.top, 10)
+                                .padding(.bottom, 10)
                             }
                         }
                     }
