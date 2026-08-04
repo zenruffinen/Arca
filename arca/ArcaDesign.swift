@@ -392,13 +392,20 @@ struct ArcaPrimaryButton: View {
 
 struct ArcaSectionTitle: View {
     let title: String
+    var icon: String? = nil
 
     var body: some View {
-        Text(title)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-            .tracking(0.6)
+        HStack(spacing: 5) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            Text(title)
+                .textCase(.uppercase)
+                .tracking(0.6)
+        }
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(.secondary)
     }
 }
 

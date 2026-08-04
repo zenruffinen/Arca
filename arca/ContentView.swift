@@ -777,23 +777,9 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
                     .id("seitenAnfang")
 
-                    // ── Erfassen: jeder Typ in einem Tipp, Blatt öffnet direkt ──
-                    VStack(alignment: .leading, spacing: 10) {
-                        ArcaSectionTitle(title: "Erfassen")
-                            .padding(.horizontal, 20)
-                        HStack(spacing: 8) {
-                            erfassenButton("Dokument", icon: "doc.badge.plus", tint: .orange, section: .documents)
-                            erfassenButton("Notiz", icon: "square.and.pencil", tint: .purple, section: .notes)
-                            erfassenButton("Task", icon: "plus.circle", tint: .green, section: .lists)
-                            erfassenButton("Passwort", icon: "key.fill", tint: .blue, section: .vault)
-                            erfassenButton("QR-Scan", icon: "qrcode.viewfinder", tint: .teal, section: nil)
-                        }
-                        .padding(.horizontal, 20)
-                    }
-
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     VStack(alignment: .leading, spacing: 10) {
-                        ArcaSectionTitle(title: "Favoriten")
+                        ArcaSectionTitle(title: "Favoriten", icon: "star")
                             .padding(.horizontal, 20)
                         if store.favoriteItems.isEmpty {
                             // Leerzustand: zeigen, dass es die Reihe gibt — und wie man sie füllt
@@ -839,6 +825,21 @@ struct HomeView: View {
                         }
                     }
                     .transition(.scale.combined(with: .opacity))
+
+                    // ── Erfassen: jeder Typ in einem Tipp, Blatt öffnet direkt ──
+                    VStack(alignment: .leading, spacing: 10) {
+                        ArcaSectionTitle(title: "Erfassen")
+                            .padding(.horizontal, 20)
+                        HStack(spacing: 8) {
+                            erfassenButton("Dokument", icon: "doc.badge.plus", tint: .orange, section: .documents)
+                            erfassenButton("Notiz", icon: "square.and.pencil", tint: .purple, section: .notes)
+                            erfassenButton("Task", icon: "plus.circle", tint: .green, section: .lists)
+                            erfassenButton("Passwort", icon: "key.fill", tint: .blue, section: .vault)
+                            erfassenButton("QR-Scan", icon: "qrcode.viewfinder", tint: .teal, section: nil)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
                     VStack(alignment: .leading, spacing: 10) {
