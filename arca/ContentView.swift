@@ -484,8 +484,13 @@ struct HomeView: View {
     /// Ausgeklappter Ordner: seine Dokumente direkt auf dem Start,
     /// mit Mini-Vorschau — ein Tipp öffnet die Vollansicht.
     private func folderDocumentRows(_ category: String) -> some View {
+        // „Eingang" ist die virtuelle Gruppe für alles ohne bekannte Gruppe
         let docs = store.documents
-            .filter { $0.category == category }
+            .filter { doc in
+                category == "Eingang"
+                    ? !store.documentCategories.contains(doc.category)
+                    : doc.category == category
+            }
             .sorted { $0.dateAdded > $1.dateAdded }
         return VStack(spacing: 6) {
             if docs.isEmpty {
@@ -635,41 +640,50 @@ struct HomeView: View {
         )
     }
 
-    // ── Der Strom: alle Einträge gemischt, jüngste zuerst ──
-    @State private var streamFilter: HomeStreamFilter = .alle
+    // ── Der Strom: ein Typ zur Zeit, jüngste zuerst (kein „Alle" mehr) ──
+    @State private var streamFilter: HomeStreamFilter = .dokumente
     @State private var streamLimit: Int = 25
 
     private var streamItems: [FavoriteItem] {
         var all: [FavoriteItem] = []
-        if streamFilter == .alle || streamFilter == .dokumente {
-            for d in store.documents {
-                let ort = d.subcategory.isEmpty ? d.category : "\(d.category) · \(d.subcategory)"
-                all.append(FavoriteItem(id: d.id, kind: .document, title: d.title,
-                                        subtitle: ort, pinned: false, date: d.dateAdded))
-            }
-        }
-        if streamFilter == .alle || streamFilter == .notizen {
+        switch streamFilter {
+        case .dokumente:
+            break   // Dokumente zeigen ihre Gruppen, keine Einzelzeilen
+        case .notizen:
             for n in store.notes {
                 all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
                                         subtitle: n.isQuickIdea ? "Blitzidee" : "Notiz",
                                         pinned: false, date: n.dateCreated))
             }
-        }
-        if streamFilter == .alle || streamFilter == .tasks {
+        case .tasks:
             for l in store.lists {
                 let open = l.items.filter { !$0.isDone }.count
                 all.append(FavoriteItem(id: l.id, kind: .list, title: l.title,
                                         subtitle: open > 0 ? "\(open) offen" : "Erledigt",
                                         pinned: false, date: l.dateCreated))
             }
-        }
-        if streamFilter == .alle || streamFilter == .passwoerter {
+        case .passwoerter:
             for v in store.vaultItems {
                 all.append(FavoriteItem(id: v.id, kind: .vault, title: v.title,
                                         subtitle: "Mit Face ID öffnen", pinned: false, date: v.dateCreated))
             }
         }
         return all.sorted { $0.date > $1.date }
+    }
+
+    /// Dokumente treten im Strom als Gruppen auf. Was in keiner
+    /// bekannten Gruppe steckt, sammelt der „Eingang".
+    private var dokumentGruppen: [(name: String, anzahl: Int)] {
+        var zaehler: [String: Int] = [:]
+        for d in store.documents {
+            let schluessel = store.documentCategories.contains(d.category) ? d.category : "Eingang"
+            zaehler[schluessel, default: 0] += 1
+        }
+        var namen = store.documentCategories.filter { (zaehler[$0] ?? 0) > 0 }
+        if (zaehler["Eingang"] ?? 0) > 0, !namen.contains("Eingang") {
+            namen.insert("Eingang", at: 0)
+        }
+        return namen.map { ($0, zaehler[$0] ?? 0) }
     }
 
     private var totalEntryCount: Int {
@@ -891,7 +905,47 @@ struct HomeView: View {
                             .padding(.horizontal, 20)
                         }
 
-                        if streamItems.isEmpty {
+                        if streamFilter == .dokumente {
+                            // Dokumente als Gruppen — Einzeldateien wohnen darin
+                            VStack(spacing: 8) {
+                                if dokumentGruppen.isEmpty {
+                                    Text("Noch keine Dokumente — oben rechts wartet das Dokument-Plus.")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 8)
+                                } else {
+                                    ForEach(dokumentGruppen, id: \.name) { gruppe in
+                                        let farben = categoryColor(gruppe.name, overrides: store.categoryColors)
+                                        VStack(spacing: 6) {
+                                            ArcaFolderQuickCard(
+                                                name: gruppe.name,
+                                                icon: gruppe.name == "Eingang" ? "tray.fill" : categoryIcon(gruppe.name),
+                                                tint: farben.accent,
+                                                bg: farben.bg,
+                                                count: gruppe.anzahl,
+                                                action: {
+                                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                                        if expandedFolders.contains(gruppe.name) {
+                                                            expandedFolders.remove(gruppe.name)
+                                                        } else {
+                                                            expandedFolders.insert(gruppe.name)
+                                                        }
+                                                    }
+                                                },
+                                                isExpanded: expandedFolders.contains(gruppe.name),
+                                                onOpen: { openDocuments(category: gruppe.name) }
+                                            )
+                                            if expandedFolders.contains(gruppe.name) {
+                                                folderDocumentRows(gruppe.name)
+                                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        } else if streamItems.isEmpty {
                             Text("Noch nichts hier — wirf Arca eine Blitzidee zu.")
                                 .font(.system(size: 13))
                                 .foregroundStyle(.secondary)
@@ -1492,11 +1546,10 @@ struct ArcaHeroCard: View {
 // MARK: - Der Strom (gemischte Einträge mit Filter-Chips)
 
 enum HomeStreamFilter: CaseIterable {
-    case alle, dokumente, notizen, tasks, passwoerter
+    case dokumente, notizen, tasks, passwoerter
 
     var label: String {
         switch self {
-        case .alle:        return "Alle"
         case .dokumente:   return "Dokumente"
         case .notizen:     return "Notizen"
         case .tasks:       return "Tasks"
