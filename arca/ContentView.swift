@@ -756,7 +756,26 @@ struct HomeView: View {
             .padding(.top, 8)
             .padding(.bottom, 10)
 
-            // ── Suche ganz oben: „Alles durchsuchen" ──
+            // ── Bühne: großer Gruß, darunter der Kalender — beim Suchen
+            //    klappen beide weg und machen den Ergebnissen Platz ──
+            if !isSearching {
+                ArcaHeroCard(name: userName) {
+                    store.pendingQuickCapture = true
+                } onDictate: {
+                    store.quickCaptureAutoRecord = true
+                    store.pendingQuickCapture = true
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+
+                HomeCalendarCard()
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            // ── Danach die Suche: „Alles durchsuchen" ──
             HomeSearchBar(text: $searchText, focused: $isSearchFocused)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
@@ -784,20 +803,6 @@ struct HomeView: View {
                 ScrollViewReader { leseProxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-
-                    // ── Hero: Begrüßung nach Tageszeit + die Frage der App ──
-                    ArcaHeroCard(name: userName) {
-                        store.pendingQuickCapture = true
-                    } onDictate: {
-                        store.quickCaptureAutoRecord = true
-                        store.pendingQuickCapture = true
-                    }
-                    .padding(.horizontal, 20)
-                    .id("seitenAnfang")
-
-                    // ── Heute: der Blick in den Kalender ──
-                    HomeCalendarCard()
-                        .padding(.horizontal, 20)
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     VStack(alignment: .leading, spacing: 10) {
@@ -848,6 +853,7 @@ struct HomeView: View {
                         }
                     }
                     .transition(.scale.combined(with: .opacity))
+                    .id("seitenAnfang")
 
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
@@ -1434,37 +1440,52 @@ struct ArcaHeroCard: View {
         }
     }
 
+    /// Sonne am Morgen, volle Sonne am Tag, Mond am Abend
+    private var tagesSymbol: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<11:  return "sun.horizon.fill"
+        case 11..<18: return "sun.max.fill"
+        default:      return "moon.stars.fill"
+        }
+    }
+
     var body: some View {
-        // Schmale Begrüßungszeile: nur Gruß + Anstoß, die Bögen als
-        // Hintergrund — kein großes Frage-Feld mehr (aufgeräumt 04.08.).
-        VStack(alignment: .leading, spacing: 3) {
+        // Die Bühne des Space: Tageszeit-Symbol, großer Gruß und die
+        // vollen Arca-Bögen — das schönste Stück der Seite.
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: tagesSymbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(ArcaWarm.terrakotta)
+                .symbolRenderingMode(.hierarchical)
             Text(basisGruss)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.system(size: 25, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(anstoss)
-                .font(.system(size: 12))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(ArcaWarm.terrakotta)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 20)
         .background(alignment: .trailing) {
             // Arca-Bögen (Regenbogen-Motiv): außen zart, innen kräftig
             ZStack {
                 ForEach(0..<3, id: \.self) { ring in
                     Circle()
                         .trim(from: 0.5, to: 1.0)
-                        .stroke(ArcaWarm.terrakotta.opacity(0.22 + Double(ring) * 0.30),
-                                style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                        .frame(width: 110 - CGFloat(ring) * 34,
-                               height: 110 - CGFloat(ring) * 34)
+                        .stroke(ArcaWarm.terrakotta.opacity(0.20 + Double(ring) * 0.30),
+                                style: StrokeStyle(lineWidth: 13, lineCap: .round))
+                        .frame(width: 150 - CGFloat(ring) * 46,
+                               height: 150 - CGFloat(ring) * 46)
                 }
             }
-            .frame(width: 120, height: 120)
-            .offset(x: 6, y: 26)
+            .frame(width: 160, height: 160)
+            .offset(x: 14, y: 40)
         }
-        .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.55)), in: RoundedRectangle(cornerRadius: 20))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.55)), in: RoundedRectangle(cornerRadius: 22))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
     }
 }
 
