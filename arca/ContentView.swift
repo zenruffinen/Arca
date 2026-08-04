@@ -224,10 +224,11 @@ struct ArcaTabBar: View {
 
             Spacer(minLength: 0)
 
-            // Blitzidee: tippen = Blatt, halten = Diktat startet sofort
+            // Der Plus legt an, was gerade ausgewählt ist —
+            // halten = immer Blitzidee mit Sofort-Diktat
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                store.pendingQuickCapture = true
+                legeKontextbezogenAn()
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 23, weight: .semibold))
@@ -248,6 +249,33 @@ struct ArcaTabBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 34)
+    }
+
+    /// Was der Plus anlegt, hängt vom Ort ab: auf dem Start entscheidet
+    /// der aktive Filter-Chip, in den Bereichen der Bereich selbst.
+    /// Notizen = Blitzidee (das ist Arcas Notiz-Erfassung).
+    private func legeKontextbezogenAn() {
+        switch selected {
+        case .home, .spaceHub:
+            switch store.homeStreamFilter {
+            case .dokumente:
+                store.pendingNewEntry = .documents
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .documents }
+            case .notizen:
+                store.pendingQuickCapture = true
+            case .tasks:
+                store.pendingNewEntry = .lists
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .lists }
+            case .passwoerter:
+                store.pendingNewEntry = .vault
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .vault }
+            }
+        case .documents: store.pendingNewEntry = .documents
+        case .lists:     store.pendingNewEntry = .lists
+        case .vault:     store.pendingNewEntry = .vault
+        case .notes:     store.pendingQuickCapture = true
+        case .settings:  store.pendingQuickCapture = true
+        }
     }
 
     private func pillButton(icon: String, active: Bool, label: String,
@@ -700,7 +728,7 @@ struct HomeView: View {
 
 
     // ── Der Strom: ein Typ zur Zeit, jüngste zuerst (kein „Alle" mehr) ──
-    @State private var streamFilter: HomeStreamFilter = .dokumente
+    private var streamFilter: HomeStreamFilter { store.homeStreamFilter }
     @State private var streamLimit: Int = 25
 
     private var streamItems: [FavoriteItem] {
@@ -943,7 +971,7 @@ struct HomeView: View {
                                 ForEach(HomeStreamFilter.allCases, id: \.self) { filter in
                                     Button {
                                         withAnimation(.easeInOut(duration: 0.2)) {
-                                            streamFilter = filter
+                                            store.homeStreamFilter = filter
                                             streamLimit = 25
                                         }
                                     } label: {
@@ -2501,6 +2529,13 @@ struct VaultView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showNewEntry = true }
                 }
             }
+            .onChange(of: store.pendingNewEntry) { _, wert in
+                // Plus gedrückt, während der Bereich schon offen ist
+                if wert == .vault {
+                    store.pendingNewEntry = nil
+                    showNewEntry = true
+                }
+            }
             .sheet(item: $selectedItem) { item in VaultDetailView(item: item) }
         }
     }
@@ -3509,6 +3544,13 @@ struct DocumentsView: View {
                 if store.pendingNewEntry == .documents {
                     store.pendingNewEntry = nil
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showAddMenu = true }
+                }
+            }
+            .onChange(of: store.pendingNewEntry) { _, wert in
+                // Plus gedrückt, während der Bereich schon offen ist
+                if wert == .documents {
+                    store.pendingNewEntry = nil
+                    showAddMenu = true
                 }
             }
             .sheet(isPresented: $showAddMenu, onDismiss: {
@@ -4942,6 +4984,13 @@ struct NotesView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showNewNote = true }
                 }
             }
+            .onChange(of: store.pendingNewEntry) { _, wert in
+                // Plus gedrückt, während der Bereich schon offen ist
+                if wert == .notes {
+                    store.pendingNewEntry = nil
+                    showNewNote = true
+                }
+            }
             .sheet(item: $selectedNote) { note in NoteDetailView(note: note) }
             .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
         }
@@ -5630,6 +5679,13 @@ struct ListsView: View {
                 if store.pendingNewEntry == .lists {
                     store.pendingNewEntry = nil
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showNewList = true }
+                }
+            }
+            .onChange(of: store.pendingNewEntry) { _, wert in
+                // Plus gedrückt, während der Bereich schon offen ist
+                if wert == .lists {
+                    store.pendingNewEntry = nil
+                    showNewList = true
                 }
             }
             .sheet(item: $selectedList) { list in ListDetailView(list: list) }

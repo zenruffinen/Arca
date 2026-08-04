@@ -104,6 +104,8 @@ final class AppStore: ObservableObject {
     @Published var pendingNewEntry: ArcaSection? = nil
     /// Space-Tab erneut angetippt → Start springt nach oben (Zähler als Signal)
     @Published var homeSprungNachOben: Int = 0
+    /// Aktiver Filter-Chip auf dem Start — der Plus-Knopf richtet sich danach
+    @Published var homeStreamFilter: HomeStreamFilter = .dokumente
 
     /// true solange iCloud-Platzhalter noch heruntergeladen werden (UI-Hinweis).
     @Published private(set) var isCloudSyncPending = false
