@@ -1477,7 +1477,7 @@ struct ArcaHeroCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
         }
-        .background(ArcaWarm.creme, in: RoundedRectangle(cornerRadius: 20))
+        .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.55)), in: RoundedRectangle(cornerRadius: 20))
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }
