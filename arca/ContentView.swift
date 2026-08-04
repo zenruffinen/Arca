@@ -265,14 +265,16 @@ struct ArcaTabBar: View {
                     }
                 } label: {
                     Image(systemName: plusSprechenAktiv ? "mic.fill" : kontextIcon)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(ArcaWarm.terrakotta)
                         .symbolEffect(.pulse, isActive: plusSprechenAktiv)
-                        .frame(width: 26, height: 26)
-                        .glassEffect(.regular, in: Circle())
+                        .frame(width: 32, height: 32)
+                        .background(ArcaWarm.karte, in: Circle())
+                        .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
+                        .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
                 }
                 .buttonStyle(.plain)
-                .offset(x: -8, y: -8)
+                .offset(x: -12, y: -12)
                 .accessibilityLabel(plusSprechenAktiv ? "Plus spricht (Diktat)" : "Plus legt das Ausgewählte an")
             }
             .accessibilityLabel(plusSprechenAktiv ? "Blitzidee diktieren" : "Neu anlegen")
