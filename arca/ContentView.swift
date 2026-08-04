@@ -24,8 +24,8 @@ struct ContentView: View {
     @State private var showRecoveryHint = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    // Reihenfolge der wischbaren Tabs (settings bleibt ausgenommen — öffnet sich per Icon)
-    private let swipeSections: [ArcaSection] = [.home, .vault, .documents, .notes, .lists, .settings]
+    // Reihenfolge der wischbaren Tabs
+    private let swipeSections: [ArcaSection] = [.home, .spaceHub, .settings]
 
     var body: some View {
         Group {
@@ -114,6 +114,7 @@ struct ContentView: View {
             Group {
                 switch selectedSection {
                 case .home:      HomeView(selectedSection: $selectedSection)
+                case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
                 case .vault:     VaultView()
                 case .documents: DocumentsView(isUnlocked: isUnlocked)
                 case .notes:     NotesView()
@@ -162,6 +163,7 @@ struct ContentView: View {
         } detail: {
             switch selectedSection {
             case .home:      HomeView(selectedSection: $selectedSection)
+            case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
             case .vault:     VaultView()
             case .documents: DocumentsView(isUnlocked: isUnlocked)
             case .notes:     NotesView()
@@ -184,64 +186,72 @@ struct ArcaTabItem {
 
 struct ArcaTabBar: View {
     @Binding var selected: ArcaSection
-    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var store: AppStore
 
-    private let items: [ArcaTabItem] = [
-        ArcaTabItem(section: .home,      icon: "house",          label: "Start",        color: .primary),
-        ArcaTabItem(section: .vault,     icon: "key",            label: "Passwörter",   color: .primary),
-        ArcaTabItem(section: .documents, icon: "doc.text",       label: "Dokumente",    color: .primary),
-        ArcaTabItem(section: .notes,     icon: "note.text",      label: "Notizen",      color: .primary),
-        ArcaTabItem(section: .lists,     icon: "checklist",      label: "Tasks",        color: .primary),
-        ArcaTabItem(section: .settings,  icon: "gearshape",      label: "Einstellungen", color: .primary),
-    ]
-
-    // Nicht alle SF Symbols haben ein .fill — manuelle Ausnahmen
-    private func filledIcon(_ icon: String, selected: Bool) -> String {
-        guard selected else { return icon }
-        let noFill = ["note.text", "checklist", "gearshape"]
-        return noFill.contains(icon) ? icon : icon + ".fill"
+    /// Space gilt auch als aktiv, wenn man in einem seiner Bereiche steckt
+    private var spaceActive: Bool {
+        [.spaceHub, .vault, .documents, .notes, .lists].contains(selected)
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(items, id: \.section) { item in
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selected = item.section
-                    }
-                } label: {
-                    let isSelected = selected == item.section
-                    VStack(spacing: 5) {
-                        Image(systemName: filledIcon(item.icon, selected: isSelected))
-                            .font(.system(size: 19, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? Color.accentColor : Color.primary.opacity(0.4))
-                            .symbolRenderingMode(.hierarchical)
-                            .frame(width: 44, height: 28)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
-                            )
+            tabButton(icon: "house", label: "Home", active: selected == .home) {
+                selected = .home
+            }
 
-                        Text(item.label)
-                            .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.4))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-                    .padding(.bottom, 2)
-                }
-                .buttonStyle(.plain)
+            // Erfassen: der schwebende Plus-Knopf — ein Tipp, und Arca merkt es sich
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                store.pendingQuickCapture = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 54, height: 54)
+                    .background(ArcaWarm.terrakotta, in: Circle())
+                    .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+            .offset(y: -16)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Erfassen")
+
+            tabButton(icon: "square.grid.2x2", label: "Space", active: spaceActive) {
+                selected = .spaceHub
+            }
+
+            tabButton(icon: "ellipsis.circle", label: "Mehr", active: selected == .settings) {
+                selected = .settings
             }
         }
+        .padding(.top, 10)
         .padding(.bottom, 28)
-        .background(.bar)
+        .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(Color.primary.opacity(0.08))
                 .frame(height: 0.5)
         }
+    }
+
+    private func tabButton(icon: String, label: String,
+                           active: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { action() }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: active ? icon + ".fill" : icon)
+                    .font(.system(size: 19, weight: active ? .semibold : .regular))
+                    .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.4))
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(height: 26)
+                Text(label)
+                    .font(.system(size: 10, weight: active ? .semibold : .regular))
+                    .foregroundStyle(active ? Color.primary : Color.primary.opacity(0.4))
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -403,6 +413,7 @@ struct HomeView: View {
     @State private var quickAccessNote: NoteEntry? = nil
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
+    @AppStorage("arcaUserName") private var userName: String = ""
     @State private var isReorderingHomeFolders = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -549,8 +560,8 @@ struct HomeView: View {
             .padding(.top, 8)
             .padding(.bottom, 10)
 
-            // ── Suche ganz oben: „Alles durchsuchen" ──
-            HomeSearchBar(text: $searchText, focused: $isSearchFocused)
+            // ── Hero: Begrüßung, die Frage der App und die große Suche ──
+            ArcaHeroCard(name: userName, searchText: $searchText, searchFocused: $isSearchFocused)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
 
@@ -576,12 +587,6 @@ struct HomeView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-
-                    // ── Hero: die Frage der App + Blitzidee als Antwort ──
-                    ArcaHeroCard {
-                        store.pendingQuickCapture = true
-                    }
-                    .padding(.horizontal, 20)
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     if !store.favoriteItems.isEmpty {
@@ -618,17 +623,31 @@ struct HomeView: View {
                                             streamLimit = 25
                                         }
                                     } label: {
-                                        Text(filter.label)
-                                            .font(.system(size: 13, weight: streamFilter == filter ? .semibold : .regular))
-                                            .foregroundStyle(streamFilter == filter ? Color(.systemBackground) : .primary)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(
-                                                streamFilter == filter
-                                                    ? Color.primary
-                                                    : Color(.secondarySystemGroupedBackground),
-                                                in: Capsule()
-                                            )
+                                        Group {
+                                            // Passwörter zeigen nur das Schloss (Brief 04.08.)
+                                            if filter == .passwoerter {
+                                                Image(systemName: "lock.fill")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                            } else {
+                                                Text(filter.label)
+                                                    .font(.system(size: 13, weight: streamFilter == filter ? .semibold : .regular))
+                                            }
+                                        }
+                                        .foregroundStyle(streamFilter == filter ? Color(.systemBackground) : .primary)
+                                        .padding(.horizontal, filter == .passwoerter ? 13 : 13)
+                                        .padding(.vertical, 7)
+                                        .background {
+                                            if streamFilter == filter {
+                                                Capsule().fill(Color.primary)
+                                            } else {
+                                                Capsule().fill(.ultraThinMaterial)
+                                            }
+                                        }
+                                        .overlay(
+                                            Capsule().strokeBorder(
+                                                streamFilter == filter ? Color.clear : ArcaWarm.haarlinie,
+                                                lineWidth: 1)
+                                        )
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -722,7 +741,7 @@ struct HomeView: View {
             }
 
         }
-        .background(Color(.systemGroupedBackground))
+        .background(ArcaWarm.hintergrund)
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)
@@ -751,7 +770,7 @@ struct HomeSearchBar: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
                 .font(.system(size: 13, weight: .semibold))
-            TextField("In allen Bereichen suchen…", text: $text)
+            TextField("Alles durchsuchen", text: $text)
                 .font(.system(size: 14))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -768,9 +787,10 @@ struct HomeSearchBar: View {
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 7)
-        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(ArcaWarm.karte, in: Capsule())
+        .overlay(Capsule().strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
     }
 }
 
@@ -995,10 +1015,13 @@ struct HomeFavoriteCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 4) {
+            // Wallet-Stil (Brief 04.08.): weiße Karte, nur das Icon trägt Farbe,
+            // alle Karten gleich groß, viel Luft
+            VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(tint)
+                Spacer(minLength: 0)
                 Text(item.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
@@ -1008,12 +1031,13 @@ struct HomeFavoriteCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            .padding(10)
-            .frame(width: 118, alignment: .leading)
-            .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            .padding(12)
+            .frame(width: 124, height: 92, alignment: .leading)
+            .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 14))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(item.pinned ? tint.opacity(0.7) : Color.clear, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(item.pinned ? ArcaWarm.terrakotta.opacity(0.55) : ArcaWarm.haarlinie,
+                                  lineWidth: item.pinned ? 1.5 : 1)
             )
             .overlay(alignment: .topTrailing) {
                 if item.pinned {
@@ -1021,10 +1045,11 @@ struct HomeFavoriteCard: View {
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(4)
-                        .background(tint, in: Circle())
+                        .background(ArcaWarm.terrakotta, in: Circle())
                         .offset(x: 5, y: -5)
                 }
             }
+            .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -1040,21 +1065,25 @@ struct HomeFavoriteCard: View {
     }
 }
 
-// MARK: - Hero („Was willst du dir merken?")
+// MARK: - Hero („Was möchtest du heute finden?")
 
-/// Die Bühne des Space: Begrüßung, die Frage der App und der Blitz
-/// als Antwort. Die Bögen dahinter sind das Arca-Motiv (die Arche).
+/// Die Bühne des Space: Begrüßung, die Frage der App und die große
+/// Suche als Antwort. Die Bögen dahinter sind das Arca-Motiv (die
+/// Arche) — dezent, 10–15 % Deckkraft (Redesign-Brief 04.08.).
 struct ArcaHeroCard: View {
-    let action: () -> Void
-
-    private static let blitz = Color(red: 1.00, green: 0.45, blue: 0.10)
+    let name: String
+    @Binding var searchText: String
+    var searchFocused: FocusState<Bool>.Binding
 
     private var greeting: String {
+        let base: String
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<11:  return "Guten Morgen"
-        case 11..<18: return "Guten Tag"
-        default:      return "Guten Abend"
+        case 5..<11:  base = "Guten Morgen"
+        case 11..<18: base = "Guten Tag"
+        default:      base = "Guten Abend"
         }
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return n.isEmpty ? base : "\(base), \(n)"
     }
 
     var body: some View {
@@ -1064,46 +1093,31 @@ struct ArcaHeroCard: View {
                 ForEach(0..<3, id: \.self) { ring in
                     Circle()
                         .trim(from: 0.5, to: 1.0)
-                        .stroke(Self.blitz.opacity(0.16 + Double(ring) * 0.14),
+                        .stroke(ArcaWarm.terrakotta.opacity(0.10 + Double(ring) * 0.025),
                                 style: StrokeStyle(lineWidth: 13, lineCap: .round))
                         .frame(width: 150 - CGFloat(ring) * 44,
                                height: 150 - CGFloat(ring) * 44)
                 }
             }
-            .offset(x: 22, y: 46)
+            .offset(x: 26, y: 40)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(greeting)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Self.blitz)
-                Text("Was willst du dir merken?")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                Text("Was möchtest du heute finden?")
+                    .font(.system(size: 21, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
-                    .frame(maxWidth: 200, alignment: .leading)
+                    .frame(maxWidth: 230, alignment: .leading)
 
-                Button(action: action) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("Blitzidee")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("· auch per Diktat")
-                            .font(.system(size: 11))
-                            .opacity(0.75)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(Self.blitz, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 10)
+                HomeSearchBar(text: $searchText, focused: searchFocused)
+                    .padding(.top, 10)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
         }
-        .background(Self.blitz.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .background(ArcaWarm.creme, in: RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }
 
@@ -1179,15 +1193,112 @@ struct HomeStreamRow: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .padding(.vertical, 10)
             .background(
-                item.kind == .vault
-                    ? Color(.secondarySystemGroupedBackground).opacity(0.6)
-                    : Color(.secondarySystemGroupedBackground),
-                in: RoundedRectangle(cornerRadius: 12)
+                item.kind == .vault ? ArcaWarm.creme : ArcaWarm.karte,
+                in: RoundedRectangle(cornerRadius: 14)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(ArcaWarm.haarlinie, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Space (die vier Bereiche)
+
+/// Der Space-Tab: die vier Bereiche als ruhige Karten — der Ort, an dem
+/// man gezielt in ein Zimmer geht, während der Start alles mischt.
+struct SpaceHubView: View {
+    @EnvironmentObject var store: AppStore
+    @Binding var selectedSection: ArcaSection
+
+    private struct Bereich: Identifiable {
+        let id: String
+        let section: ArcaSection
+        let title: String
+        let subtitle: String
+        let icon: String
+        let tint: Color
+        let count: Int
+    }
+
+    private var bereiche: [Bereich] {
+        [
+            Bereich(id: "documents", section: .documents, title: "Dokumente",
+                    subtitle: "Pass, Tickets, Verträge", icon: "doc.fill", tint: .orange,
+                    count: store.documents.count),
+            Bereich(id: "notes", section: .notes, title: "Notizen",
+                    subtitle: "Ideen, Texte, Blitzideen", icon: "note.text", tint: .purple,
+                    count: store.notes.count),
+            Bereich(id: "lists", section: .lists, title: "Tasks",
+                    subtitle: "Aufgaben und Checklisten", icon: "checklist", tint: .green,
+                    count: store.lists.count),
+            Bereich(id: "vault", section: .vault, title: "Passwörter",
+                    subtitle: "Verschlossen, mit Face ID", icon: "lock.fill", tint: .blue,
+                    count: store.vaultItems.count),
+        ]
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Space")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .padding(.top, 16)
+                Text("Deine vier Bereiche — alles an seinem Platz.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 6)
+
+                ForEach(bereiche) { bereich in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            selectedSection = bereich.section
+                        }
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: bereich.icon)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(bereich.tint)
+                                .frame(width: 40, height: 40)
+                                .background(ArcaWarm.creme, in: RoundedRectangle(cornerRadius: 11))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(bereich.title)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text(bereich.subtitle)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if bereich.count > 0 {
+                                Text("\(bereich.count)")
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(14)
+                        .background(ArcaWarm.karte, in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .strokeBorder(ArcaWarm.haarlinie, lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+            .frame(maxWidth: 700)
+            .frame(maxWidth: .infinity)
+        }
+        .background(ArcaWarm.hintergrund)
     }
 }
 
@@ -5964,6 +6075,7 @@ struct FeedbackLinkRow: View {
 
 struct SettingsView: View {
     @EnvironmentObject var store: AppStore
+    @AppStorage("arcaUserName") private var userName: String = ""
 
     // Export flow
     @State private var showExportPasswordSheet = false
@@ -6152,6 +6264,19 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 aboutSection
+
+                Section {
+                    HStack {
+                        Label("Dein Name", systemImage: "person.fill")
+                        Spacer()
+                        TextField("Name", text: $userName)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.words)
+                            .frame(maxWidth: 160)
+                    }
+                } footer: {
+                    Text("Für die Begrüßung auf dem Startbildschirm.")
+                }
 
                 Section {
                     HStack {

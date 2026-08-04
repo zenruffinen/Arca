@@ -40,6 +40,35 @@ enum ArcaDesign {
     static let homeHubCategories = ["Reise", "Papiere", "Rechnungen", "Verträge"]
 }
 
+// MARK: - Warme Farbwelt (Redesign-Brief 04.08.: Warmweiß, Creme, Terrakotta)
+
+/// Die Palette des Space: keine bunten Flächen — Farbe tragen nur Icons
+/// und der Terrakotta-Akzent. Alle Töne passen sich dem Dunkelmodus an.
+enum ArcaWarm {
+    /// Seitenhintergrund: Warmweiß statt System-Grau
+    static let hintergrund = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.11, green: 0.10, blue: 0.095, alpha: 1)
+            : UIColor(red: 0.98, green: 0.965, blue: 0.94, alpha: 1)
+    })
+    /// Creme: die Hero-Bühne und verschlossene Karten
+    static let creme = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.16, green: 0.145, blue: 0.13, alpha: 1)
+            : UIColor(red: 0.955, green: 0.93, blue: 0.885, alpha: 1)
+    })
+    /// Karten: Weiß mit Hauch von Wärme
+    static let karte = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.155, green: 0.145, blue: 0.14, alpha: 1)
+            : UIColor.white
+    })
+    /// Der eine Akzent der App
+    static let terrakotta = Color(red: 0.78, green: 0.40, blue: 0.25)
+    /// Haarlinie für Kartenränder
+    static let haarlinie = Color.primary.opacity(0.07)
+}
+
 struct ArcaHubStyle {
     let icon: String
     let tint: Color

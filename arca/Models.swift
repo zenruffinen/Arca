@@ -9,6 +9,7 @@ import Foundation
 
 enum ArcaSection: String, CaseIterable, Identifiable {
     case home = "Start"
+    case spaceHub = "Space"
     case vault = "Passwörter"
     case documents = "Dokumente"
     case notes = "Notizen"
