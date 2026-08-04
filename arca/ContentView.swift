@@ -442,6 +442,12 @@ struct HomeView: View {
     @State private var showNeueGruppe = false
     @State private var neueGruppeName = ""
     @State private var docFuerNeueGruppe: DocumentEntry? = nil
+    // Notizen/Aufgaben/Passwörter im Strom bearbeiten
+    @State private var streamRenameItem: FavoriteItem? = nil
+    @State private var streamRenameText = ""
+    @State private var vaultZumLoeschen: FavoriteItem? = nil
+    @State private var punktFuerListe: UUID? = nil
+    @State private var neuerPunktText = ""
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -592,22 +598,62 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                    selectedSection = .lists
+            HStack(spacing: 16) {
+                Button {
+                    neuerPunktText = ""
+                    punktFuerListe = liste.id
+                } label: {
+                    Label("Punkt", systemImage: "plus.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
                 }
-            } label: {
-                Text("Zur Liste →")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(ArcaWarm.terrakotta)
+                .buttonStyle(.plain)
+
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        selectedSection = .lists
+                    }
+                } label: {
+                    Text("Zur Liste →")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             .padding(.top, 4)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
         .padding(.leading, 16)
+    }
+
+    /// Notiz/Aufgabenliste/Passwort direkt aus dem Strom löschen.
+    private func loescheStreamEintrag(_ item: FavoriteItem) {
+        switch item.kind {
+        case .note:     store.notes.removeAll { $0.id == item.id }
+        case .list:     store.lists.removeAll { $0.id == item.id }
+        case .vault:    store.vaultItems.removeAll { $0.id == item.id }
+        case .document: break
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// Titel eines Strom-Eintrags ändern (Notiz/Aufgabenliste/Passwort).
+    private func benenneStreamEintragUm() {
+        guard let item = streamRenameItem else { return }
+        let neu = streamRenameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        defer { streamRenameItem = nil }
+        guard !neu.isEmpty else { return }
+        switch item.kind {
+        case .note:
+            if let i = store.notes.firstIndex(where: { $0.id == item.id }) { store.notes[i].title = neu }
+        case .list:
+            if let i = store.lists.firstIndex(where: { $0.id == item.id }) { store.lists[i].title = neu }
+        case .vault:
+            if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) { store.vaultItems[i].title = neu }
+        case .document: break
+        }
     }
 
     /// Ist der Eintrag hinter einer Strom-Zeile bereits Favorit?
@@ -1025,6 +1071,31 @@ struct HomeView: View {
                                                 Label("Fest anpinnen / lösen", systemImage: "pin.fill")
                                             }
                                         }
+                                        Divider()
+                                        Button {
+                                            streamRenameText = item.title
+                                            streamRenameItem = item
+                                        } label: {
+                                            Label("Umbenennen", systemImage: "pencil")
+                                        }
+                                        if item.kind == .list {
+                                            Button {
+                                                neuerPunktText = ""
+                                                punktFuerListe = item.id
+                                            } label: {
+                                                Label("Punkt hinzufügen", systemImage: "plus.circle")
+                                            }
+                                        }
+                                        Divider()
+                                        Button(role: .destructive) {
+                                            if item.kind == .vault {
+                                                vaultZumLoeschen = item   // Tresor fragt nach
+                                            } else {
+                                                loescheStreamEintrag(item)
+                                            }
+                                        } label: {
+                                            Label("Löschen", systemImage: "trash")
+                                        }
                                     }
                                     if item.kind == .list, expandedLists.contains(item.id),
                                        let liste = store.lists.first(where: { $0.id == item.id }) {
@@ -1097,6 +1168,47 @@ struct HomeView: View {
             }
         } message: {
             Text("Dein Vorname erscheint in der Begrüßung — du kannst ihn jederzeit unter „Mehr“ ändern.")
+        }
+        // Notiz/Aufgabenliste/Passwort umbenennen — direkt vom Start
+        .alert("Umbenennen", isPresented: Binding(
+            get: { streamRenameItem != nil },
+            set: { if !$0 { streamRenameItem = nil } }
+        )) {
+            TextField("Titel", text: $streamRenameText)
+            Button("Sichern") { benenneStreamEintragUm() }
+            Button("Abbrechen", role: .cancel) { streamRenameItem = nil }
+        }
+        // Passwort löschen nur mit Rückfrage
+        .alert("Passwort löschen?", isPresented: Binding(
+            get: { vaultZumLoeschen != nil },
+            set: { if !$0 { vaultZumLoeschen = nil } }
+        )) {
+            Button("Löschen", role: .destructive) {
+                if let item = vaultZumLoeschen { loescheStreamEintrag(item) }
+                vaultZumLoeschen = nil
+            }
+            Button("Abbrechen", role: .cancel) { vaultZumLoeschen = nil }
+        } message: {
+            Text("Der Eintrag wird endgültig aus dem Tresor entfernt.")
+        }
+        // Neuen Punkt in eine Aufgabenliste legen
+        .alert("Neuer Punkt", isPresented: Binding(
+            get: { punktFuerListe != nil },
+            set: { if !$0 { punktFuerListe = nil } }
+        )) {
+            TextField("Aufgabe", text: $neuerPunktText)
+            Button("Hinzufügen") {
+                if let id = punktFuerListe,
+                   let i = store.lists.firstIndex(where: { $0.id == id }) {
+                    let text = neuerPunktText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !text.isEmpty {
+                        store.lists[i].items.append(ChecklistItem(text: text))
+                        withAnimation { _ = expandedLists.insert(id) }
+                    }
+                }
+                punktFuerListe = nil
+            }
+            Button("Abbrechen", role: .cancel) { punktFuerListe = nil }
         }
         // Dokument umbenennen — direkt vom Start
         .alert("Dokument umbenennen", isPresented: Binding(
