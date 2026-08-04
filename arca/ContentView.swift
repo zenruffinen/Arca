@@ -414,6 +414,9 @@ struct HomeView: View {
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
     @AppStorage("arcaUserName") private var userName: String = ""
+    @AppStorage("arcaUserNameAsked") private var userNameAsked: Bool = false
+    @State private var showNamePrompt = false
+    @State private var namePromptInput = ""
     @State private var isReorderingHomeFolders = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -882,6 +885,26 @@ struct HomeView: View {
                 .environmentObject(store)
         }
         .quickLookPreview($quickAccessPreviewURL)
+        // Einmalige Namensfrage für die Begrüßung (iOS gibt den
+        // Gerätenamen aus Datenschutzgründen nicht mehr her)
+        .onAppear {
+            if userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !userNameAsked {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showNamePrompt = true }
+            }
+        }
+        .alert("Wie dürfen wir dich begrüßen?", isPresented: $showNamePrompt) {
+            TextField("Dein Vorname", text: $namePromptInput)
+                .textInputAutocapitalization(.words)
+            Button("Speichern") {
+                userName = namePromptInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                userNameAsked = true
+            }
+            Button("Später", role: .cancel) {
+                userNameAsked = true
+            }
+        } message: {
+            Text("Dein Vorname erscheint in der Begrüßung — du kannst ihn jederzeit unter „Mehr“ ändern.")
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: store.favoriteItems.count)
         .animation(.easeInOut(duration: 0.2), value: isSearching)
     }
