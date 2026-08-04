@@ -457,37 +457,6 @@ struct HomeView: View {
         horizontalSizeClass == .regular ? 700 : .infinity
     }
 
-    /// Erfassen-Knopf: springt in den Bereich und öffnet dort sofort
-    /// das „Neu"-Blatt (bzw. den QR-Scanner bei section == nil).
-    private func erfassenButton(_ title: String, icon: String, tint: Color, section: ArcaSection?) -> some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            if let section {
-                store.pendingNewEntry = section
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                    selectedSection = section
-                }
-            } else {
-                showQRScanner = true
-            }
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 44, height: 44)
-                    .glassEffect(.regular.tint(tint.opacity(0.14)), in: RoundedRectangle(cornerRadius: 13))
-                Text(title)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.plain)
-    }
-
     /// Bereichs-Knopf: kompakte Kachel für den Sprung in ein Zimmer.
     private func bereichButton(_ title: String, icon: String, tint: Color, section: ArcaSection) -> some View {
         Button {
@@ -757,6 +726,22 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dokument erfassen")
 
+                // Passwort hinzufügen: Tresor öffnet direkt den neuen Eintrag
+                Button {
+                    store.pendingNewEntry = .vault
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        selectedSection = .vault
+                    }
+                } label: {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.blue)
+                        .frame(width: 36, height: 36)
+                        .glassEffect(.regular, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Passwort hinzufügen")
+
                 Button { showQRScanner = true } label: {
                     Image(systemName: "qrcode.viewfinder")
                         .font(.system(size: 17, weight: .semibold))
@@ -858,19 +843,6 @@ struct HomeView: View {
                         }
                     }
                     .transition(.scale.combined(with: .opacity))
-
-                    // ── Erfassen: jeder Typ in einem Tipp, Blatt öffnet direkt ──
-                    VStack(alignment: .leading, spacing: 10) {
-                        ArcaSectionTitle(title: "Erfassen")
-                            .padding(.horizontal, 20)
-                        // Notiz übernimmt das Plus, Task der eigene Reiter,
-                        // QR-Scan wohnt oben rechts im Kopf
-                        HStack(spacing: 8) {
-                            erfassenButton("Dokument", icon: "doc.badge.plus", tint: .orange, section: .documents)
-                            erfassenButton("Passwort", icon: "key.fill", tint: .blue, section: .vault)
-                        }
-                        .padding(.horizontal, 20)
-                    }
 
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
