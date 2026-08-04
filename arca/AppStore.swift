@@ -1444,10 +1444,30 @@ final class AppStore: ObservableObject {
         } else {
             migrateHomeFolderQuickViewIfNeeded()
         }
-        // „Sonstiges" heißt jetzt „Eingang" — einmalige Umbenennung (04.08.)
+        // „Sonstiges" heißt jetzt „Unsortiert" — einmalige Umbenennung (04.08.);
+        // der kurzlebige Zwischenname „Eingang" zieht ebenfalls um.
         if documentCategories.contains("Sonstiges"), !documentCategories.contains("Unsortiert") {
             renameCategory(from: "Sonstiges", to: "Unsortiert")
         }
+        if documentCategories.contains("Eingang"), !documentCategories.contains("Unsortiert") {
+            renameCategory(from: "Eingang", to: "Unsortiert")
+        }
+        // „Import" geht in „Unsortiert" auf (04.08.): Dokumente ziehen um,
+        // die Gruppe verschwindet, künftige Importe landen in Unsortiert.
+        if documentCategories.contains("Import") {
+            if !documentCategories.contains("Unsortiert") {
+                documentCategories.append("Unsortiert")
+            }
+            documents = documents.map { doc in
+                var d = doc
+                if d.category == "Import" { d.category = "Unsortiert"; d.subcategory = "" }
+                return d
+            }
+            documentCategories.removeAll { $0 == "Import" }
+            documentSubcategories.removeValue(forKey: "Import")
+            homeFolderQuickView.removeAll { $0 == "Import" }
+        }
+        if importCategoryName == "Import" { importCategoryName = "Unsortiert" }
         migrateQuickAccessToFavorites()
         updateWidgetData()
     }
