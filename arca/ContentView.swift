@@ -3179,14 +3179,14 @@ struct DocumentsView: View {
     @State private var showTextInput = false
     @State private var textTitle = ""
     @State private var textContent = ""
-    @State private var textCategory: String = "Sonstiges"
+    @State private var textCategory: String = "Eingang"
     @State private var searchText = ""
 
     // Zwischenspeicher für Kategorie-Auswahl nach Datei-Import
     @State private var pendingTitle = ""
     @State private var pendingFilename = ""
     @State private var pendingType: DocumentType = .pdf
-    @State private var pendingCategory: String = "Sonstiges"
+    @State private var pendingCategory: String = "Eingang"
     @State private var showCategoryPicker = false
     @State private var scanReady = false
     @State private var downloadingDoc: DocumentEntry? = nil
@@ -7144,6 +7144,7 @@ func categoryIcon(_ name: String) -> String {
     case "Rechnungen": return "eurosign.circle"
     case "Verträge":   return "signature"
     case "Gesundheit": return "heart.text.square"
+    case "Eingang":    return "tray.fill"
     default:           return "folder"
     }
 }

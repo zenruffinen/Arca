@@ -137,7 +137,7 @@ final class AppStore: ObservableObject {
         return name
     }
 
-    static let defaultCategories = ["Reise", "Papiere", "Rechnungen", "Verträge", "Gesundheit", "Sonstiges"]
+    static let defaultCategories = ["Reise", "Papiere", "Rechnungen", "Verträge", "Gesundheit", "Eingang"]
 
     // MARK: - iCloud Storage
 
@@ -1205,7 +1205,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Dokumente
 
-    func addDocument(title: String, type: DocumentType, filename: String, category: String = "Sonstiges", subcategory: String = "") {
+    func addDocument(title: String, type: DocumentType, filename: String, category: String = "Eingang", subcategory: String = "") {
         let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category, subcategory: subcategory)
         documents.append(entry)
     }
@@ -1230,7 +1230,7 @@ final class AppStore: ObservableObject {
     }
 
     func deleteCategory(_ name: String) {
-        let fallback = documentCategories.first(where: { $0 != name }) ?? "Sonstiges"
+        let fallback = documentCategories.first(where: { $0 != name }) ?? "Eingang"
         documents = documents.map { doc in
             var d = doc; if d.category == name { d.category = fallback }; return d
         }
@@ -1443,6 +1443,10 @@ final class AppStore: ObservableObject {
             homeFolderQuickView = decoded
         } else {
             migrateHomeFolderQuickViewIfNeeded()
+        }
+        // „Sonstiges" heißt jetzt „Eingang" — einmalige Umbenennung (04.08.)
+        if documentCategories.contains("Sonstiges"), !documentCategories.contains("Eingang") {
+            renameCategory(from: "Sonstiges", to: "Eingang")
         }
         migrateQuickAccessToFavorites()
         updateWidgetData()
