@@ -740,14 +740,32 @@ struct HomeView: View {
 
                 Spacer()
 
+                // Dokumente erfassen: öffnet das Quellen-Blatt mit allen
+                // Möglichkeiten (Scan · PDF · Fotos/Videos · Text)
+                Button {
+                    store.pendingNewEntry = .documents
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        selectedSection = .documents
+                    }
+                } label: {
+                    Image(systemName: "doc.badge.plus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.orange)
+                        .frame(width: 36, height: 36)
+                        .glassEffect(.regular, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dokument erfassen")
+
                 Button { showQRScanner = true } label: {
                     Image(systemName: "qrcode.viewfinder")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
-                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                        .glassEffect(.regular, in: Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("QR-Code scannen")
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
