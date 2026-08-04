@@ -13,7 +13,7 @@ enum ArcaSection: String, CaseIterable, Identifiable {
     case vault = "Passwörter"
     case documents = "Dokumente"
     case notes = "Notizen"
-    case lists = "Tasks"
+    case lists = "Aufgaben"
     case settings = "Einstellungen"
 
     var id: String { rawValue }

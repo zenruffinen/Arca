@@ -146,10 +146,10 @@ struct ArcaShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: OpenTasksIntent(),
             phrases: [
-                "Tasks in \(.applicationName) öffnen",
+                "Aufgaben in \(.applicationName) öffnen",
                 "\(.applicationName) Aufgaben zeigen"
             ],
-            shortTitle: "Tasks",
+            shortTitle: "Aufgaben",
             systemImageName: "checklist"
         )
         AppShortcut(

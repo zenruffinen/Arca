@@ -66,7 +66,7 @@ struct ArcaSmallView: View {
             Spacer(minLength: 8)
             VStack(alignment: .leading, spacing: 6) {
                 statRow(icon: "note.text",  label: "Notizen",    count: data.noteCount)
-                statRow(icon: "checklist",  label: "Tasks",      count: data.listCount)
+                statRow(icon: "checklist",  label: "Aufgaben",      count: data.listCount)
                 statRow(icon: "doc.fill",   label: "Dokumente",  count: data.docCount)
                 statRow(icon: "lock.fill",  label: "Passwörter", count: data.vaultCount)
             }
@@ -104,7 +104,7 @@ struct ArcaMediumView: View {
                 Spacer(minLength: 6)
                 VStack(alignment: .leading, spacing: 4) {
                     mediumRow(icon: "note.text", label: "Notizen",    count: data.noteCount)
-                    mediumRow(icon: "checklist", label: "Tasks",      count: data.listCount)
+                    mediumRow(icon: "checklist", label: "Aufgaben",      count: data.listCount)
                     mediumRow(icon: "doc.fill",  label: "Dokumente",  count: data.docCount)
                     mediumRow(icon: "lock.fill", label: "Passwörter", count: data.vaultCount)
                 }
@@ -113,7 +113,7 @@ struct ArcaMediumView: View {
             VStack(spacing: 5) {
                 HStack(spacing: 5) {
                     actionLink("Notizen",    icon: "note.text", url: "arca://notes",      color: .purple)
-                    actionLink("Tasks",      icon: "checklist", url: "arca://tasks",      color: .green)
+                    actionLink("Aufgaben",      icon: "checklist", url: "arca://tasks",      color: .green)
                 }
                 HStack(spacing: 5) {
                     actionLink("Dokumente",  icon: "doc.fill",  url: "arca://documents",  color: .orange)

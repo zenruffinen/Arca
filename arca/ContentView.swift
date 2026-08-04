@@ -212,7 +212,7 @@ struct ArcaTabBar: View {
                         selected = .home
                     }
                 }
-                pillButton(icon: "checkmark.square", active: selected == .lists, label: "Tasks") {
+                pillButton(icon: "checkmark.square", active: selected == .lists, label: "Aufgaben") {
                     selected = .lists
                 }
                 pillButton(icon: "gearshape", active: selected == .settings, label: "Mehr") {
@@ -377,7 +377,7 @@ struct HomeActivityItem: Identifiable {
             case .password: return "Passwörter"
             case .document: return "Dokumente"
             case .note:     return "Notizen"
-            case .task:     return "Tasks"
+            case .task:     return "Aufgaben"
             }
         }
         var colorTag: Int {
@@ -436,7 +436,6 @@ struct HomeView: View {
     // Ausgeklappte Ordner und Tasklisten auf dem Start
     @State private var expandedFolders: Set<String> = []
     @State private var expandedLists: Set<UUID> = []
-    @State private var isReorderingHomeFolders = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -627,18 +626,6 @@ struct HomeView: View {
         selectedSection = .documents
     }
 
-    @ViewBuilder
-    private func homeFolderRow(_ category: String, tappable: Bool) -> some View {
-        let colors = categoryColor(category, overrides: store.categoryColors)
-        ArcaFolderQuickCard(
-            name: category,
-            icon: categoryIcon(category),
-            tint: colors.accent,
-            bg: colors.bg,
-            count: documentCount(in: category),
-            action: tappable ? { openDocuments(category: category) } : nil
-        )
-    }
 
     // ── Der Strom: ein Typ zur Zeit, jüngste zuerst (kein „Alle" mehr) ──
     @State private var streamFilter: HomeStreamFilter = .dokumente
@@ -1023,78 +1010,6 @@ struct HomeView: View {
                         .padding(.horizontal, 20)
                     }
 
-                    // ── Ordner-Schnellzugriff (gewählte, nicht leere Gruppen) ──
-                    if !homeQuickViewFolders.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                ArcaSectionTitle(title: "Ordner")
-                                Spacer()
-                                if homeQuickViewFolders.count > 1 {
-                                    Button(isReorderingHomeFolders ? "Fertig" : "Sortieren") {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            isReorderingHomeFolders.toggle()
-                                        }
-                                    }
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.blue)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-
-                            if isReorderingHomeFolders {
-                                List {
-                                    ForEach(homeQuickViewFolders, id: \.self) { category in
-                                        homeFolderRow(category, tappable: false)
-                                            .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
-                                            .listRowSeparator(.hidden)
-                                            .listRowBackground(Color.clear)
-                                    }
-                                    .onMove { from, to in
-                                        store.moveHomeFolderQuickView(visibleFrom: from, visibleTo: to)
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    }
-                                }
-                                .listStyle(.plain)
-                                .scrollContentBackground(.hidden)
-                                .scrollDisabled(true)
-                                .frame(height: CGFloat(homeQuickViewFolders.count) * 62)
-                                .environment(\.editMode, .constant(.active))
-                            } else {
-                                VStack(spacing: 8) {
-                                    ForEach(homeQuickViewFolders, id: \.self) { category in
-                                        let colors = categoryColor(category, overrides: store.categoryColors)
-                                        VStack(spacing: 6) {
-                                            // Tippen klappt auf, der Pfeil springt in den Bereich
-                                            ArcaFolderQuickCard(
-                                                name: category,
-                                                icon: categoryIcon(category),
-                                                tint: colors.accent,
-                                                bg: colors.bg,
-                                                count: documentCount(in: category),
-                                                action: {
-                                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                                        if expandedFolders.contains(category) {
-                                                            expandedFolders.remove(category)
-                                                        } else {
-                                                            expandedFolders.insert(category)
-                                                        }
-                                                    }
-                                                },
-                                                isExpanded: expandedFolders.contains(category),
-                                                onOpen: { openDocuments(category: category) }
-                                            )
-                                            if expandedFolders.contains(category) {
-                                                folderDocumentRows(category)
-                                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                                            }
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                        }
-                    }
-
                     Spacer().frame(height: 24)
                     }
                     .frame(maxWidth: homeContentMaxWidth)
@@ -1299,7 +1214,7 @@ struct SearchResultsView: View {
 
                 if !matchingLists.isEmpty {
                     SearchResultGroup(
-                        title: "Tasks",
+                        title: "Aufgaben",
                         icon: "checklist",
                         color: NoteColor.for_(3).accent
                     ) {
@@ -1552,7 +1467,7 @@ enum HomeStreamFilter: CaseIterable {
         switch self {
         case .dokumente:   return "Dokumente"
         case .notizen:     return "Notizen"
-        case .tasks:       return "Tasks"
+        case .tasks:       return "Aufgaben"
         case .passwoerter: return "Passwörter"
         }
     }
@@ -1655,7 +1570,7 @@ struct SpaceHubView: View {
             Bereich(id: "notes", section: .notes, title: "Notizen",
                     subtitle: "Ideen, Texte, Blitzideen", icon: "note.text", tint: .purple,
                     count: store.notes.count),
-            Bereich(id: "lists", section: .lists, title: "Tasks",
+            Bereich(id: "lists", section: .lists, title: "Aufgaben",
                     subtitle: "Aufgaben und Checklisten", icon: "checklist", tint: .green,
                     count: store.lists.count),
             Bereich(id: "vault", section: .vault, title: "Passwörter",
@@ -5500,7 +5415,7 @@ struct ListsView: View {
     private var iPhoneListsBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                AddTriggerButton(label: "Neue Taskliste", subtitle: "Name · Vorlage · Farbe", icon: "plus") {
+                AddTriggerButton(label: "Neue Aufgabenliste", subtitle: "Name · Vorlage · Farbe", icon: "plus") {
                     showNewList = true
                 }
                 .padding(.horizontal, 20)
@@ -5938,7 +5853,7 @@ struct NewListSheet: View {
                 }
                 .padding(.top, 16)
             }
-            .navigationTitle("Neue Taskliste")
+            .navigationTitle("Neue Aufgabenliste")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
