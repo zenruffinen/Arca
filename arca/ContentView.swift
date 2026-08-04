@@ -845,10 +845,9 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         ArcaSectionTitle(title: "Erfassen")
                             .padding(.horizontal, 20)
+                        // Notiz übernimmt das Plus (Blitzidee), Task der eigene Reiter
                         HStack(spacing: 8) {
                             erfassenButton("Dokument", icon: "doc.badge.plus", tint: .orange, section: .documents)
-                            erfassenButton("Notiz", icon: "square.and.pencil", tint: .purple, section: .notes)
-                            erfassenButton("Task", icon: "plus.circle", tint: .green, section: .lists)
                             erfassenButton("Passwort", icon: "key.fill", tint: .blue, section: .vault)
                             erfassenButton("QR-Scan", icon: "qrcode.viewfinder", tint: .teal, section: nil)
                         }
