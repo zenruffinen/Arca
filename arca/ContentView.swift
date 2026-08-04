@@ -191,72 +191,78 @@ struct ArcaTabBar: View {
     @EnvironmentObject var store: AppStore
 
     /// Space gilt auch als aktiv, wenn man in einem seiner Bereiche steckt
+    /// (Tasks haben ihren eigenen Reiter in der Pille)
     private var spaceActive: Bool {
-        [.home, .spaceHub, .vault, .documents, .notes, .lists].contains(selected)
+        [.home, .spaceHub, .vault, .documents, .notes].contains(selected)
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            tabButton(icon: "square.grid.2x2", label: "Space", active: spaceActive) {
-                // Schon auf dem Start? Dann nach oben springen.
-                if selected == .home {
-                    store.homeSprungNachOben += 1
-                } else {
-                    selected = .home
+        // Schwebende Glas-Pille links, Blitzidee-Plus rechts (Craft-Stil)
+        HStack(spacing: 12) {
+            HStack(spacing: 2) {
+                pillButton(icon: "square.grid.2x2", active: spaceActive, label: "Space") {
+                    // Schon auf dem Start? Dann nach oben springen.
+                    if selected == .home {
+                        store.homeSprungNachOben += 1
+                    } else {
+                        selected = .home
+                    }
+                }
+                pillButton(icon: "checkmark.square", active: selected == .lists, label: "Tasks") {
+                    selected = .lists
+                }
+                pillButton(icon: "gearshape", active: selected == .settings, label: "Mehr") {
+                    selected = .settings
                 }
             }
+            .padding(5)
+            .glassEffect(.regular, in: Capsule())
 
-            // Blitzidee in der Mitte: ein Tipp, und Arca merkt es sich
+            Spacer(minLength: 0)
+
+            // Blitzidee: tippen = Blatt, halten = Diktat startet sofort
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 store.pendingQuickCapture = true
             } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(ArcaWarm.terrakotta)
-                        .frame(height: 26)
-                    Text("Blitzidee")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.primary.opacity(0.55))
-                }
-                .frame(maxWidth: .infinity)
+                Image(systemName: "plus")
+                    .font(.system(size: 23, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(ArcaWarm.terrakotta, in: Circle())
+                    .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    store.quickCaptureAutoRecord = true
+                    store.pendingQuickCapture = true
+                }
+            )
             .accessibilityLabel("Blitzidee erfassen")
-
-            tabButton(icon: "gearshape", label: "Mehr", active: selected == .settings) {
-                selected = .settings
-            }
         }
-        .padding(.top, 10)
-        .padding(.bottom, 28)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.primary.opacity(0.08))
-                .frame(height: 0.5)
-        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 34)
     }
 
-    private func tabButton(icon: String, label: String,
-                           active: Bool, action: @escaping () -> Void) -> some View {
+    private func pillButton(icon: String, active: Bool, label: String,
+                            action: @escaping () -> Void) -> some View {
         Button {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { action() }
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: active ? icon + ".fill" : icon)
-                    .font(.system(size: 19, weight: active ? .semibold : .regular))
-                    .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.4))
-                    .symbolRenderingMode(.hierarchical)
-                    .frame(height: 26)
-                Text(label)
-                    .font(.system(size: 10, weight: active ? .semibold : .regular))
-                    .foregroundStyle(active ? Color.primary : Color.primary.opacity(0.4))
-            }
-            .frame(maxWidth: .infinity)
+            Image(systemName: active ? icon + ".fill" : icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.45))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 54, height: 44)
+                .background(
+                    active ? Color.primary.opacity(0.06) : Color.clear,
+                    in: Capsule()
+                )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
@@ -949,10 +955,10 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         ArcaSectionTitle(title: "Bereiche")
                             .padding(.horizontal, 20)
+                        // Tasks haben ihren eigenen Reiter in der Leiste
                         HStack(spacing: 8) {
                             bereichButton("Dokumente", icon: "doc.fill", tint: .orange, section: .documents)
                             bereichButton("Notizen", icon: "note.text", tint: .purple, section: .notes)
-                            bereichButton("Tasks", icon: "checklist", tint: .green, section: .lists)
                             bereichButton("Passwörter", icon: "lock.fill", tint: .blue, section: .vault)
                         }
                         .padding(.horizontal, 20)
@@ -1425,23 +1431,9 @@ struct ArcaHeroCard: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Arca-Bögen (Regenbogen-Motiv): außen zart, innen kräftig —
-            // konzentrisch um denselben Mittelpunkt, unten angeschnitten
-            ZStack {
-                ForEach(0..<3, id: \.self) { ring in
-                    Circle()
-                        .trim(from: 0.5, to: 1.0)
-                        .stroke(ArcaWarm.terrakotta.opacity(0.22 + Double(ring) * 0.30),
-                                style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                        .frame(width: 190 - CGFloat(ring) * 56,
-                               height: 190 - CGFloat(ring) * 56)
-                }
-            }
-            .frame(width: 200, height: 200)
-            .offset(x: 28, y: 44)
-
-            VStack(alignment: .leading, spacing: 4) {
+        // Die Bögen liegen im Hintergrund und diktieren die Höhe nicht mehr —
+        // die Karte bleibt so flach wie ihr Text.
+        VStack(alignment: .leading, spacing: 4) {
                 Text(greeting)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(ArcaWarm.terrakotta)
@@ -1449,33 +1441,30 @@ struct ArcaHeroCard: View {
                     .font(.system(size: 21, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
                     .frame(maxWidth: 210, alignment: .leading)
-
-                Button(action: onCapture) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("Blitzidee")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("halten = Diktat")
-                            .font(.system(size: 11))
-                            .opacity(0.75)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 10)
-                    .background(ArcaWarm.terrakotta, in: Capsule())
+                // Aufgeräumt (Craft-Leiste): Der Plus-Knopf unten rechts
+                // beantwortet die Frage — tippen = Blitzidee, halten = Diktat.
+                Text("Tipp aufs Plus — halten für Diktat")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(alignment: .topTrailing) {
+            // Arca-Bögen (Regenbogen-Motiv): außen zart, innen kräftig —
+            // konzentrisch um denselben Mittelpunkt, unten angeschnitten
+            ZStack {
+                ForEach(0..<3, id: \.self) { ring in
+                    Circle()
+                        .trim(from: 0.5, to: 1.0)
+                        .stroke(ArcaWarm.terrakotta.opacity(0.22 + Double(ring) * 0.30),
+                                style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                        .frame(width: 160 - CGFloat(ring) * 48,
+                               height: 160 - CGFloat(ring) * 48)
                 }
-                .buttonStyle(.plain)
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4).onEnded { _ in
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        onDictate()
-                    }
-                )
-                .padding(.top, 12)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
+            .frame(width: 170, height: 170)
+            .offset(x: 20, y: 34)
         }
         .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.55)), in: RoundedRectangle(cornerRadius: 20))
         .clipShape(RoundedRectangle(cornerRadius: 20))
