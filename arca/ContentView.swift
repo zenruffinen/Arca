@@ -937,6 +937,24 @@ struct HomeView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 8)
                                 } else {
+                                    // Neue Gruppe direkt hier anlegen
+                                    Button {
+                                        docFuerNeueGruppe = nil
+                                        neueGruppeName = ""
+                                        showNeueGruppe = true
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "folder.badge.plus")
+                                                .font(.system(size: 14, weight: .semibold))
+                                            Text("Neue Gruppe")
+                                                .font(.system(size: 13, weight: .semibold))
+                                        }
+                                        .foregroundStyle(ArcaWarm.terrakotta)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+                                    }
+                                    .buttonStyle(.plain)
                                     ForEach(dokumentGruppen, id: \.name) { gruppe in
                                         let farben = categoryColor(gruppe.name, overrides: store.categoryColors)
                                         VStack(spacing: 6) {
@@ -964,24 +982,6 @@ struct HomeView: View {
                                             }
                                         }
                                     }
-                                    // Neue Gruppe direkt hier anlegen
-                                    Button {
-                                        docFuerNeueGruppe = nil
-                                        neueGruppeName = ""
-                                        showNeueGruppe = true
-                                    } label: {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "folder.badge.plus")
-                                                .font(.system(size: 14, weight: .semibold))
-                                            Text("Neue Gruppe")
-                                                .font(.system(size: 13, weight: .semibold))
-                                        }
-                                        .foregroundStyle(ArcaWarm.terrakotta)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
-                                    }
-                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, 20)
