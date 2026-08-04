@@ -224,11 +224,16 @@ struct ArcaTabBar: View {
 
             Spacer(minLength: 0)
 
-            // Der Plus legt an, was gerade ausgewählt ist —
-            // halten = immer Blitzidee mit Sofort-Diktat
+            // Der Plus: Schalter aktiv = Sprechen (Diktat startet sofort),
+            // Schalter inaktiv = das gerade Ausgewählte anlegen.
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                legeKontextbezogenAn()
+                if plusSprechenAktiv {
+                    store.quickCaptureAutoRecord = true
+                    store.pendingQuickCapture = true
+                } else {
+                    legeKontextbezogenAn()
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 23, weight: .semibold))
@@ -245,10 +250,49 @@ struct ArcaTabBar: View {
                     store.pendingQuickCapture = true
                 }
             )
-            .accessibilityLabel("Blitzidee erfassen")
+            // Der Schalter an der Plus-Ecke: zeigt, was der Plus gerade tut
+            .overlay(alignment: .topLeading) {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        plusSprechenAktiv.toggle()
+                    }
+                } label: {
+                    Image(systemName: plusSprechenAktiv ? "mic.fill" : kontextIcon)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .frame(width: 26, height: 26)
+                        .glassEffect(.regular, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .offset(x: -8, y: -8)
+                .accessibilityLabel(plusSprechenAktiv ? "Plus spricht (Diktat)" : "Plus legt das Ausgewählte an")
+            }
+            .accessibilityLabel(plusSprechenAktiv ? "Blitzidee diktieren" : "Neu anlegen")
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 34)
+    }
+
+    /// Schalter an der Plus-Ecke: aktiv = Sprechen (Diktat sofort),
+    /// inaktiv = der Plus legt das unten Ausgewählte an.
+    @AppStorage("plusSprechenAktiv") private var plusSprechenAktiv = true
+
+    /// Das Symbol des Schalters zeigt, was der Plus anlegen würde.
+    private var kontextIcon: String {
+        switch selected {
+        case .documents: return "doc.fill"
+        case .lists:     return "checkmark.square.fill"
+        case .vault:     return "key.fill"
+        case .notes:     return "note.text"
+        default:
+            switch store.homeStreamFilter {
+            case .dokumente:   return "doc.fill"
+            case .notizen:     return "note.text"
+            case .tasks:       return "checkmark.square.fill"
+            case .passwoerter: return "key.fill"
+            }
+        }
     }
 
     /// Was der Plus anlegt, hängt vom Ort ab: auf dem Start entscheidet
