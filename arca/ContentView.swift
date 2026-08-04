@@ -436,6 +436,12 @@ struct HomeView: View {
     // Ausgeklappte Ordner und Tasklisten auf dem Start
     @State private var expandedFolders: Set<String> = []
     @State private var expandedLists: Set<UUID> = []
+    // Dokument-Verwaltung direkt auf dem Start
+    @State private var homeRenameDoc: DocumentEntry? = nil
+    @State private var homeRenameText = ""
+    @State private var showNeueGruppe = false
+    @State private var neueGruppeName = ""
+    @State private var docFuerNeueGruppe: DocumentEntry? = nil
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -500,6 +506,49 @@ struct HomeView: View {
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
+                    // Verwaltung direkt auf dem Start: verschieben,
+                    // umbenennen, favorisieren, löschen
+                    .contextMenu {
+                        Menu {
+                            ForEach(store.documentCategories.filter { $0 != doc.category }, id: \.self) { ziel in
+                                Button {
+                                    verschiebeDokument(doc, nach: ziel)
+                                } label: {
+                                    Label(ziel, systemImage: categoryIcon(ziel))
+                                }
+                            }
+                            Divider()
+                            Button {
+                                docFuerNeueGruppe = doc
+                                neueGruppeName = ""
+                                showNeueGruppe = true
+                            } label: {
+                                Label("Neue Gruppe…", systemImage: "folder.badge.plus")
+                            }
+                        } label: {
+                            Label("In Gruppe verschieben", systemImage: "folder")
+                        }
+                        Button {
+                            homeRenameText = doc.title
+                            homeRenameDoc = doc
+                        } label: {
+                            Label("Umbenennen", systemImage: "pencil")
+                        }
+                        Button {
+                            store.toggleFavorite(kind: .document, id: doc.id)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        } label: {
+                            Label(doc.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten",
+                                  systemImage: doc.isFavorite ? "star.slash" : "star.fill")
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            store.deleteDocument(doc)
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        } label: {
+                            Label("Löschen", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
@@ -635,19 +684,28 @@ struct HomeView: View {
         return all.sorted { $0.date > $1.date }
     }
 
-    /// Dokumente treten im Strom als Gruppen auf. Was in keiner
-    /// bekannten Gruppe steckt, sammelt der „Eingang".
+    /// Dokumente treten im Strom als Gruppen auf — alle Gruppen, auch
+    /// leere (sonst wären frisch erstellte unsichtbar). Was in keiner
+    /// bekannten Gruppe steckt, sammelt „Unsortiert".
     private var dokumentGruppen: [(name: String, anzahl: Int)] {
         var zaehler: [String: Int] = [:]
         for d in store.documents {
             let schluessel = store.documentCategories.contains(d.category) ? d.category : "Unsortiert"
             zaehler[schluessel, default: 0] += 1
         }
-        var namen = store.documentCategories.filter { (zaehler[$0] ?? 0) > 0 }
+        var namen = store.documentCategories
         if (zaehler["Unsortiert"] ?? 0) > 0, !namen.contains("Unsortiert") {
             namen.insert("Unsortiert", at: 0)
         }
         return namen.map { ($0, zaehler[$0] ?? 0) }
+    }
+
+    /// Dokument in eine andere Gruppe verschieben (Untergruppe wird geleert).
+    private func verschiebeDokument(_ doc: DocumentEntry, nach ziel: String) {
+        guard let i = store.documents.firstIndex(where: { $0.id == doc.id }) else { return }
+        store.documents[i].category = ziel
+        store.documents[i].subcategory = ""
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private var totalEntryCount: Int {
@@ -906,6 +964,24 @@ struct HomeView: View {
                                             }
                                         }
                                     }
+                                    // Neue Gruppe direkt hier anlegen
+                                    Button {
+                                        docFuerNeueGruppe = nil
+                                        neueGruppeName = ""
+                                        showNeueGruppe = true
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "folder.badge.plus")
+                                                .font(.system(size: 14, weight: .semibold))
+                                            Text("Neue Gruppe")
+                                                .font(.system(size: 13, weight: .semibold))
+                                        }
+                                        .foregroundStyle(ArcaWarm.terrakotta)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -1023,6 +1099,40 @@ struct HomeView: View {
             }
         } message: {
             Text("Dein Vorname erscheint in der Begrüßung — du kannst ihn jederzeit unter „Mehr“ ändern.")
+        }
+        // Dokument umbenennen — direkt vom Start
+        .alert("Dokument umbenennen", isPresented: Binding(
+            get: { homeRenameDoc != nil },
+            set: { if !$0 { homeRenameDoc = nil } }
+        )) {
+            TextField("Titel", text: $homeRenameText)
+            Button("Sichern") {
+                if let doc = homeRenameDoc,
+                   let i = store.documents.firstIndex(where: { $0.id == doc.id }) {
+                    let neu = homeRenameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !neu.isEmpty { store.documents[i].title = neu }
+                }
+                homeRenameDoc = nil
+            }
+            Button("Abbrechen", role: .cancel) { homeRenameDoc = nil }
+        }
+        // Neue Gruppe anlegen (und optional das Dokument gleich hineinlegen)
+        .alert("Neue Gruppe", isPresented: $showNeueGruppe) {
+            TextField("Name der Gruppe", text: $neueGruppeName)
+            Button("Erstellen") {
+                let name = neueGruppeName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    if !store.documentCategories.contains(name) {
+                        store.documentCategories.append(name)
+                    }
+                    if let doc = docFuerNeueGruppe {
+                        verschiebeDokument(doc, nach: name)
+                    }
+                    withAnimation { _ = expandedFolders.insert(name) }
+                }
+                docFuerNeueGruppe = nil
+            }
+            Button("Abbrechen", role: .cancel) { docFuerNeueGruppe = nil }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: store.favoriteItems.count)
         .animation(.easeInOut(duration: 0.2), value: isSearching)
