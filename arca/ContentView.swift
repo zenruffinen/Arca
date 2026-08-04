@@ -243,6 +243,12 @@ struct ArcaTabBar: View {
                     .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
+            // Im Sprach-Modus atmet der Plus Sonar-Wellen aus
+            .background {
+                if plusSprechenAktiv {
+                    ArcaSprechPuls()
+                }
+            }
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.4).onEnded { _ in
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -261,6 +267,7 @@ struct ArcaTabBar: View {
                     Image(systemName: plusSprechenAktiv ? "mic.fill" : kontextIcon)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(ArcaWarm.terrakotta)
+                        .symbolEffect(.pulse, isActive: plusSprechenAktiv)
                         .frame(width: 26, height: 26)
                         .glassEffect(.regular, in: Circle())
                 }
@@ -319,6 +326,32 @@ struct ArcaTabBar: View {
         case .vault:     store.pendingNewEntry = .vault
         case .notes:     store.pendingQuickCapture = true
         case .settings:  store.pendingQuickCapture = true
+        }
+    }
+
+    /// Sonar-Wellen hinter dem Plus, solange der Sprach-Modus an ist —
+    /// ruhig und langsam, Premium statt verspielt.
+    private struct ArcaSprechPuls: View {
+        @State private var schwingt = false
+
+        var body: some View {
+            ZStack {
+                ForEach(0..<2, id: \.self) { welle in
+                    Circle()
+                        .stroke(ArcaWarm.terrakotta.opacity(schwingt ? 0.0 : 0.35),
+                                lineWidth: schwingt ? 1 : 6)
+                        .frame(width: 56, height: 56)
+                        .scaleEffect(schwingt ? 1.6 : 1.0)
+                        .animation(
+                            .easeOut(duration: 2.2)
+                                .repeatForever(autoreverses: false)
+                                .delay(Double(welle) * 1.1),
+                            value: schwingt
+                        )
+                }
+            }
+            .allowsHitTesting(false)
+            .onAppear { schwingt = true }
         }
     }
 
