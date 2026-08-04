@@ -714,6 +714,9 @@ struct HomeView: View {
                                     }
                                 }
                                 .padding(.horizontal, 20)
+                                // Luft nach oben, damit die „fest"-Plakette
+                                // nicht von der Scroll-Kante abgeschnitten wird
+                                .padding(.top, 10)
                             }
                         }
                     }
