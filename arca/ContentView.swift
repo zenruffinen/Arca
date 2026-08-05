@@ -768,6 +768,50 @@ struct HomeView: View {
         .padding(.leading, 16)
     }
 
+    /// Notiz → Aufgabenliste: Titel wird Listenname, jede Textzeile
+    /// ein Punkt; die Notiz gilt danach als einsortiert und verschwindet.
+    private func wandleNotizInAufgaben(_ item: FavoriteItem) {
+        guard let note = store.notes.first(where: { $0.id == item.id }) else { return }
+        let titel = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let punkte = note.text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .map { ChecklistItem(text: $0) }
+        let liste = ListEntry(title: titel.isEmpty ? "Aufgaben" : titel,
+                              items: punkte, colorTag: note.colorTag)
+        store.lists.insert(liste, at: 0)
+        store.notes.removeAll { $0.id == note.id }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            store.homeStreamFilter = .tasks
+            _ = expandedLists.insert(liste.id)
+        }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// Notiz → Passwort: Tresor öffnet das vorbefüllte Neu-Blatt;
+    /// gelöscht wird die Notiz erst nach erfolgreichem Speichern.
+    private func wandleNotizInPasswort(_ item: FavoriteItem) {
+        guard let note = store.notes.first(where: { $0.id == item.id }) else { return }
+        let titel = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        store.vaultVorbefuellung = titel.isEmpty
+            ? String(note.text.prefix(30))
+            : titel
+        store.notizNachTresorUmwandlung = note.id
+        store.pendingNewEntry = .vault
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            selectedSection = .vault
+        }
+    }
+
+    /// Blitzidee → feste Notiz: verliert nur das Blitz-Etikett.
+    private func macheZurFestenNotiz(_ item: FavoriteItem) {
+        if let i = store.notes.firstIndex(where: { $0.id == item.id }) {
+            store.notes[i].isQuickIdea = false
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+    }
+
     /// Notiz/Aufgabenliste/Passwort direkt aus dem Strom löschen.
     private func loescheStreamEintrag(_ item: FavoriteItem) {
         switch item.kind {
@@ -1224,6 +1268,32 @@ struct HomeView: View {
                                                 punktFuerListe = item.id
                                             } label: {
                                                 Label("Punkt hinzufügen", systemImage: "plus.circle")
+                                            }
+                                        }
+                                        // Gedanken einsortieren: aus der Notiz wird
+                                        // eine Aufgabenliste, ein Tresor-Eintrag —
+                                        // oder aus der Blitzidee eine feste Notiz
+                                        if item.kind == .note {
+                                            Menu {
+                                                Button {
+                                                    wandleNotizInAufgaben(item)
+                                                } label: {
+                                                    Label("Aufgabenliste", systemImage: "checkmark.square")
+                                                }
+                                                Button {
+                                                    wandleNotizInPasswort(item)
+                                                } label: {
+                                                    Label("Passwort-Eintrag", systemImage: "key.fill")
+                                                }
+                                                if store.notes.first(where: { $0.id == item.id })?.isQuickIdea == true {
+                                                    Button {
+                                                        macheZurFestenNotiz(item)
+                                                    } label: {
+                                                        Label("Feste Notiz", systemImage: "note.text")
+                                                    }
+                                                }
+                                            } label: {
+                                                Label("Umwandeln in …", systemImage: "arrow.triangle.2.circlepath")
                                             }
                                         }
                                         Divider()
@@ -2633,7 +2703,11 @@ struct VaultView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) { vaultTrailingToolbar }
             }
-            .sheet(isPresented: $showNewEntry) { vaultNewEntrySheet }
+            .sheet(isPresented: $showNewEntry, onDismiss: {
+                // Abgebrochen? Dann bleibt die Quell-Notiz unangetastet.
+                store.vaultVorbefuellung = nil
+                store.notizNachTresorUmwandlung = nil
+            }) { vaultNewEntrySheet }
             // Erfassen vom Start: „Neu"-Blatt direkt öffnen
             .onAppear {
                 if store.pendingNewEntry == .vault {
@@ -2687,9 +2761,15 @@ struct VaultView: View {
 
     @ViewBuilder
     private var vaultNewEntrySheet: some View {
-        NewVaultEntrySheet { title, username, password, url, color in
+        NewVaultEntrySheet(startTitel: store.vaultVorbefuellung ?? "") { title, username, password, url, color in
             store.addVaultEntry(title: title, username: username,
                                password: password, url: url, colorTag: color)
+            // Blitzidee → Passwort: die Quell-Notiz ist jetzt einsortiert
+            if let notizID = store.notizNachTresorUmwandlung {
+                store.notes.removeAll { $0.id == notizID }
+            }
+            store.vaultVorbefuellung = nil
+            store.notizNachTresorUmwandlung = nil
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             showNewEntry = false
         }
@@ -2844,6 +2924,11 @@ struct VaultView: View {
 
 struct NewVaultEntrySheet: View {
     let onSave: (String, String, String, String, Int) -> Void
+
+    init(startTitel: String = "", onSave: @escaping (String, String, String, String, Int) -> Void) {
+        self.onSave = onSave
+        _title = State(initialValue: startTitel)
+    }
 
     @Environment(\.dismiss) var dismiss
     @State private var title = ""

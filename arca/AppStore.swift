@@ -108,6 +108,10 @@ final class AppStore: ObservableObject {
     @Published var homeStreamFilter: HomeStreamFilter = .dokumente
     /// Mehr-Menü in der Leiste: „export"/„import" springt die Aktion direkt an
     @Published var pendingSettingsAktion: String? = nil
+    /// Blitzidee → Passwort: Titel fürs vorbefüllte Tresor-Blatt …
+    @Published var vaultVorbefuellung: String? = nil
+    /// … und die Notiz, die nach erfolgreichem Speichern einsortiert (gelöscht) wird
+    @Published var notizNachTresorUmwandlung: UUID? = nil
 
     /// true solange iCloud-Platzhalter noch heruntergeladen werden (UI-Hinweis).
     @Published private(set) var isCloudSyncPending = false
