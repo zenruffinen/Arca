@@ -579,11 +579,12 @@ struct HomeView: View {
     /// Ausgeklappter Ordner: seine Dokumente direkt auf dem Start,
     /// mit Mini-Vorschau — ein Tipp öffnet die Vollansicht.
     private func folderDocumentRows(_ category: String) -> some View {
-        // „Eingang" ist die virtuelle Gruppe für alles ohne bekannte Gruppe
+        // „Unsortiert" sammelt seine eigenen Dateien UND alles,
+        // was in keiner bekannten Gruppe steckt
         let docs = store.documents
             .filter { doc in
                 category == "Unsortiert"
-                    ? !store.documentCategories.contains(doc.category)
+                    ? (doc.category == "Unsortiert" || !store.documentCategories.contains(doc.category))
                     : doc.category == category
             }
             .sorted { $0.dateAdded > $1.dateAdded }
