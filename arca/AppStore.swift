@@ -106,6 +106,8 @@ final class AppStore: ObservableObject {
     @Published var homeSprungNachOben: Int = 0
     /// Aktiver Filter-Chip auf dem Start — der Plus-Knopf richtet sich danach
     @Published var homeStreamFilter: HomeStreamFilter = .dokumente
+    /// Mehr-Menü in der Leiste: „export"/„import" springt die Aktion direkt an
+    @Published var pendingSettingsAktion: String? = nil
 
     /// true solange iCloud-Platzhalter noch heruntergeladen werden (UI-Hinweis).
     @Published private(set) var isCloudSyncPending = false

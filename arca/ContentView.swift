@@ -215,9 +215,41 @@ struct ArcaTabBar: View {
                 pillButton(icon: "checkmark.square", active: selected == .lists, label: "Aufgaben") {
                     selected = .lists
                 }
-                pillButton(icon: "gearshape", active: selected == .settings, label: "Mehr") {
-                    selected = .settings
+                // Das Zahnrad klappt ein Menü auf (Craft-Stil):
+                // Sichern · Wiederherstellen · Einstellungen
+                Menu {
+                    Button {
+                        store.pendingSettingsAktion = "export"
+                        selected = .settings
+                    } label: {
+                        Label("Daten sichern", systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        store.pendingSettingsAktion = "import"
+                        selected = .settings
+                    } label: {
+                        Label("Daten wiederherstellen", systemImage: "square.and.arrow.down")
+                    }
+                    Divider()
+                    Button {
+                        selected = .settings
+                    } label: {
+                        Label("Einstellungen", systemImage: "gearshape")
+                    }
+                } label: {
+                    Image(systemName: selected == .settings ? "gearshape.fill" : "gearshape")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(selected == .settings ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
+                        .symbolRenderingMode(.hierarchical)
+                        .frame(width: 54, height: 44)
+                        .contentShape(Rectangle())
+                        .background(
+                            selected == .settings ? Color.primary.opacity(0.06) : Color.clear,
+                            in: Capsule()
+                        )
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Mehr")
             }
             .padding(5)
             .glassEffect(.regular, in: Capsule())
@@ -6757,6 +6789,20 @@ struct SettingsView: View {
     @EnvironmentObject var store: AppStore
     @AppStorage("arcaUserName") private var userName: String = ""
 
+    /// Vom Mehr-Menü der Leiste angestoßen: Sichern oder Wiederherstellen
+    /// öffnet direkt das passende Blatt.
+    private func verarbeiteSettingsAktion() {
+        guard let aktion = store.pendingSettingsAktion else { return }
+        store.pendingSettingsAktion = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            switch aktion {
+            case "export": showExportPasswordSheet = true
+            case "import": showImportConfirm = true
+            default: break
+            }
+        }
+    }
+
     // Export flow
     @State private var showExportPasswordSheet = false
     @State private var exportPassword = ""
@@ -7236,6 +7282,9 @@ struct SettingsView: View {
                     showImportPicker = false
                 }
             }
+            // Mehr-Menü in der Leiste: Sichern/Wiederherstellen direkt anspringen
+            .onAppear { verarbeiteSettingsAktion() }
+            .onChange(of: store.pendingSettingsAktion) { _, _ in verarbeiteSettingsAktion() }
 
             // "Öffnen mit .arcabackup" von aussen → Passwort-Sheet öffnen
             .onAppear { consumePendingBackupURL() }
