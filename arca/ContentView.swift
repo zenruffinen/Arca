@@ -338,16 +338,10 @@ struct ArcaPlusKnopf: View {
     @Binding var selected: ArcaSection
     @EnvironmentObject var store: AppStore
 
-    /// Schalter an der Plus-Ecke: aktiv = Sprechen (Diktat sofort),
-    /// inaktiv = der Plus legt das unten Ausgewählte an.
-    @AppStorage("plusSprechenAktiv") private var plusSprechenAktiv = true
-
-    /// In einem Bereich legt der Plus immer den Bereich an —
-    /// Sprechen gilt nur auf dem Start (langes Drücken diktiert überall).
-    private var imBereich: Bool {
-        [.documents, .lists, .vault, .notes].contains(selected)
-    }
-    private var sprichtJetzt: Bool { plusSprechenAktiv && !imBereich }
+    /// Kein Schalter mehr: Tippen legt immer das Angewählte an,
+    /// Gedrückthalten (3 s) startet das Diktat — die Wellen zeigen
+    /// beim Halten an, dass das Mikrofon gleich übernimmt.
+    @GestureState private var haeltFuersMikro = false
 
     /// Das Symbol des Schalters zeigt, was der Plus anlegen würde.
     private var kontextIcon: String {
@@ -424,12 +418,7 @@ struct ArcaPlusKnopf: View {
             // Schalter inaktiv = das gerade Ausgewählte anlegen.
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                if sprichtJetzt {
-                    store.quickCaptureAutoRecord = true
-                    store.pendingQuickCapture = true
-                } else {
-                    legeKontextbezogenAn()
-                }
+                legeKontextbezogenAn()
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 23, weight: .semibold))
@@ -439,46 +428,39 @@ struct ArcaPlusKnopf: View {
                     .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
-            // Im Sprach-Modus atmet der Plus Sonar-Wellen aus
+            // Beim Halten atmet der Plus Sonar-Wellen — das Mikrofon kommt
             .background {
-                if sprichtJetzt {
+                if haeltFuersMikro {
                     ArcaSprechPuls()
                 }
             }
             .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.4).onEnded { _ in
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    store.quickCaptureAutoRecord = true
-                    store.pendingQuickCapture = true
-                }
-            )
-            // Der Schalter an der Plus-Ecke: zeigt, was der Plus gerade tut
-            .overlay(alignment: .topLeading) {
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    if imBereich {
-                        // Im Bereich ist die Plakette nur Anzeige — Tipp legt an
-                        legeKontextbezogenAn()
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            plusSprechenAktiv.toggle()
-                        }
+                LongPressGesture(minimumDuration: 3.0)
+                    .updating($haeltFuersMikro) { wert, zustand, _ in
+                        zustand = wert
                     }
-                } label: {
-                    Image(systemName: sprichtJetzt ? "mic.fill" : kontextIcon)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(ArcaWarm.terrakotta)
-                        .symbolEffect(.pulse, isActive: sprichtJetzt)
-                        .frame(width: 32, height: 32)
-                        .background(ArcaWarm.karte, in: Circle())
-                        .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
-                        .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
-                }
-                .buttonStyle(.plain)
-                .offset(x: -12, y: -12)
-                .accessibilityLabel(sprichtJetzt ? "Plus spricht (Diktat)" : "Plus legt das Ausgewählte an")
+                    .onEnded { _ in
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        store.quickCaptureAutoRecord = true
+                        store.pendingQuickCapture = true
+                    }
+            )
+            // Die Plakette zeigt immer die angewählte Gruppe —
+            // nur beim Halten wechselt sie zum Mikrofon
+            .overlay(alignment: .topLeading) {
+                Image(systemName: haeltFuersMikro ? "mic.fill" : kontextIcon)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                    .symbolEffect(.pulse, isActive: haeltFuersMikro)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 32, height: 32)
+                    .background(ArcaWarm.karte, in: Circle())
+                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
+                    .offset(x: -12, y: -12)
+                    .allowsHitTesting(false)
             }
-            .accessibilityLabel(sprichtJetzt ? "Blitzidee diktieren" : "Neu anlegen")
+            .accessibilityLabel("Neu anlegen — halten für Diktat")
     }
 }
 
