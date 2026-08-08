@@ -338,12 +338,7 @@ struct ArcaPlusKnopf: View {
     @Binding var selected: ArcaSection
     @EnvironmentObject var store: AppStore
 
-    /// Kein Schalter mehr: Tippen legt immer das Angewählte an,
-    /// Gedrückthalten (3 s) startet das Diktat — die Wellen zeigen
-    /// beim Halten an, dass das Mikrofon gleich übernimmt.
-    @GestureState private var haeltFuersMikro = false
-
-    /// Das Symbol des Schalters zeigt, was der Plus anlegen würde.
+    /// Das Symbol der Plakette zeigt, was der Plus anlegen würde.
     private var kontextIcon: String {
         switch selected {
         case .documents: return "doc.fill"
@@ -414,8 +409,39 @@ struct ArcaPlusKnopf: View {
     }
 
     var body: some View {
-            // Der Plus: Schalter aktiv = Sprechen (Diktat startet sofort),
-            // Schalter inaktiv = das gerade Ausgewählte anlegen.
+        // Zwei Freunde nebeneinander: links das Blitzidee-Mikro,
+        // rechts der Plus für die vier Eingaben (Plakette = Gruppe).
+        HStack(spacing: 14) {
+            // Das Blitzidee-Mikro: Glas-Tropfen mit Terrakotta-Mikro
+            // und kleinem Blitz — ein Tipp, sprechen, fertig.
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                store.quickCaptureAutoRecord = true
+                store.pendingQuickCapture = true
+            } label: {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                    .frame(width: 52, height: 52)
+                    .glassEffect(.regular, in: Circle())
+                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.35), lineWidth: 1.5))
+                    .overlay(alignment: .topTrailing) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 19, height: 19)
+                            .background(
+                                LinearGradient(colors: [Color(red: 1.0, green: 0.55, blue: 0.15), ArcaWarm.terrakotta],
+                                               startPoint: .top, endPoint: .bottom),
+                                in: Circle())
+                            .offset(x: 5, y: -4)
+                    }
+                    .shadow(color: .black.opacity(0.10), radius: 5, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Blitzidee diktieren")
+
+            // Der Plus: legt immer das gerade Angewählte an
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 legeKontextbezogenAn()
@@ -428,30 +454,11 @@ struct ArcaPlusKnopf: View {
                     .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
-            // Beim Halten atmet der Plus Sonar-Wellen — das Mikrofon kommt
-            .background {
-                if haeltFuersMikro {
-                    ArcaSprechPuls()
-                }
-            }
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 3.0)
-                    .updating($haeltFuersMikro) { wert, zustand, _ in
-                        zustand = wert
-                    }
-                    .onEnded { _ in
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        store.quickCaptureAutoRecord = true
-                        store.pendingQuickCapture = true
-                    }
-            )
-            // Die Plakette zeigt immer die angewählte Gruppe —
-            // nur beim Halten wechselt sie zum Mikrofon
+            // Die Plakette zeigt immer die angewählte Gruppe
             .overlay(alignment: .topLeading) {
-                Image(systemName: haeltFuersMikro ? "mic.fill" : kontextIcon)
+                Image(systemName: kontextIcon)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(ArcaWarm.terrakotta)
-                    .symbolEffect(.pulse, isActive: haeltFuersMikro)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 32, height: 32)
                     .background(ArcaWarm.karte, in: Circle())
@@ -460,7 +467,8 @@ struct ArcaPlusKnopf: View {
                     .offset(x: -12, y: -12)
                     .allowsHitTesting(false)
             }
-            .accessibilityLabel("Neu anlegen — halten für Diktat")
+            .accessibilityLabel("Neu anlegen")
+        }
     }
 }
 
