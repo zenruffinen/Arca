@@ -425,17 +425,6 @@ struct ArcaPlusKnopf: View {
                     .frame(width: 52, height: 52)
                     .glassEffect(.regular, in: Circle())
                     .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.35), lineWidth: 1.5))
-                    .overlay(alignment: .topTrailing) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 19, height: 19)
-                            .background(
-                                LinearGradient(colors: [Color(red: 1.0, green: 0.55, blue: 0.15), ArcaWarm.terrakotta],
-                                               startPoint: .top, endPoint: .bottom),
-                                in: Circle())
-                            .offset(x: 5, y: -4)
-                    }
                     .shadow(color: .black.opacity(0.10), radius: 5, x: 0, y: 2)
             }
             .buttonStyle(.plain)
@@ -454,17 +443,18 @@ struct ArcaPlusKnopf: View {
                     .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
-            // Die Plakette zeigt immer die angewählte Gruppe
-            .overlay(alignment: .topLeading) {
+            // Die Plakette zeigt immer die angewählte Gruppe —
+            // oben an der Außenkante, damit nichts ins Mikro drängt
+            .overlay(alignment: .top) {
                 Image(systemName: kontextIcon)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(ArcaWarm.terrakotta)
                     .contentTransition(.symbolEffect(.replace))
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(ArcaWarm.karte, in: Circle())
                     .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
-                    .offset(x: -12, y: -12)
+                    .offset(y: -16)
                     .allowsHitTesting(false)
             }
             .accessibilityLabel("Neu anlegen")
