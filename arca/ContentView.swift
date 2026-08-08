@@ -7132,10 +7132,17 @@ struct SettingsView: View {
             pendingImportURL = staged
             importPassword = ""
             showImportPasswordReveal = false
-            showImportPasswordSheet = true
+            // Kurz warten, bis der Dateiwähler wirklich zu ist — sonst
+            // verpufft das Passwort-Blatt still (Blatt-auf-Blatt-Rennen,
+            // besonders auf iPad/Mac).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                showImportPasswordSheet = true
+            }
         case .failure(let error):
             importErrorMessage = backupImportErrorMessage(for: url, error: error)
-            showImportError = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                showImportError = true
+            }
         }
     }
 
