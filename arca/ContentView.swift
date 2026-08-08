@@ -748,11 +748,18 @@ struct HomeView: View {
                     // Verwaltung direkt auf dem Start: verschieben,
                     // umbenennen, favorisieren, löschen
                     .contextMenu {
+                        ArcaMenue.favorit(ist: doc.isFavorite) {
+                            store.toggleFavorite(kind: .document, id: doc.id)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        }
+                        Divider()
+                        ArcaMenue.umbenennen {
+                            homeRenameText = doc.title
+                            homeRenameDoc = doc
+                        }
                         Menu {
                             ForEach(store.documentCategories.filter { $0 != doc.category }, id: \.self) { ziel in
-                                Button {
-                                    verschiebeDokument(doc, nach: ziel)
-                                } label: {
+                                Button { verschiebeDokument(doc, nach: ziel) } label: {
                                     Label(ziel, systemImage: categoryIcon(ziel))
                                 }
                             }
@@ -767,25 +774,9 @@ struct HomeView: View {
                         } label: {
                             Label("In Gruppe verschieben", systemImage: "folder")
                         }
-                        Button {
-                            homeRenameText = doc.title
-                            homeRenameDoc = doc
-                        } label: {
-                            Label("Umbenennen", systemImage: "pencil")
-                        }
-                        Button {
-                            store.toggleFavorite(kind: .document, id: doc.id)
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        } label: {
-                            Label(doc.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten",
-                                  systemImage: doc.isFavorite ? "star.slash" : "star.fill")
-                        }
-                        Divider()
-                        Button(role: .destructive) {
+                        ArcaMenue.loeschen {
                             store.deleteDocument(doc)
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        } label: {
-                            Label("Löschen", systemImage: "trash")
                         }
                     }
                 }
@@ -931,6 +922,31 @@ struct HomeView: View {
             if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) { store.vaultItems[i].title = neu }
         case .document: break
         }
+    }
+
+    /// Farbe des Strom-Eintrags lesen (für das Häkchen im Farb-Menü).
+    private func streamFarbe(_ item: FavoriteItem) -> Int? {
+        switch item.kind {
+        case .note:     return store.notes.first(where: { $0.id == item.id })?.colorTag
+        case .list:     return store.lists.first(where: { $0.id == item.id })?.colorTag
+        case .vault:    return store.vaultItems.first(where: { $0.id == item.id })?.colorTag
+        case .document: return nil
+        }
+    }
+
+    /// Farbe des Strom-Eintrags setzen.
+    private func setzeStreamFarbe(_ item: FavoriteItem, _ idx: Int) {
+        switch item.kind {
+        case .note:
+            if let i = store.notes.firstIndex(where: { $0.id == item.id }) { store.notes[i].colorTag = idx }
+        case .list:
+            if let i = store.lists.firstIndex(where: { $0.id == item.id }) { store.lists[i].colorTag = idx }
+        case .vault:
+            if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) { store.vaultItems[i].colorTag = idx }
+        case .document:
+            break
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     /// Ist der Eintrag hinter einer Strom-Zeile bereits Favorit?
@@ -1419,32 +1435,17 @@ struct HomeView: View {
                                             // Gedrückt halten: Farbe, Reihenfolge, Name, Löschen —
                                             // alles synct über iCloud auf alle Geräte
                                             .contextMenu {
-                                                Menu {
-                                                    ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
-                                                        Button {
-                                                            store.categoryColors[gruppe.name] = idx
-                                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                                        } label: {
-                                                            Label(NoteColor.palette[idx].name,
-                                                                  systemImage: store.categoryColors[gruppe.name] == idx
-                                                                      ? "checkmark.circle.fill" : "circle.fill")
-                                                        }
-                                                    }
-                                                } label: {
-                                                    Label("Farbe", systemImage: "paintpalette")
+                                                ArcaMenue.farbe(aktuell: store.categoryColors[gruppe.name]) { idx in
+                                                    store.categoryColors[gruppe.name] = idx
+                                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                                 }
                                                 if gruppe.name != "Unsortiert" {
-                                                    Button {
+                                                    ArcaMenue.umbenennen {
                                                         gruppeUmbenennenText = gruppe.name
                                                         gruppeZumUmbenennen = gruppe.name
-                                                    } label: {
-                                                        Label("Umbenennen", systemImage: "pencil")
                                                     }
-                                                    Divider()
-                                                    Button(role: .destructive) {
+                                                    ArcaMenue.loeschen("Gruppe löschen") {
                                                         gruppeZumLoeschen = gruppe.name
-                                                    } label: {
-                                                        Label("Gruppe löschen", systemImage: "trash")
                                                     }
                                                 }
                                             }
@@ -1486,27 +1487,23 @@ struct HomeView: View {
                                     .contentShape(Rectangle())
                                     // Gedrückt halten → Favorit, direkt im Strom
                                     .contextMenu {
-                                        Button {
+                                        ArcaMenue.favorit(ist: istFav) {
                                             store.toggleFavorite(kind: item.kind, id: item.id)
                                             UINotificationFeedbackGenerator().notificationOccurred(.success)
-                                        } label: {
-                                            Label(istFav ? "Aus Favoriten entfernen" : "Zu Favoriten",
-                                                  systemImage: istFav ? "star.slash" : "star.fill")
                                         }
                                         if istFav {
-                                            Button {
+                                            ArcaMenue.fest {
                                                 store.toggleFavoritePin(kind: item.kind, id: item.id)
                                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                            } label: {
-                                                Label("Fest anpinnen / lösen", systemImage: "pin.fill")
                                             }
                                         }
                                         Divider()
-                                        Button {
+                                        ArcaMenue.umbenennen {
                                             streamRenameText = item.title
                                             streamRenameItem = item
-                                        } label: {
-                                            Label("Umbenennen", systemImage: "pencil")
+                                        }
+                                        ArcaMenue.farbe(aktuell: streamFarbe(item)) { idx in
+                                            setzeStreamFarbe(item, idx)
                                         }
                                         if item.kind == .list {
                                             Button {
@@ -1516,25 +1513,16 @@ struct HomeView: View {
                                                 Label("Punkt hinzufügen", systemImage: "plus.circle")
                                             }
                                         }
-                                        // Gedanken einsortieren: aus der Notiz wird
-                                        // eine Aufgabenliste, ein Tresor-Eintrag —
-                                        // oder aus der Blitzidee eine feste Notiz
                                         if item.kind == .note {
                                             Menu {
-                                                Button {
-                                                    wandleNotizInAufgaben(item)
-                                                } label: {
+                                                Button { wandleNotizInAufgaben(item) } label: {
                                                     Label("Aufgabenliste", systemImage: "checkmark.square")
                                                 }
-                                                Button {
-                                                    wandleNotizInPasswort(item)
-                                                } label: {
+                                                Button { wandleNotizInPasswort(item) } label: {
                                                     Label("Passwort-Eintrag", systemImage: "key.fill")
                                                 }
                                                 if store.notes.first(where: { $0.id == item.id })?.isQuickIdea == true {
-                                                    Button {
-                                                        macheZurFestenNotiz(item)
-                                                    } label: {
+                                                    Button { macheZurFestenNotiz(item) } label: {
                                                         Label("Feste Notiz", systemImage: "note.text")
                                                     }
                                                 }
@@ -1542,15 +1530,12 @@ struct HomeView: View {
                                                 Label("Umwandeln in …", systemImage: "arrow.triangle.2.circlepath")
                                             }
                                         }
-                                        Divider()
-                                        Button(role: .destructive) {
+                                        ArcaMenue.loeschen {
                                             if item.kind == .vault {
-                                                vaultZumLoeschen = item   // Tresor fragt nach
+                                                vaultZumLoeschen = item
                                             } else {
                                                 loescheStreamEintrag(item)
                                             }
-                                        } label: {
-                                            Label("Löschen", systemImage: "trash")
                                         }
                                     }
                                     if item.kind == .list, expandedLists.contains(item.id),
@@ -2050,14 +2035,9 @@ struct HomeFavoriteCard: View {
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .contextMenu {
-            Button(action: onTogglePin) {
-                Label(item.pinned ? "Nadel lösen" : "Fest anpinnen",
-                      systemImage: item.pinned ? "pin.slash" : "pin.fill")
-            }
+            ArcaMenue.fest(aktion: onTogglePin)
             Divider()
-            Button(role: .destructive, action: onRemove) {
-                Label("Aus Favoriten entfernen", systemImage: "star.slash")
-            }
+            ArcaMenue.favorit(ist: true, aktion: onRemove)
         }
     }
 }
@@ -3091,42 +3071,25 @@ struct VaultView: View {
                         .listRowSeparatorTint(Color.primary.opacity(0.06))
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
                         .contextMenu {
-                            Button {
-                                renameItemText = item.title
-                                renamingItem = item
-                            } label: {
-                                Label("Umbenennen", systemImage: "pencil")
-                            }
-                            Menu {
-                                ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
-                                    Button {
-                                        if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
-                                            store.vaultItems[i].colorTag = idx
-                                        }
-                                    } label: {
-                                        Label(NoteColor.palette[idx].name,
-                                              systemImage: item.colorTag == idx ? "checkmark.circle.fill" : "circle.fill")
-                                    }
-                                }
-                            } label: {
-                                Label("Farbe ändern", systemImage: "paintpalette")
-                            }
-                            Divider()
-                            Button {
+                            ArcaMenue.favorit(ist: item.isFavorite) {
                                 if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
                                     store.vaultItems[idx].isFavorite.toggle()
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
-                            } label: {
-                                Label(item.isFavorite ? "Aus Favoriten" : "Favorit",
-                                      systemImage: item.isFavorite ? "star.slash" : "star.fill")
                             }
                             Divider()
-                            Button(role: .destructive) {
+                            ArcaMenue.umbenennen {
+                                renameItemText = item.title
+                                renamingItem = item
+                            }
+                            ArcaMenue.farbe(aktuell: item.colorTag) { idx in
+                                if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
+                                    store.vaultItems[i].colorTag = idx
+                                }
+                            }
+                            ArcaMenue.loeschen {
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 store.vaultItems.removeAll { $0.id == item.id }
-                            } label: {
-                                Label("Löschen", systemImage: "trash")
                             }
                         }
                         .swipeActions(edge: .leading) {
@@ -4302,11 +4265,14 @@ struct DocumentsView: View {
             .tint(.blue)
         }
         .contextMenu {
-            Button {
+            ArcaMenue.favorit(ist: doc.isFavorite) {
+                store.toggleFavorite(kind: .document, id: doc.id)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            Divider()
+            ArcaMenue.umbenennen {
                 renameText = doc.title
                 renamingDoc = doc
-            } label: {
-                Label("Umbenennen", systemImage: "pencil")
             }
             Menu {
                 ForEach(store.documentCategories, id: \.self) { targetCategory in
@@ -4368,14 +4334,6 @@ struct DocumentsView: View {
                 } label: {
                     Label("Drucken", systemImage: "printer")
                 }
-            }
-            Divider()
-            Button {
-                store.toggleFavorite(kind: .document, id: doc.id)
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } label: {
-                Label(doc.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten",
-                      systemImage: doc.isFavorite ? "star.slash" : "star.fill")
             }
             Divider()
             Button(role: .destructive) {
@@ -4441,16 +4399,14 @@ struct DocumentsView: View {
                                 .buttonStyle(.plain)
                                 .contextMenu {
                                     Button {
+                                        colorPickerCategory = category
+                                    } label: {
+                                        Label("Farbe", systemImage: "paintpalette")
+                                    }
+                                    ArcaMenue.umbenennen {
                                         categoryRenameText = category
                                         renamingCategory = category
                                         showCategoryRename = true
-                                    } label: {
-                                        Label("Umbenennen", systemImage: "pencil")
-                                    }
-                                    Button {
-                                        colorPickerCategory = category
-                                    } label: {
-                                        Label("Farbe ändern", systemImage: "paintpalette")
                                     }
                                     Button {
                                         newSubcategoryName = ""
@@ -5580,25 +5536,19 @@ struct NotesView: View {
                         .listRowSeparatorTint(Color.primary.opacity(0.06))
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
                         .contextMenu {
-                            Button {
+                            ArcaMenue.favorit(ist: note.isFavorite) {
+                                store.toggleFavorite(kind: .note, id: note.id)
+                                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            }
+                            Divider()
+                            ArcaMenue.umbenennen {
                                 renameNoteText = note.title
                                 renamingNote = note
-                            } label: {
-                                Label("Umbenennen", systemImage: "pencil")
                             }
-                            Menu {
-                                ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
-                                    Button {
-                                        if let i = store.notes.firstIndex(where: { $0.id == note.id }) {
-                                            store.notes[i].colorTag = idx
-                                        }
-                                    } label: {
-                                        Label(NoteColor.palette[idx].name,
-                                              systemImage: note.colorTag == idx ? "checkmark.circle.fill" : "circle.fill")
-                                    }
+                            ArcaMenue.farbe(aktuell: note.colorTag) { idx in
+                                if let i = store.notes.firstIndex(where: { $0.id == note.id }) {
+                                    store.notes[i].colorTag = idx
                                 }
-                            } label: {
-                                Label("Farbe ändern", systemImage: "paintpalette")
                             }
                             Button {
                                 if let url = store.exportNote(note) {
@@ -5607,20 +5557,9 @@ struct NotesView: View {
                             } label: {
                                 Label("An Arca-Nutzer senden", systemImage: "person.2.fill")
                             }
-                            Divider()
-                            Button {
-                                store.toggleFavorite(kind: .note, id: note.id)
-                                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                            } label: {
-                                Label(note.isFavorite ? "Aus Favoriten entfernen" : "Zu Favoriten",
-                                      systemImage: note.isFavorite ? "star.slash" : "star.fill")
-                            }
-                            Divider()
-                            Button(role: .destructive) {
+                            ArcaMenue.loeschen {
                                 store.notes.removeAll { $0.id == note.id }
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            } label: {
-                                Label("Löschen", systemImage: "trash")
                             }
                         }
                         .swipeActions(edge: .leading) {
@@ -6291,31 +6230,26 @@ struct ListsView: View {
                             .listRowSeparatorTint(Color.primary.opacity(0.06))
                             .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
                             .contextMenu {
+                                ArcaMenue.favorit(ist: list.isFavorite) {
+                                    if let idx = store.lists.firstIndex(where: { $0.id == list.id }) {
+                                        store.lists[idx].isFavorite.toggle()
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    }
+                                }
+                                Divider()
+                                ArcaMenue.umbenennen {
+                                    renameText = list.title
+                                    renamingList = list
+                                }
+                                ArcaMenue.farbe(aktuell: list.colorTag) { idx in
+                                    if let i = store.lists.firstIndex(where: { $0.id == list.id }) {
+                                        store.lists[i].colorTag = idx
+                                    }
+                                }
                                 Button {
                                     quickAddList = list
                                 } label: {
-                                    Label("Neuer Eintrag", systemImage: "plus.circle")
-                                }
-                                Divider()
-                                Button {
-                                    renameText = list.title
-                                    renamingList = list
-                                } label: {
-                                    Label("Umbenennen", systemImage: "pencil")
-                                }
-                                Menu {
-                                    ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
-                                        Button {
-                                            if let i = store.lists.firstIndex(where: { $0.id == list.id }) {
-                                                store.lists[i].colorTag = idx
-                                            }
-                                        } label: {
-                                            Label(NoteColor.palette[idx].name,
-                                                  systemImage: list.colorTag == idx ? "checkmark.circle.fill" : "circle.fill")
-                                        }
-                                    }
-                                } label: {
-                                    Label("Farbe ändern", systemImage: "paintpalette")
+                                    Label("Punkt hinzufügen", systemImage: "plus.circle")
                                 }
                                 Button {
                                     if let url = store.exportList(list) {
@@ -6324,22 +6258,9 @@ struct ListsView: View {
                                 } label: {
                                     Label("An Arca-Nutzer senden", systemImage: "person.2.fill")
                                 }
-                                Divider()
-                                Button {
-                                    if let idx = store.lists.firstIndex(where: { $0.id == list.id }) {
-                                        store.lists[idx].isFavorite.toggle()
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    }
-                                } label: {
-                                    Label(list.isFavorite ? "Aus Favoriten" : "Favorit",
-                                          systemImage: list.isFavorite ? "star.slash" : "star.fill")
-                                }
-                                Divider()
-                                Button(role: .destructive) {
+                                ArcaMenue.loeschen {
                                     store.lists.removeAll { $0.id == list.id }
                                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                } label: {
-                                    Label("Löschen", systemImage: "trash")
                                 }
                             }
                             .swipeActions(edge: .trailing) {
