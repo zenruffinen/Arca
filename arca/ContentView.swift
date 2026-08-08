@@ -89,6 +89,33 @@ struct ContentView: View {
         .sheet(isPresented: $store.zeigeNotfall) {
             NotfallView(karten: store.vaultItems.filter { !$0.sperrHotline.isEmpty })
         }
+        // ── Tastaturkürzel (Mac & iPad mit Tastatur) ──
+        // ⌘1–⌘6 Bereiche · ⌘N Neu (Blitzidee) · ⇧⌘N Diktat · ⌘F Suche
+        .background {
+            Group {
+                Button("") { wechsleZu(.home) }.keyboardShortcut("1", modifiers: .command)
+                Button("") { wechsleZu(.vault) }.keyboardShortcut("2", modifiers: .command)
+                Button("") { wechsleZu(.documents) }.keyboardShortcut("3", modifiers: .command)
+                Button("") { wechsleZu(.notes) }.keyboardShortcut("4", modifiers: .command)
+                Button("") { wechsleZu(.lists) }.keyboardShortcut("5", modifiers: .command)
+                Button("") { wechsleZu(.settings) }.keyboardShortcut("6", modifiers: .command)
+                Button("") { store.pendingQuickCapture = true }
+                    .keyboardShortcut("n", modifiers: .command)
+                Button("") {
+                    store.quickCaptureAutoRecord = true
+                    store.pendingQuickCapture = true
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                Button("") {
+                    wechsleZu(.home)
+                    store.sucheFokusSignal += 1
+                }
+                .keyboardShortcut("f", modifiers: .command)
+            }
+            .opacity(0)
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+        }
         .overlay(alignment: .top) {
             if store.isCloudSyncPending {
                 CloudSyncBanner()
@@ -106,6 +133,12 @@ struct ContentView: View {
             Button("Verstanden") { store.markRecoveryHintShown() }
         } message: {
             Text("Falls Daten fehlen, versuche: (1) ein anderes Gerät, das noch nicht aktualisiert wurde, (2) Wiederherstellung aus einem Backup über Einstellungen → Daten wiederherstellen.")
+        }
+    }
+
+    private func wechsleZu(_ ziel: ArcaSection) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            selectedSection = ziel
         }
     }
 
@@ -181,6 +214,12 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        // Der Plus fehlt sonst auf iPad und Mac — hier schwebt er unten rechts
+        .overlay(alignment: .bottomTrailing) {
+            ArcaPlusKnopf(selected: $selectedSection)
+                .padding(.trailing, 28)
+                .padding(.bottom, 24)
+        }
     }
 }
 
@@ -265,64 +304,42 @@ struct ArcaTabBar: View {
 
             Spacer(minLength: 0)
 
-            // Der Plus: Schalter aktiv = Sprechen (Diktat startet sofort),
-            // Schalter inaktiv = das gerade Ausgewählte anlegen.
-            Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                if plusSprechenAktiv {
-                    store.quickCaptureAutoRecord = true
-                    store.pendingQuickCapture = true
-                } else {
-                    legeKontextbezogenAn()
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 23, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(ArcaWarm.terrakotta, in: Circle())
-                    .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
-            }
-            .buttonStyle(.plain)
-            // Im Sprach-Modus atmet der Plus Sonar-Wellen aus
-            .background {
-                if plusSprechenAktiv {
-                    ArcaSprechPuls()
-                }
-            }
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.4).onEnded { _ in
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    store.quickCaptureAutoRecord = true
-                    store.pendingQuickCapture = true
-                }
-            )
-            // Der Schalter an der Plus-Ecke: zeigt, was der Plus gerade tut
-            .overlay(alignment: .topLeading) {
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        plusSprechenAktiv.toggle()
-                    }
-                } label: {
-                    Image(systemName: plusSprechenAktiv ? "mic.fill" : kontextIcon)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(ArcaWarm.terrakotta)
-                        .symbolEffect(.pulse, isActive: plusSprechenAktiv)
-                        .frame(width: 32, height: 32)
-                        .background(ArcaWarm.karte, in: Circle())
-                        .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
-                        .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
-                }
-                .buttonStyle(.plain)
-                .offset(x: -12, y: -12)
-                .accessibilityLabel(plusSprechenAktiv ? "Plus spricht (Diktat)" : "Plus legt das Ausgewählte an")
-            }
-            .accessibilityLabel(plusSprechenAktiv ? "Blitzidee diktieren" : "Neu anlegen")
+            ArcaPlusKnopf(selected: $selected)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 34)
     }
+
+    private func pillButton(icon: String, active: Bool, label: String,
+                            action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { action() }
+        } label: {
+            Image(systemName: active ? icon + ".fill" : icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 54, height: 44)
+                .contentShape(Rectangle())
+                .background(
+                    active ? Color.primary.opacity(0.06) : Color.clear,
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+
+// MARK: - Der Plus-Knopf (iPhone-Leiste UND iPad/Mac-Überlagerung)
+
+/// Der Terrakotta-Plus mit Sprech-Schalter und Sonar — eigenes Bauteil,
+/// damit er auf dem iPhone in der Leiste und auf iPad/Mac als
+/// schwebender Knopf unten rechts leben kann.
+struct ArcaPlusKnopf: View {
+    @Binding var selected: ArcaSection
+    @EnvironmentObject var store: AppStore
 
     /// Schalter an der Plus-Ecke: aktiv = Sprechen (Diktat sofort),
     /// inaktiv = der Plus legt das unten Ausgewählte an.
@@ -398,24 +415,61 @@ struct ArcaTabBar: View {
         }
     }
 
-    private func pillButton(icon: String, active: Bool, label: String,
-                            action: @escaping () -> Void) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { action() }
-        } label: {
-            Image(systemName: active ? icon + ".fill" : icon)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 54, height: 44)
-                .contentShape(Rectangle())
-                .background(
-                    active ? Color.primary.opacity(0.06) : Color.clear,
-                    in: Capsule()
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
+    var body: some View {
+            // Der Plus: Schalter aktiv = Sprechen (Diktat startet sofort),
+            // Schalter inaktiv = das gerade Ausgewählte anlegen.
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                if plusSprechenAktiv {
+                    store.quickCaptureAutoRecord = true
+                    store.pendingQuickCapture = true
+                } else {
+                    legeKontextbezogenAn()
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 23, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(ArcaWarm.terrakotta, in: Circle())
+                    .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+            // Im Sprach-Modus atmet der Plus Sonar-Wellen aus
+            .background {
+                if plusSprechenAktiv {
+                    ArcaSprechPuls()
+                }
+            }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    store.quickCaptureAutoRecord = true
+                    store.pendingQuickCapture = true
+                }
+            )
+            // Der Schalter an der Plus-Ecke: zeigt, was der Plus gerade tut
+            .overlay(alignment: .topLeading) {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        plusSprechenAktiv.toggle()
+                    }
+                } label: {
+                    Image(systemName: plusSprechenAktiv ? "mic.fill" : kontextIcon)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .symbolEffect(.pulse, isActive: plusSprechenAktiv)
+                        .frame(width: 32, height: 32)
+                        .background(ArcaWarm.karte, in: Circle())
+                        .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
+                        .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+                .offset(x: -12, y: -12)
+                .accessibilityLabel(plusSprechenAktiv ? "Plus spricht (Diktat)" : "Plus legt das Ausgewählte an")
+            }
+            .accessibilityLabel(plusSprechenAktiv ? "Blitzidee diktieren" : "Neu anlegen")
     }
 }
 
@@ -485,7 +539,31 @@ struct ArcaIPadSidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(ArcaWarm.hintergrund)
         .navigationTitle("Arca")
+        // Notfall immer griffbereit + die Kürzel als leiser Hinweis
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 10) {
+                Button {
+                    store.zeigeNotfall = true
+                } label: {
+                    Label("Notfall", systemImage: "cross.case.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .glassEffect(.regular, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                Text("⌘1–6 Bereiche · ⌘N Neu · ⌘F Suche")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 10)
+            .background(ArcaWarm.hintergrund)
+        }
     }
 }
 
@@ -1480,6 +1558,10 @@ struct HomeView: View {
                 docFuerNeueGruppe = nil
             }
             Button("Abbrechen", role: .cancel) { docFuerNeueGruppe = nil }
+        }
+        // ⌘F vom Mac/iPad: Suchfeld fokussieren
+        .onChange(of: store.sucheFokusSignal) { _, _ in
+            isSearchFocused = true
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: store.favoriteItems.count)
         .animation(.easeInOut(duration: 0.2), value: isSearching)

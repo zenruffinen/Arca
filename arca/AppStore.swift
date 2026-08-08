@@ -110,6 +110,8 @@ final class AppStore: ObservableObject {
     @Published var pendingSettingsAktion: String? = nil
     /// Notfall-Bereich anzeigen (aus dem Mehr-Menü der Leiste)
     @Published var zeigeNotfall: Bool = false
+    /// ⌘F: Suche auf dem Start fokussieren (Zähler als Signal)
+    @Published var sucheFokusSignal: Int = 0
     /// Blitzidee → Passwort: Titel fürs vorbefüllte Tresor-Blatt …
     @Published var vaultVorbefuellung: String? = nil
     /// … und die Notiz, die nach erfolgreichem Speichern einsortiert (gelöscht) wird
