@@ -92,6 +92,7 @@ struct ArcaSwoosh: Shape {
 
 struct LockView: View {
     @Binding var isUnlocked: Bool
+    @State private var showNotfall = false
 
     private var hasPIN: Bool {
         KeychainManager.shared.load(key: "arca_pin_hash") != nil
@@ -110,6 +111,25 @@ struct LockView: View {
             } else {
                 PINSetupView(isUnlocked: $isUnlocked)
             }
+        }
+        // Notfall geht vor: Notrufnummern auch ohne Entsperren erreichbar
+        // (nur öffentliche Nummern — die eigenen Hotlines bleiben verschlossen)
+        .overlay(alignment: .bottom) {
+            Button {
+                showNotfall = true
+            } label: {
+                Label("Notfall", systemImage: "cross.case.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 40)
+        }
+        .sheet(isPresented: $showNotfall) {
+            NotfallView(karten: [], nurOeffentlich: true)
         }
     }
 }

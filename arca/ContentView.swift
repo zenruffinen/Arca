@@ -86,6 +86,9 @@ struct ContentView: View {
             .presentationCornerRadius(28)
             .presentationBackground(.ultraThinMaterial)
         }
+        .sheet(isPresented: $store.zeigeNotfall) {
+            NotfallView(karten: store.vaultItems.filter { !$0.sperrHotline.isEmpty })
+        }
         .overlay(alignment: .top) {
             if store.isCloudSyncPending {
                 CloudSyncBanner()
@@ -218,6 +221,12 @@ struct ArcaTabBar: View {
                 // Das Zahnrad klappt ein Menü auf (Craft-Stil):
                 // Sichern · Wiederherstellen · Einstellungen
                 Menu {
+                    Button {
+                        store.zeigeNotfall = true
+                    } label: {
+                        Label("Notfall", systemImage: "cross.case.fill")
+                    }
+                    Divider()
                     Button {
                         store.pendingSettingsAktion = "export"
                         selected = .settings
@@ -2761,9 +2770,10 @@ struct VaultView: View {
 
     @ViewBuilder
     private var vaultNewEntrySheet: some View {
-        NewVaultEntrySheet(startTitel: store.vaultVorbefuellung ?? "") { title, username, password, url, color in
+        NewVaultEntrySheet(startTitel: store.vaultVorbefuellung ?? "") { title, username, password, url, hotline, color in
             store.addVaultEntry(title: title, username: username,
-                               password: password, url: url, colorTag: color)
+                               password: password, url: url,
+                               sperrHotline: hotline, colorTag: color)
             // Blitzidee → Passwort: die Quell-Notiz ist jetzt einsortiert
             if let notizID = store.notizNachTresorUmwandlung {
                 store.notes.removeAll { $0.id == notizID }
@@ -2923,15 +2933,16 @@ struct VaultView: View {
 // MARK: - New Vault Entry Sheet
 
 struct NewVaultEntrySheet: View {
-    let onSave: (String, String, String, String, Int) -> Void
+    let onSave: (String, String, String, String, String, Int) -> Void
 
-    init(startTitel: String = "", onSave: @escaping (String, String, String, String, Int) -> Void) {
+    init(startTitel: String = "", onSave: @escaping (String, String, String, String, String, Int) -> Void) {
         self.onSave = onSave
         _title = State(initialValue: startTitel)
     }
 
     @Environment(\.dismiss) var dismiss
     @State private var title = ""
+    @State private var sperrHotline = ""
     @State private var username = ""
     @State private var password = ""
     @State private var url = ""
@@ -3055,6 +3066,12 @@ struct NewVaultEntrySheet: View {
                                 .textInputAutocapitalization(.never)
                                 .keyboardType(.URL)
                         }
+
+                        // Sperr-Hotline (Notfall-Bereich)
+                        VaultFieldRow(label: "Sperr-Hotline (optional, für Karten)", placeholder: "") {
+                            TextField("z.B. +41 44 123 45 67", text: $sperrHotline)
+                                .keyboardType(.phonePad)
+                        }
                     }
 
                     // Farbauswahl
@@ -3101,6 +3118,7 @@ struct NewVaultEntrySheet: View {
                                username.trimmingCharacters(in: .whitespacesAndNewlines),
                                password.trimmingCharacters(in: .whitespacesAndNewlines),
                                url.trimmingCharacters(in: .whitespacesAndNewlines),
+                               sperrHotline.trimmingCharacters(in: .whitespacesAndNewlines),
                                selectedColor)
                     } label: {
                         Text("Sichern")
@@ -3209,6 +3227,7 @@ struct VaultDetailView: View {
     @State private var editUsername = ""
     @State private var editPassword = ""
     @State private var editURL = ""
+    @State private var editSperrHotline = ""
     @State private var editColor = 0
     @State private var showPassword = false
     @State private var showGenerator = false
@@ -3271,6 +3290,14 @@ struct VaultDetailView: View {
                             .textInputAutocapitalization(.never)
                             .keyboardType(.URL)
                     }
+                    Section {
+                        TextField("z.B. +41 44 123 45 67", text: $editSperrHotline)
+                            .keyboardType(.phonePad)
+                    } header: {
+                        Text("Sperr-Hotline (optional)")
+                    } footer: {
+                        Text("Für Karten: erscheint mit Anruf-Knopf im Notfall-Bereich (Mehr → Notfall).")
+                    }
                 } else {
                     Section("Titel") {
                         Text(item.title)
@@ -3307,6 +3334,25 @@ struct VaultDetailView: View {
                                 Image(systemName: "doc.on.doc").foregroundStyle(.blue)
                             }
                             .buttonStyle(.borderless)
+                        }
+                    }
+                    if !item.sperrHotline.isEmpty {
+                        Section("Sperr-Hotline") {
+                            HStack {
+                                Text(item.sperrHotline)
+                                    .font(.system(.body, design: .rounded))
+                                Spacer()
+                                Button {
+                                    let nummer = item.sperrHotline.filter { "0123456789+".contains($0) }
+                                    if let url = URL(string: "tel:\(nummer)") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                } label: {
+                                    Image(systemName: "phone.arrow.up.right")
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.borderless)
+                            }
                         }
                     }
                     if !item.url.isEmpty {
@@ -3350,16 +3396,19 @@ struct VaultDetailView: View {
                     if isEditing {
                         Button("Speichern") {
                             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            let updated = VaultEntry(
+                            var updated = VaultEntry(
                                 id: item.id,
                                 title: editTitle.trimmingCharacters(in: .whitespacesAndNewlines),
                                 username: editUsername.trimmingCharacters(in: .whitespacesAndNewlines),
                                 password: editPassword.trimmingCharacters(in: .whitespacesAndNewlines),
                                 url: editURL.trimmingCharacters(in: .whitespacesAndNewlines),
+                                sperrHotline: editSperrHotline.trimmingCharacters(in: .whitespacesAndNewlines),
                                 isFavorite: item.isFavorite,
                                 dateCreated: item.dateCreated,
                                 colorTag: editColor
                             )
+                            // Die „fest"-Nadel überlebt das Bearbeiten
+                            updated.favoritePinned = item.favoritePinned
                             store.updateVaultEntry(updated)
                             isEditing = false
                             showPassword = false
@@ -3373,6 +3422,7 @@ struct VaultDetailView: View {
                             editUsername = item.username
                             editPassword = item.password
                             editURL = item.url
+                            editSperrHotline = item.sperrHotline
                             editColor = item.colorTag
                             showPassword = false
                             isEditing = true

@@ -108,6 +108,8 @@ final class AppStore: ObservableObject {
     @Published var homeStreamFilter: HomeStreamFilter = .dokumente
     /// Mehr-Menü in der Leiste: „export"/„import" springt die Aktion direkt an
     @Published var pendingSettingsAktion: String? = nil
+    /// Notfall-Bereich anzeigen (aus dem Mehr-Menü der Leiste)
+    @Published var zeigeNotfall: Bool = false
     /// Blitzidee → Passwort: Titel fürs vorbefüllte Tresor-Blatt …
     @Published var vaultVorbefuellung: String? = nil
     /// … und die Notiz, die nach erfolgreichem Speichern einsortiert (gelöscht) wird
@@ -1611,13 +1613,16 @@ final class AppStore: ObservableObject {
         ["quickAccessKind", "quickAccessId", "quickAccessTitle"].forEach { ud.removeObject(forKey: $0) }
     }
 
-    func addVaultEntry(title: String, username: String, password: String, url: String = "", colorTag: Int = 0) {
+    func addVaultEntry(title: String, username: String, password: String, url: String = "",
+                       sperrHotline: String = "", colorTag: Int = 0) {
         let cleanTitle    = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanURL      = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanHotline  = sperrHotline.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanTitle.isEmpty, !cleanPassword.isEmpty else { return }
         vaultItems.append(VaultEntry(title: cleanTitle, username: cleanUsername,
-                                     password: cleanPassword, url: cleanURL, colorTag: colorTag))
+                                     password: cleanPassword, url: cleanURL,
+                                     sperrHotline: cleanHotline, colorTag: colorTag))
     }
 }

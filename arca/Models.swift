@@ -25,6 +25,8 @@ struct VaultEntry: Identifiable, Codable, Hashable {
     var username: String
     var password: String
     var url: String = ""
+    /// Notfall: Sperr-Hotline der Karte (Anruf-Knopf im Notfall-Bereich)
+    var sperrHotline: String = ""
     var isFavorite: Bool = false
     var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
     var dateCreated: Date = Date()
@@ -35,6 +37,7 @@ struct VaultEntry: Identifiable, Codable, Hashable {
          username: String,
          password: String,
          url: String = "",
+         sperrHotline: String = "",
          isFavorite: Bool = false,
          dateCreated: Date = Date(),
          colorTag: Int = 0) {
@@ -43,6 +46,7 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         self.username = username
         self.password = password
         self.url = url
+        self.sperrHotline = sperrHotline
         self.isFavorite = isFavorite
         self.dateCreated = dateCreated
         self.colorTag = colorTag
@@ -56,6 +60,7 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         username    = try c.decode(String.self,          forKey: .username)
         password    = try c.decode(String.self,          forKey: .password)
         url         = try c.decodeIfPresent(String.self, forKey: .url)         ?? ""
+        sperrHotline = try c.decodeIfPresent(String.self, forKey: .sperrHotline) ?? ""
         isFavorite  = try c.decodeIfPresent(Bool.self,   forKey: .isFavorite)  ?? false
         favoritePinned = try c.decodeIfPresent(Bool.self, forKey: .favoritePinned) ?? false
         dateCreated = try c.decodeIfPresent(Date.self,   forKey: .dateCreated) ?? Date()
