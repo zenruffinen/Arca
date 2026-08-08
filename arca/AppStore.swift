@@ -112,6 +112,14 @@ final class AppStore: ObservableObject {
     @Published var zeigeNotfall: Bool = false
     /// ⌘F: Suche auf dem Start fokussieren (Zähler als Signal)
     @Published var sucheFokusSignal: Int = 0
+    /// Datum der letzten erfolgreichen Sicherung (für die Erinnerung)
+    var letztesBackup: Date? {
+        get { UserDefaults.standard.object(forKey: "arcaLetztesBackup") as? Date }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "arcaLetztesBackup")
+            objectWillChange.send()
+        }
+    }
     /// Blitzidee → Passwort: Titel fürs vorbefüllte Tresor-Blatt …
     @Published var vaultVorbefuellung: String? = nil
     /// … und die Notiz, die nach erfolgreichem Speichern einsortiert (gelöscht) wird
@@ -714,6 +722,7 @@ final class AppStore: ObservableObject {
         guard archiveDirectory(stage, to: url, password: password, deriveBackupPassword: true),
               let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
               size > 0 else { return .failure(.archiveFailed) }
+        letztesBackup = Date()
         return .success(url)
     }
 

@@ -672,6 +672,7 @@ struct HomeView: View {
     @State private var gruppeUmbenennenText = ""
     @State private var gruppeZumLoeschen: String? = nil
     @State private var sortiereGruppen = false
+    @State private var backupSnoozeSignal = 0
     // Notizen/Aufgaben/Passwörter im Strom bearbeiten
     @State private var streamRenameItem: FavoriteItem? = nil
     @State private var streamRenameText = ""
@@ -922,6 +923,25 @@ struct HomeView: View {
             if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) { store.vaultItems[i].title = neu }
         case .document: break
         }
+    }
+
+    /// Backup-Erinnerung: fällig ohne Sicherung oder nach 14 Tagen —
+    /// „Später" schiebt sie eine Woche hinaus.
+    private var backupErinnerungFaellig: Bool {
+        _ = backupSnoozeSignal
+        guard totalEntryCount > 0 else { return false }
+        if let schlummer = UserDefaults.standard.object(forKey: "arcaBackupSnooze") as? Date,
+           schlummer > Date() { return false }
+        guard let letzt = store.letztesBackup else { return true }
+        return Date().timeIntervalSince(letzt) > 14 * 86400
+    }
+
+    private var backupErinnerungText: String {
+        guard let letzt = store.letztesBackup else {
+            return "Noch keine Sicherung auf diesem Gerät"
+        }
+        let tage = max(1, Int(Date().timeIntervalSince(letzt) / 86400))
+        return "Letzte Sicherung vor \(tage) Tagen"
     }
 
     /// Farbe des Strom-Eintrags lesen (für das Häkchen im Farb-Menü).
@@ -1232,6 +1252,52 @@ struct HomeView: View {
                 ScrollViewReader { leseProxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
+
+                    // ── Backup-Erinnerung: dezent, aber unübersehbar ──
+                    if backupErinnerungFaellig {
+                        HStack(spacing: 10) {
+                            Image(systemName: "shield.lefthalf.filled.badge.checkmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(ArcaWarm.terrakotta)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(backupErinnerungText)
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("Ein verschlüsseltes Backup dauert eine Minute.")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 8)
+                            Button {
+                                store.pendingSettingsAktion = "export"
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    selectedSection = .settings
+                                }
+                            } label: {
+                                Text("Sichern")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 7)
+                                    .background(ArcaWarm.terrakotta, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            Button {
+                                UserDefaults.standard.set(
+                                    Date().addingTimeInterval(7 * 86400), forKey: "arcaBackupSnooze")
+                                withAnimation { backupSnoozeSignal += 1 }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(12)
+                        .glassEffect(.regular.tint(ArcaWarm.terrakotta.opacity(0.08)),
+                                     in: RoundedRectangle(cornerRadius: 14))
+                        .padding(.horizontal, 20)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     VStack(alignment: .leading, spacing: 10) {
@@ -7981,6 +8047,11 @@ struct DocumentCategoryManagerView: View {
 struct QuickCaptureSheet: View {
     var autoRecord: Bool = false
     let onSave: (String, String) -> Void
+    @EnvironmentObject var store: AppStore
+
+    /// Wohin mit dem Gesprochenen? Schlüsselwörter schlagen vor,
+    /// die drei Knöpfe entscheiden — Stufe 1 der schlauen Spracheingabe.
+    enum ErfassungsZiel { case notiz, aufgabe, passwort }
 
     private let blitzOrange = Color(red: 1.00, green: 0.45, blue: 0.10)
 
@@ -7991,6 +8062,9 @@ struct QuickCaptureSheet: View {
     @State private var hasStarted = false
     @State private var justSaved = false
     @State private var closeTimer: Timer? = nil
+    @State private var erkanntesZiel: ErfassungsZiel = .notiz
+    @State private var wartetAufZiel = false
+    @State private var zielTimer: Timer? = nil
 
     var body: some View {
         NavigationStack {
@@ -8037,6 +8111,9 @@ struct QuickCaptureSheet: View {
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .onTapGesture {
+                    zielTimer?.invalidate()
+                    zielTimer = nil
+                    wartetAufZiel = false
                     if speech.isRecording {
                         speech.stopRecording()
                     } else {
@@ -8058,6 +8135,9 @@ struct QuickCaptureSheet: View {
                     } else if transcribedText.isEmpty {
                         Text(savedIdeas.isEmpty ? "Tippen zum Starten" : "Tippen für eine weitere Idee")
                             .foregroundStyle(.secondary)
+                    } else if wartetAufZiel {
+                        Text(zielHinweis)
+                            .foregroundStyle(blitzOrange)
                     } else {
                         Text("Tippen zum erneuten Aufnehmen")
                             .foregroundStyle(.secondary)
@@ -8077,6 +8157,17 @@ struct QuickCaptureSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .padding(.horizontal)
                         .padding(.bottom, 8)
+                }
+
+                // Wohin damit? Drei Ziele, das erkannte ist vorgewählt
+                if wartetAufZiel && !transcribedText.isEmpty {
+                    HStack(spacing: 8) {
+                        zielKnopf(.notiz,    titel: "Notiz",    symbol: "bolt.fill")
+                        zielKnopf(.aufgabe,  titel: "Aufgabe",  symbol: "checkmark.square")
+                        zielKnopf(.passwort, titel: "Passwort", symbol: "key.fill")
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
                 }
 
                 Spacer()
@@ -8100,9 +8191,14 @@ struct QuickCaptureSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
-                        saveCurrentIfNeeded()
-                        speech.stopRecording()
-                        dismiss()
+                        zielTimer?.invalidate()
+                        if wartetAufZiel {
+                            fuehreAus(erkanntesZiel)
+                        } else {
+                            saveCurrentIfNeeded()
+                            speech.stopRecording()
+                            dismiss()
+                        }
                     } label: {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(canFinish ? blitzOrange : .secondary)
@@ -8111,15 +8207,20 @@ struct QuickCaptureSheet: View {
                     .disabled(!canFinish)
                 }
             }
-            // Auto-Speichern wenn Aufnahme stoppt
+            // Aufnahme stoppt → Ziel erkennen; Notiz/Aufgabe speichern
+            // nach kurzer Einspruchsfrist von selbst, Passwort nur per Tipp
             .onChange(of: speech.isRecording) { _, recording in
                 guard !recording else { return }
                 let text = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !text.isEmpty {
-                    saveCurrentIfNeeded()
-                    transcribedText = ""
-                    justSaved = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { dismiss() }
+                    erkanntesZiel = analysiereZiel(text)
+                    wartetAufZiel = true
+                    if erkanntesZiel != .passwort {
+                        zielTimer?.invalidate()
+                        zielTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
+                            fuehreAus(erkanntesZiel)
+                        }
+                    }
                 } else {
                     startCloseTimer()
                 }
@@ -8154,6 +8255,104 @@ struct QuickCaptureSheet: View {
         closeTimer?.invalidate()
         closeTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { _ in
             DispatchQueue.main.async { dismiss() }
+        }
+    }
+
+    private var zielHinweis: String {
+        switch erkanntesZiel {
+        case .notiz:    return "Wird gleich als Notiz gespeichert — oder wähle ein Ziel"
+        case .aufgabe:  return "Klingt nach Aufgaben — wird gleich zur Liste"
+        case .passwort: return "Klingt nach einem Passwort — Tipp öffnet den Tresor"
+        }
+    }
+
+    /// Schlüsselwort-Erkennung (Stufe 1, ohne KI, offline):
+    /// „Aufgabe/Liste/Einkauf …" → Aufgabenliste, „Passwort …" → Tresor.
+    private func analysiereZiel(_ text: String) -> ErfassungsZiel {
+        let anfang = text.lowercased().prefix(30)
+        if anfang.hasPrefix("passwort") || anfang.hasPrefix("zugang") { return .passwort }
+        for wort in ["aufgabe", "aufgaben", "liste", "einkauf", "todo", "to do", "besorgen"] {
+            if anfang.hasPrefix(wort) { return .aufgabe }
+        }
+        return .notiz
+    }
+
+    /// Führendes Schlüsselwort samt Trennzeichen entfernen.
+    private func ohneSchluesselwort(_ text: String) -> String {
+        var rest = text
+        let woerter = ["aufgabenliste", "aufgaben", "aufgabe", "liste", "einkaufsliste",
+                       "passwort", "zugang", "todo", "to do"]
+        let klein = rest.lowercased()
+        for wort in woerter where klein.hasPrefix(wort) {
+            rest = String(rest.dropFirst(wort.count))
+            break
+        }
+        return rest.trimmingCharacters(in: CharacterSet(charactersIn: " :,.–-"))
+    }
+
+    @ViewBuilder
+    private func zielKnopf(_ ziel: ErfassungsZiel, titel: String, symbol: String) -> some View {
+        let gewaehlt = erkanntesZiel == ziel
+        Button {
+            zielTimer?.invalidate()
+            fuehreAus(ziel)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(titel)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(gewaehlt ? .white : .primary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(gewaehlt ? blitzOrange : Color.secondary.opacity(0.12), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func fuehreAus(_ ziel: ErfassungsZiel) {
+        zielTimer?.invalidate()
+        zielTimer = nil
+        let text = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        wartetAufZiel = false
+        switch ziel {
+        case .notiz:
+            saveCurrentIfNeeded()
+            transcribedText = ""
+            justSaved = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
+        case .aufgabe:
+            let inhalt = ohneSchluesselwort(text)
+            var zeilen = inhalt
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            if zeilen.count <= 1 {
+                // Eine gesprochene Zeile: an Kommas und „und" auftrennen
+                zeilen = inhalt
+                    .replacingOccurrences(of: " und ", with: ",")
+                    .components(separatedBy: ",")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+            }
+            let titel = zeilen.count == 1 ? "Aufgaben" : "Aufgaben \(Date().formatted(date: .abbreviated, time: .omitted))"
+            let punkte = zeilen.map { ChecklistItem(text: $0.prefix(1).uppercased() + $0.dropFirst()) }
+            store.lists.insert(ListEntry(title: titel, items: punkte, colorTag: 3), at: 0)
+            store.homeStreamFilter = .tasks
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            transcribedText = ""
+            savedIdeas.append("☑︎ \(inhalt)")
+            justSaved = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
+        case .passwort:
+            let titel = ohneSchluesselwort(text)
+            store.vaultVorbefuellung = titel.isEmpty ? nil : String(titel.prefix(40))
+            store.pendingNewEntry = .vault
+            store.pendingSection = .vault
+            speech.stopRecording()
+            dismiss()
         }
     }
 
