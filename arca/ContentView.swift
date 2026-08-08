@@ -238,9 +238,8 @@ struct ArcaTabBar: View {
     @EnvironmentObject var store: AppStore
 
     /// Space gilt auch als aktiv, wenn man in einem seiner Bereiche steckt
-    /// (Tasks haben ihren eigenen Reiter in der Pille)
     private var spaceActive: Bool {
-        [.home, .spaceHub, .vault, .documents, .notes].contains(selected)
+        [.home, .spaceHub, .vault, .documents, .notes, .lists].contains(selected)
     }
 
     var body: some View {
@@ -254,9 +253,6 @@ struct ArcaTabBar: View {
                     } else {
                         selected = .home
                     }
-                }
-                pillButton(icon: "checkmark.square", active: selected == .lists, label: "Aufgaben") {
-                    selected = .lists
                 }
                 // Das Zahnrad klappt ein Menü auf (Craft-Stil):
                 // Sichern · Wiederherstellen · Einstellungen
@@ -1179,39 +1175,8 @@ struct HomeView: View {
 
                 Spacer()
 
-                // Dokumente erfassen: öffnet das Quellen-Blatt mit allen
-                // Möglichkeiten (Scan · PDF · Fotos/Videos · Text)
-                Button {
-                    store.pendingNewEntry = .documents
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        selectedSection = .documents
-                    }
-                } label: {
-                    Image(systemName: "doc.badge.plus")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.orange)
-                        .frame(width: 36, height: 36)
-                        .glassEffect(.regular, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Dokument erfassen")
-
-                // Passwort hinzufügen: Tresor öffnet direkt den neuen Eintrag
-                Button {
-                    store.pendingNewEntry = .vault
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        selectedSection = .vault
-                    }
-                } label: {
-                    Image(systemName: "key.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.blue)
-                        .frame(width: 36, height: 36)
-                        .glassEffect(.regular, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Passwort hinzufügen")
-
+                // Erfassen läuft komplett über den Plus unten —
+                // im Kopf bleibt nur der QR-Scan
                 Button { showQRScanner = true } label: {
                     Image(systemName: "qrcode.viewfinder")
                         .font(.system(size: 17, weight: .semibold))
