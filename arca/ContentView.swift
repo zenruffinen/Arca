@@ -671,6 +671,7 @@ struct HomeView: View {
     @State private var gruppeZumUmbenennen: String? = nil
     @State private var gruppeUmbenennenText = ""
     @State private var gruppeZumLoeschen: String? = nil
+    @State private var sortiereGruppen = false
     // Notizen/Aufgaben/Passwörter im Strom bearbeiten
     @State private var streamRenameItem: FavoriteItem? = nil
     @State private var streamRenameText = ""
@@ -1313,24 +1314,80 @@ struct HomeView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 8)
                                 } else {
-                                    // Neue Gruppe direkt hier anlegen
-                                    Button {
-                                        docFuerNeueGruppe = nil
-                                        neueGruppeName = ""
-                                        showNeueGruppe = true
-                                    } label: {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "folder.badge.plus")
-                                                .font(.system(size: 14, weight: .semibold))
-                                            Text("Neue Gruppe")
-                                                .font(.system(size: 13, weight: .semibold))
+                                    // Neue Gruppe anlegen · Reihenfolge sortieren
+                                    HStack(spacing: 8) {
+                                        Button {
+                                            docFuerNeueGruppe = nil
+                                            neueGruppeName = ""
+                                            showNeueGruppe = true
+                                        } label: {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "folder.badge.plus")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                Text("Neue Gruppe")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                            }
+                                            .foregroundStyle(ArcaWarm.terrakotta)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                                         }
-                                        .foregroundStyle(ArcaWarm.terrakotta)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+                                        .buttonStyle(.plain)
+
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                sortiereGruppen.toggle()
+                                            }
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: sortiereGruppen ? "checkmark" : "arrow.up.arrow.down")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                Text(sortiereGruppen ? "Fertig" : "Sortieren")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                            }
+                                            .foregroundStyle(sortiereGruppen ? .white : ArcaWarm.terrakotta)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 10)
+                                            .background {
+                                                if sortiereGruppen {
+                                                    Capsule().fill(ArcaWarm.terrakotta)
+                                                }
+                                            }
+                                            .glassEffect(.regular, in: Capsule())
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
+
+                                    if sortiereGruppen {
+                                        // Sortier-Modus: echte Ziehgriffe (List + onMove) —
+                                        // funktioniert per Klick-und-Ziehen auf allen Geräten
+                                        let sortierbar = dokumentGruppen.map(\.name).filter { $0 != "Unsortiert" }
+                                        List {
+                                            ForEach(sortierbar, id: \.self) { name in
+                                                HStack(spacing: 10) {
+                                                    Image(systemName: name == "Unsortiert" ? "tray.fill" : categoryIcon(name))
+                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .foregroundStyle(categoryColor(name, overrides: store.categoryColors).accent)
+                                                    Text(name)
+                                                        .font(.system(size: 14, weight: .medium))
+                                                }
+                                                .listRowBackground(categoryColor(name, overrides: store.categoryColors).bg.opacity(0.5))
+                                            }
+                                            .onMove { von, nach in
+                                                var rest = sortierbar
+                                                rest.move(fromOffsets: von, toOffset: nach)
+                                                let hatUnsortiert = store.documentCategories.contains("Unsortiert")
+                                                store.documentCategories = (hatUnsortiert ? ["Unsortiert"] : []) + rest
+                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                            }
+                                        }
+                                        .listStyle(.insetGrouped)
+                                        .scrollContentBackground(.hidden)
+                                        .scrollDisabled(true)
+                                        .frame(height: CGFloat(sortierbar.count) * 52 + 40)
+                                        .environment(\.editMode, .constant(.active))
+                                        .padding(.horizontal, -20)
+                                    } else {
                                     ForEach(dokumentGruppen, id: \.name) { gruppe in
                                         let farben = categoryColor(gruppe.name, overrides: store.categoryColors)
                                         VStack(spacing: 6) {
@@ -1396,6 +1453,7 @@ struct HomeView: View {
                                                     .transition(.opacity.combined(with: .move(edge: .top)))
                                             }
                                         }
+                                    }
                                     }
                                 }
                             }

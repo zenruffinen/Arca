@@ -293,7 +293,11 @@ struct ArcaFolderQuickCard: View {
                      in: RoundedRectangle(cornerRadius: ArcaDesign.chipRadius))
 
         if let action {
-            Button(action: action) { content }.buttonStyle(.plain)
+            // Kein Button: der würde auf dem Mac das Klick-und-Ziehen
+            // (draggable) schlucken. Tippen togglet, Ziehen zieht.
+            content
+                .contentShape(Rectangle())
+                .onTapGesture { action() }
         } else {
             content
         }
