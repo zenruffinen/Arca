@@ -4360,6 +4360,8 @@ struct DocumentsView: View {
                                         Image(systemName: categoryIcon(category))
                                             .font(.system(size: 13, weight: .semibold))
                                             .foregroundStyle(catColor.accent)
+                                            .frame(width: 28, height: 28)
+                                            .background(catColor.bg.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
                                         Text(category)
                                             .font(.system(size: 15, weight: .semibold))
                                             .foregroundStyle(.primary)
@@ -4482,7 +4484,8 @@ struct DocumentsView: View {
                                 .buttonStyle(.borderless)
                             }
                             .padding(.vertical, 6)
-                            .listRowBackground(Color(.secondarySystemBackground))
+                            // Gleiche Farbwelt wie die Gruppen-Karten auf dem Start
+                            .listRowBackground(catColor.bg.opacity(0.55))
                             .listRowSeparator(isCollapsed ? .hidden : .visible)
                             .listRowSeparatorTint(Color.primary.opacity(0.06))
                             .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 12))
