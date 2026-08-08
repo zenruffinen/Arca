@@ -742,6 +742,7 @@ struct HomeView: View {
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
+                    .contentShape(Rectangle())
                     // Verwaltung direkt auf dem Start: verschieben,
                     // umbenennen, favorisieren, löschen
                     .contextMenu {
@@ -1318,6 +1319,7 @@ struct HomeView: View {
                                                 isExpanded: expandedFolders.contains(gruppe.name),
                                                 onOpen: { openDocuments(category: gruppe.name) }
                                             )
+                                            .contentShape(Rectangle())
                                             // Gedrückt halten: Farbe, Reihenfolge, Name, Löschen —
                                             // alles synct über iCloud auf alle Geräte
                                             .contextMenu {
@@ -1394,6 +1396,7 @@ struct HomeView: View {
                                             openFavorite(item)
                                         }
                                     }
+                                    .contentShape(Rectangle())
                                     // Gedrückt halten → Favorit, direkt im Strom
                                     .contextMenu {
                                         Button {
@@ -1958,6 +1961,7 @@ struct HomeFavoriteCard: View {
             }
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
         .contextMenu {
             Button(action: onTogglePin) {
                 Label(item.pinned ? "Nadel lösen" : "Fest anpinnen",
