@@ -4006,13 +4006,14 @@ struct DocSource: Identifiable {
     let colorTag: Int
     let action: Action
 
-    enum Action { case scan, pdf, image, text }
+    enum Action { case scan, pdf, image, text, diktat }
 
     static let all: [DocSource] = [
         DocSource(id: "scan",  icon: "doc.viewfinder",            label: "Scannen",        colorTag: 4, action: .scan),  // Lila
         DocSource(id: "pdf",   icon: "doc.fill",                  label: "PDF",            colorTag: 1, action: .pdf),   // Rosa
         DocSource(id: "image", icon: "photo.fill.on.rectangle.fill", label: "Fotos / Videos", colorTag: 2, action: .image), // Blau
         DocSource(id: "text",  icon: "doc.text.fill",             label: "Text",           colorTag: 3, action: .text),  // Grün
+        DocSource(id: "diktat", icon: "mic.fill",                 label: "Diktieren",      colorTag: 5, action: .diktat), // Pfirsich
     ]
 }
 
@@ -4028,6 +4029,7 @@ struct DocumentsView: View {
     @State private var previewURL: URL? = nil
     @State private var previewImageURL: URL? = nil
     @State private var showTextInput = false
+    @State private var textDiktatStart = false
     @State private var textTitle = ""
     @State private var textContent = ""
     @State private var textCategory: String = "Unsortiert"
@@ -4109,6 +4111,10 @@ struct DocumentsView: View {
         case .pdf:   filePickerTypes = [.pdf]; filePickerDocType = .pdf; showFilePicker = true
         case .image: showImagePicker = true
         case .text:  textCategory = store.ensureImportCategoryExists(); showTextInput = true
+        case .diktat:
+            textCategory = store.ensureImportCategoryExists()
+            textDiktatStart = true
+            showTextInput = true
         }
     }
 
@@ -4233,10 +4239,12 @@ struct DocumentsView: View {
                 }
             }
             .sheet(isPresented: $showTextInput) {
-                TextDocumentInputView(title: $textTitle, content: $textContent, category: $textCategory) {
+                TextDocumentInputView(title: $textTitle, content: $textContent, category: $textCategory,
+                                      autoDiktat: textDiktatStart) {
                     saveTextDocument()
                     showTextInput = false
                 }
+                .onDisappear { textDiktatStart = false }
             }
             .sheet(isPresented: $showCategoryPicker) {
                 DocumentSaveSheet(
@@ -4998,7 +5006,14 @@ struct DocumentsView: View {
         let filename = "\(UUID().uuidString).txt"
         let destination = store.documentURL(for:filename)
         try? textContent.write(to: destination, atomically: true, encoding: .utf8)
-        store.addDocument(title: textTitle.isEmpty ? "Textdokument" : textTitle, type: .text, filename: filename, category: textCategory)
+        let ersteZeile = textContent
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+        let titel = textTitle.isEmpty
+            ? (ersteZeile.map { String($0.prefix(60)) } ?? "Textdokument")
+            : textTitle
+        store.addDocument(title: titel, type: .text, filename: filename, category: textCategory)
         textTitle = ""
         textContent = ""
         textCategory = store.documentCategories.last ?? "Sonstiges"
@@ -5415,8 +5430,23 @@ struct TextDocumentInputView: View {
     @Binding var title: String
     @Binding var content: String
     @Binding var category: String
+    /// true: Diktat startet sofort beim Öffnen (Quelle „Diktieren")
+    var autoDiktat: Bool = false
     let onSave: () -> Void
     @Environment(\.dismiss) var dismiss
+    @StateObject private var speech = SpeechManager()
+
+    private func diktatUmschalten() {
+        if speech.isRecording {
+            speech.stopRecording()
+        } else {
+            // Bestehender Text bleibt stehen — das Diktat hängt sich an
+            let vorhanden = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            speech.onTextUpdate = { neu in content = neu }
+            speech.startRecording(prefix: vorhanden.isEmpty ? "" : vorhanden + "\n")
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -5436,20 +5466,54 @@ struct TextDocumentInputView: View {
                     .pickerStyle(.inline)
                     .labelsHidden()
                 }
-                Section("Inhalt") {
+                Section {
                     TextEditor(text: $content)
                         .frame(minHeight: 150)
+                } header: {
+                    HStack {
+                        Text("Inhalt")
+                        Spacer()
+                        // Sprache zu Text: Mikro an, sprechen, Text erscheint
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            diktatUmschalten()
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.fill")
+                                    .symbolEffect(.pulse, isActive: speech.isRecording)
+                                Text(speech.isRecording ? "Diktat läuft …" : "Diktieren")
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(speech.isRecording ? .red : ArcaWarm.terrakotta)
+                        }
+                        .buttonStyle(.plain)
+                        .textCase(nil)
+                    }
                 }
             }
             .navigationTitle("Textdokument")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") {
+                    speech.stopRecording()
+                    dismiss()
+                } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { onSave() }
-                        .disabled(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Speichern") {
+                        speech.stopRecording()
+                        onSave()
+                    }
+                    .disabled(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
+            .onAppear {
+                guard autoDiktat else { return }
+                // Blatt erst stehen lassen, dann Mikro an
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if !speech.isRecording { diktatUmschalten() }
+                }
+            }
+            .onDisappear { speech.stopRecording() }
         }
     }
 }
