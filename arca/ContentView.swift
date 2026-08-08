@@ -444,8 +444,8 @@ struct ArcaPlusKnopf: View {
             }
             .buttonStyle(.plain)
             // Die Plakette zeigt immer die angewählte Gruppe —
-            // oben an der Außenkante, damit nichts ins Mikro drängt
-            .overlay(alignment: .top) {
+            // rechts oben am Plus, weg vom Mikro
+            .overlay(alignment: .topTrailing) {
                 Image(systemName: kontextIcon)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(ArcaWarm.terrakotta)
@@ -454,7 +454,7 @@ struct ArcaPlusKnopf: View {
                     .background(ArcaWarm.karte, in: Circle())
                     .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
-                    .offset(y: -16)
+                    .offset(x: 10, y: -10)
                     .allowsHitTesting(false)
             }
             .accessibilityLabel("Neu anlegen")
