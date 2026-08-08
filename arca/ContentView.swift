@@ -5277,7 +5277,9 @@ struct NewDocumentSourceSheet: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                // Drei Spalten mit kompakteren Kacheln — so bleiben
+                // alle fünf Quellen ohne Scrollen sichtbar
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     ForEach(DocSource.all) { source in
                         Button {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -5286,21 +5288,24 @@ struct NewDocumentSourceSheet: View {
                                 onSelect(source.action)
                             }
                         } label: {
-                            VStack(spacing: 10) {
+                            VStack(spacing: 8) {
                                 Image(systemName: source.icon)
-                                    .font(.system(size: 28, weight: .semibold))
+                                    .font(.system(size: 20, weight: .semibold))
                                     .foregroundStyle(NoteColor.for_(source.colorTag).accent)
-                                    .frame(width: 56, height: 56)
+                                    .frame(width: 44, height: 44)
                                     .background(NoteColor.for_(source.colorTag).bg.opacity(0.7),
-                                                in: RoundedRectangle(cornerRadius: 16))
+                                                in: RoundedRectangle(cornerRadius: 13))
                                 Text(source.label)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
+                            .padding(.vertical, 14)
+                            .padding(.horizontal, 4)
                             .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
                     }
