@@ -695,6 +695,7 @@ struct HomeView: View {
     @State private var sortiereGruppen = false
     @State private var backupSnoozeSignal = 0
     @State private var gezogeneBlase: HomeStreamFilter? = nil
+    @State private var ziehZielGruppe: String? = nil
     // Notizen/Aufgaben/Passwörter im Strom bearbeiten
     @State private var streamRenameItem: FavoriteItem? = nil
     @State private var streamRenameText = ""
@@ -1503,6 +1504,7 @@ struct HomeView: View {
                                     } else {
                                     ForEach(dokumentGruppen, id: \.name) { gruppe in
                                         let farben = categoryColor(gruppe.name, overrides: store.categoryColors)
+                                        let istZiehZiel = ziehZielGruppe == gruppe.name
                                         VStack(spacing: 6) {
                                             ArcaFolderQuickCard(
                                                 name: gruppe.name,
@@ -1527,7 +1529,34 @@ struct HomeView: View {
                                             // und Dokumente lassen sich auf Gruppen fallen lassen
                                             .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
                                             .dropDestination(for: String.self) { eingeworfen, _ in
-                                                verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
+                                                ziehZielGruppe = nil
+                                                return verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
+                                            } isTargeted: { drueber in
+                                                // Die Ordner gehen auseinander: über dem Ziel
+                                                // öffnet sich eine Lücke mit Einfügelinie
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                    if drueber {
+                                                        ziehZielGruppe = gruppe.name
+                                                    } else if ziehZielGruppe == gruppe.name {
+                                                        ziehZielGruppe = nil
+                                                    }
+                                                }
+                                            }
+                                            .padding(.top, istZiehZiel ? 22 : 0)
+                                            .overlay(alignment: .top) {
+                                                if istZiehZiel {
+                                                    HStack(spacing: 6) {
+                                                        Circle()
+                                                            .fill(ArcaWarm.terrakotta)
+                                                            .frame(width: 7, height: 7)
+                                                        Capsule()
+                                                            .fill(ArcaWarm.terrakotta)
+                                                            .frame(height: 3)
+                                                    }
+                                                    .padding(.horizontal, 4)
+                                                    .offset(y: 8)
+                                                    .transition(.opacity.combined(with: .scale(scale: 0.6)))
+                                                }
                                             }
                                             // Gedrückt halten: Farbe, Reihenfolge, Name, Löschen —
                                             // alles synct über iCloud auf alle Geräte
