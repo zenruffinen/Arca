@@ -135,10 +135,12 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
     var subcategory: String = ""
     var isFavorite: Bool = false
     var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
+    var ocrText: String = ""           // beim Scannen erkannter Text (für die Suche)
 
-    init(id: UUID = UUID(), title: String, type: DocumentType, filename: String, dateAdded: Date, category: String = "Unsortiert", subcategory: String = "") {
+    init(id: UUID = UUID(), title: String, type: DocumentType, filename: String, dateAdded: Date, category: String = "Unsortiert", subcategory: String = "", ocrText: String = "") {
         self.id = id; self.title = title; self.type = type; self.filename = filename
         self.dateAdded = dateAdded; self.category = category; self.subcategory = subcategory
+        self.ocrText = ocrText
     }
 
     init(from decoder: Decoder) throws {
@@ -152,6 +154,7 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
         subcategory = try c.decodeIfPresent(String.self,       forKey: .subcategory) ?? ""
         isFavorite  = try c.decodeIfPresent(Bool.self,         forKey: .isFavorite)  ?? false
         favoritePinned = try c.decodeIfPresent(Bool.self,      forKey: .favoritePinned) ?? false
+        ocrText     = try c.decodeIfPresent(String.self,       forKey: .ocrText)     ?? ""
     }
 }
 

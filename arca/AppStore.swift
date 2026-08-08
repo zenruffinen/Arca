@@ -1281,8 +1281,8 @@ final class AppStore: ObservableObject {
 
     // MARK: - Dokumente
 
-    func addDocument(title: String, type: DocumentType, filename: String, category: String = "Unsortiert", subcategory: String = "") {
-        let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category, subcategory: subcategory)
+    func addDocument(title: String, type: DocumentType, filename: String, category: String = "Unsortiert", subcategory: String = "", ocrText: String = "") {
+        let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category, subcategory: subcategory, ocrText: ocrText)
         documents.append(entry)
     }
 

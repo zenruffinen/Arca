@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 import QuickLook
 import QuickLookThumbnailing
 import VisionKit
+import Vision
 import PhotosUI
 import StoreKit
 
@@ -1912,7 +1913,8 @@ struct SearchResultsView: View {
     private var matchingDocs: [DocumentEntry] {
         store.documents.filter {
             $0.title.lowercased().contains(q) ||
-            $0.category.lowercased().contains(q)
+            $0.category.lowercased().contains(q) ||
+            $0.ocrText.lowercased().contains(q)
         }.prefix(5).map { $0 }
     }
 
@@ -4045,6 +4047,7 @@ struct DocumentsView: View {
     @State private var showFilePicker = false
     @State private var showImagePicker = false
     @State private var showScanner = false
+    @State private var pendingOcrText = ""
     @State private var previewURL: URL? = nil
     @State private var previewImageURL: URL? = nil
     @State private var showTextInput = false
@@ -4117,7 +4120,8 @@ struct DocumentsView: View {
         if searchText.isEmpty { return store.documents }
         return store.documents.filter {
             $0.title.localizedCaseInsensitiveContains(searchText) ||
-            $0.category.localizedCaseInsensitiveContains(searchText)
+            $0.category.localizedCaseInsensitiveContains(searchText) ||
+            $0.ocrText.localizedCaseInsensitiveContains(searchText)
         }
     }
 
@@ -4232,11 +4236,18 @@ struct DocumentsView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { showCategoryPicker = true }
                 }
             }) {
-                DocumentScannerView { pdfURL in
+                DocumentScannerView { pdfURL, erkannterText in
                     let filename = "\(UUID().uuidString).pdf"
                     let destination = store.documentURL(for:filename)
                     try? FileManager.default.copyItem(at: pdfURL, to: destination)
-                    pendingTitle = "Scan \(Date().formatted(date: .abbreviated, time: .omitted))"
+                    // Erste erkannte Zeile als Titel-Vorschlag — besser als „Scan <Datum>"
+                    let ersteZeile = erkannterText
+                        .components(separatedBy: .newlines)
+                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                        .first { $0.count >= 4 }
+                    pendingTitle = ersteZeile.map { String($0.prefix(60)) }
+                        ?? "Scan \(Date().formatted(date: .abbreviated, time: .omitted))"
+                    pendingOcrText = erkannterText
                     pendingFilename = filename
                     pendingType = .pdf
                     pendingCategory = store.ensureImportCategoryExists()
@@ -4255,7 +4266,8 @@ struct DocumentsView: View {
                     title: $pendingTitle,
                     category: $pendingCategory
                 ) {
-                    store.addDocument(title: pendingTitle, type: pendingType, filename: pendingFilename, category: pendingCategory)
+                    store.addDocument(title: pendingTitle, type: pendingType, filename: pendingFilename, category: pendingCategory, ocrText: pendingOcrText)
+                    pendingOcrText = ""
                     showCategoryPicker = false
                 } onCancel: {
                     let dest = store.documentURL(for:pendingFilename)
@@ -7927,7 +7939,8 @@ struct SettingsView: View {
 // MARK: - Scanner
 
 struct DocumentScannerView: UIViewControllerRepresentable {
-    let onScan: (URL) -> Void
+    /// Liefert das fertige PDF und den erkannten Text (OCR, on-device)
+    let onScan: (URL, String) -> Void
 
     func makeUIViewController(context: Context) -> VNDocumentCameraViewController {
         let scanner = VNDocumentCameraViewController()
@@ -7942,10 +7955,22 @@ struct DocumentScannerView: UIViewControllerRepresentable {
     }
 
     class Coordinator: NSObject, VNDocumentCameraViewControllerDelegate {
-        let onScan: (URL) -> Void
+        let onScan: (URL, String) -> Void
 
-        init(onScan: @escaping (URL) -> Void) {
+        init(onScan: @escaping (URL, String) -> Void) {
             self.onScan = onScan
+        }
+
+        /// OCR über eine Seite: liefert die erkannten Textzeilen samt Lage.
+        private static func erkenneText(auf image: UIImage) -> [VNRecognizedTextObservation] {
+            guard let cg = image.cgImage else { return [] }
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.recognitionLanguages = ["de-DE", "fr-FR", "en-US"]
+            request.usesLanguageCorrection = true
+            let handler = VNImageRequestHandler(cgImage: cg, orientation: .up)
+            try? handler.perform([request])
+            return request.results ?? []
         }
 
         func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan) {
@@ -7954,29 +7979,62 @@ struct DocumentScannerView: UIViewControllerRepresentable {
                 return
             }
 
-            // A4-Seiten, Bild proportional eingepasst (UIGraphicsPDFRenderer
-            // berücksichtigt die Bildausrichtung korrekt)
-            let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)
-            let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
-            let pdfData = renderer.pdfData { ctx in
-                for i in 0..<scan.pageCount {
-                    let image = scan.imageOfPage(at: i)
-                    guard image.size.width > 0, image.size.height > 0 else { continue }
-                    ctx.beginPage()
-                    let scale = min(pageRect.width / image.size.width, pageRect.height / image.size.height)
-                    let drawSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-                    let origin = CGPoint(x: (pageRect.width - drawSize.width) / 2,
-                                         y: (pageRect.height - drawSize.height) / 2)
-                    image.draw(in: CGRect(origin: origin, size: drawSize))
-                }
-            }
+            let bilder = (0..<scan.pageCount).map { scan.imageOfPage(at: $0) }
+            let fertig = onScan
 
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
-            do {
-                try pdfData.write(to: url, options: .atomic)
-                onScan(url)
-            } catch {
-                controller.dismiss(animated: true)
+            // OCR ist Rechenarbeit — weg vom Haupt-Thread, Ergebnis kommt zurück
+            DispatchQueue.global(qos: .userInitiated).async {
+                let seitenTexte = bilder.map { Self.erkenneText(auf: $0) }
+
+                // A4-Seiten, Bild proportional eingepasst (UIGraphicsPDFRenderer
+                // berücksichtigt die Bildausrichtung korrekt)
+                let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)
+                let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+                let pdfData = renderer.pdfData { ctx in
+                    for (i, image) in bilder.enumerated() {
+                        guard image.size.width > 0, image.size.height > 0 else { continue }
+                        ctx.beginPage()
+                        let scale = min(pageRect.width / image.size.width, pageRect.height / image.size.height)
+                        let drawSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+                        let origin = CGPoint(x: (pageRect.width - drawSize.width) / 2,
+                                             y: (pageRect.height - drawSize.height) / 2)
+                        image.draw(in: CGRect(origin: origin, size: drawSize))
+
+                        // Erkannter Text unsichtbar über das Bild gelegt —
+                        // so ist das PDF auch in Dateien/Mail durchsuchbar
+                        for beobachtung in seitenTexte[i] {
+                            guard let kandidat = beobachtung.topCandidates(1).first else { continue }
+                            let box = beobachtung.boundingBox   // normiert, Ursprung unten links
+                            let zeilenHoehe = box.height * drawSize.height
+                            guard zeilenHoehe > 1 else { continue }
+                            let ort = CGRect(
+                                x: origin.x + box.minX * drawSize.width,
+                                y: origin.y + (1 - box.maxY) * drawSize.height,
+                                width: box.width * drawSize.width,
+                                height: zeilenHoehe)
+                            (kandidat.string as NSString).draw(
+                                in: ort,
+                                withAttributes: [
+                                    .font: UIFont.systemFont(ofSize: max(4, zeilenHoehe * 0.8)),
+                                    .foregroundColor: UIColor.clear
+                                ])
+                        }
+                    }
+                }
+
+                let vollText = seitenTexte
+                    .map { seite in seite.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n") }
+                    .joined(separator: "\n")
+
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
+                DispatchQueue.main.async {
+                    do {
+                        try pdfData.write(to: url, options: .atomic)
+                        fertig(url, vollText)
+                    } catch {
+                        controller.dismiss(animated: true)
+                    }
+                }
             }
         }
 
