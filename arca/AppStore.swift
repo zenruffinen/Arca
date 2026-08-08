@@ -266,6 +266,12 @@ final class AppStore: ObservableObject {
         updateCloudSyncState()
         if !isCloudSyncPending {
             stopCloudSyncMonitoring()
+            // Frisch fertig heruntergeladene Cloud-Daten sofort übernehmen —
+            // niemand soll auf einen leeren Start schauen, während die
+            // Wahrheit schon auf der Platte liegt.
+            isLoadingData = true
+            load()
+            isLoadingData = false
             return
         }
         downloadAllCloudFiles()
@@ -369,17 +375,30 @@ final class AppStore: ObservableObject {
 
     // MARK: - Generische JSON I/O mit NSFileCoordinator
 
+    /// Welche Datenschlüssel diese Sitzung erfolgreich GELESEN (oder selbst
+    /// erzeugt) hat. Nur für solche Schlüssel darf gespeichert werden, wenn
+    /// bereits eine Datei existiert — verhindert, dass ein frisch
+    /// angeschlossenes Gerät mit leerem Zustand echte Daten überschreibt
+    /// (Ursache des Datenverlusts vom 08.08.2026).
+    private var geladeneSchluessel: Set<String> = []
+
     private func saveJSON<T: Encodable>(_ value: T, key: String) {
         guard !isLoadingData else { return }
         let url = dataURL(key)
         // Niemals lokale Leerdaten über ausstehende iCloud-Platzhalter schreiben.
         if hasCloudPlaceholder(at: url) { return }
+        // Datei existiert, aber wir haben sie nie erfolgreich gelesen?
+        // Dann gehört ihr Inhalt jemand anderem — nicht anfassen.
+        if FileManager.default.fileExists(atPath: url.path), !geladeneSchluessel.contains(key) {
+            return
+        }
         guard let data = try? JSONEncoder().encode(value) else { return }
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var err: NSError?
         coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &err) { u in
             try? data.write(to: u, options: .atomic)
         }
+        geladeneSchluessel.insert(key)
     }
 
     private func loadJSON<T: Decodable>(_ type: T.Type, key: String) -> T? {
@@ -396,6 +415,7 @@ final class AppStore: ObservableObject {
             guard let data = try? Data(contentsOf: u), !data.isEmpty else { return }
             result = try? JSONDecoder().decode(type, from: data)
         }
+        if result != nil { geladeneSchluessel.insert(key) }
         return result
     }
 
@@ -418,6 +438,11 @@ final class AppStore: ObservableObject {
 
     /// Speichert Erststart-Defaults, die während load() wegen isLoadingData nicht geschrieben wurden.
     private func persistFreshInstallDefaults() {
+        // Mit iCloud NIE automatisch persistieren: Ein frisch angeschlossenes
+        // Gerät sieht den Container kurz leer und würde sonst die Wahrheit
+        // der anderen Geräte überschreiben. Defaults leben dann nur im
+        // Speicher, bis der Nutzer selbst etwas ändert.
+        guard !isICloudAvailable else { return }
         guard !hasAnyExistingDataStore() else { return }
         guard !hasPendingCloudDataDownloads() else { return }
         if documentCategories.isEmpty {
@@ -440,6 +465,12 @@ final class AppStore: ObservableObject {
     private func createDefaultListIfNeeded() {
         let key = "arcaDefaultListCreated_v1"
         guard !UserDefaults.standard.bool(forKey: key) else { return }
+        // Nur bei echtem lokalem Erststart ohne iCloud — ein neu
+        // angeschlossenes iCloud-Gerät darf niemals Daten erfinden.
+        guard !isICloudAvailable else {
+            UserDefaults.standard.set(true, forKey: key)
+            return
+        }
         guard !hasPendingCloudDataDownloads() else { return }
         if lists.isEmpty {
             let demo = ListEntry(
