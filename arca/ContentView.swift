@@ -1175,8 +1175,20 @@ struct HomeView: View {
 
                 Spacer()
 
-                // Erfassen läuft komplett über den Plus unten —
-                // im Kopf bleibt nur der QR-Scan
+                // Notfall immer griffbereit: Notrufnummern + Karten sperren
+                Button {
+                    store.zeigeNotfall = true
+                } label: {
+                    Image(systemName: "cross.case.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(width: 36, height: 36)
+                        .glassEffect(.regular, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Notfall")
+
+                // Erfassen läuft sonst komplett über den Plus unten
                 Button { showQRScanner = true } label: {
                     Image(systemName: "qrcode.viewfinder")
                         .font(.system(size: 17, weight: .semibold))
