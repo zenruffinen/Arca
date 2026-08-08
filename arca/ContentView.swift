@@ -420,12 +420,13 @@ struct ArcaPlusKnopf: View {
                 store.pendingQuickCapture = true
             } label: {
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 23, weight: .semibold))
                     .foregroundStyle(ArcaWarm.terrakotta)
-                    .frame(width: 52, height: 52)
-                    .glassEffect(.regular, in: Circle())
-                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.35), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.10), radius: 5, x: 0, y: 2)
+                    .frame(width: 56, height: 56)
+                    .background(ArcaWarm.karte, in: Circle())
+                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 2))
+                    .shadow(color: .black.opacity(0.18), radius: 7, x: 0, y: 3)
+                    .contentShape(Circle().inset(by: -8))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Blitzidee diktieren")
@@ -8385,16 +8386,24 @@ struct QuickCaptureSheet: View {
 
                 Spacer()
 
-                // Was mit dem Gesprochenen passiert — kurz erklärt
-                Label {
-                    Text("Deine Blitzidee wird unverändert in den Notizen gespeichert. Beginnst du mit „Aufgabe“ oder „Passwort“, landet sie gleich am richtigen Ort.")
-                } icon: {
-                    Image(systemName: "info.circle")
+                // Was mit dem Gesprochenen passiert — gut sichtbar erklärt
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .padding(.top, 1)
+                    Text("Deine Blitzidee wird **unverändert in den Notizen gespeichert**. Beginnst du mit „Aufgabe“ oder „Passwort“, landet sie gleich am richtigen Ort.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, 20)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(ArcaWarm.terrakotta.opacity(0.09),
+                            in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(ArcaWarm.terrakotta.opacity(0.25), lineWidth: 1))
+                .padding(.horizontal, 16)
                 .padding(.bottom, 14)
             }
             .onAppear {
