@@ -949,10 +949,14 @@ struct HomeView: View {
         store.vaultItems.count + store.documents.count + store.notes.count + store.lists.count
     }
 
+    /// Gemessene Breite der Seite (statt des veralteten UIScreen.main —
+    /// auf dem Mac ist das Fenster ohnehin nicht der Bildschirm).
+    @State private var seitenBreite: CGFloat = 393
+
     /// Drei Favoriten-Karten passen nebeneinander auf den Schirm
     /// (20+20 Außenrand, 2 × 8 Abstand — der Rest geteilt durch drei).
     private var favoritenKartenBreite: CGFloat {
-        let breite = min(UIScreen.main.bounds.width, homeContentMaxWidth)
+        let breite = min(seitenBreite, homeContentMaxWidth)
         return max(96, (breite - 56) / 3)
     }
 
@@ -1356,6 +1360,14 @@ struct HomeView: View {
 
         }
         .background(ArcaWarm.hintergrund)
+        // Seitenbreite messen (Ersatz für UIScreen.main; Mac-Fenster tauglich)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { seitenBreite = geo.size.width }
+                    .onChange(of: geo.size.width) { _, neu in seitenBreite = neu }
+            }
+        )
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)

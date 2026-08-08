@@ -36,8 +36,9 @@ final class KalenderHeute: ObservableObject {
     }
 
     func erlaubnisAnfragen() {
-        ekStore.requestFullAccessToEvents { [weak self] _, _ in
-            Task { @MainActor in self?.aktualisiere() }
+        Task {
+            _ = try? await ekStore.requestFullAccessToEvents()
+            aktualisiere()
         }
     }
 }
