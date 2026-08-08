@@ -743,6 +743,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())
+                    .draggable(doc.id.uuidString)
                     // Verwaltung direkt auf dem Start: verschieben,
                     // umbenennen, favorisieren, löschen
                     .contextMenu {
@@ -1017,6 +1018,38 @@ struct HomeView: View {
         // Unsortiert steht immer fest an erster Stelle
         let namen = ["Unsortiert"] + store.documentCategories.filter { $0 != "Unsortiert" }
         return namen.map { ($0, zaehler[$0] ?? 0) }
+    }
+
+    /// Etwas wurde auf eine Gruppen-Karte gezogen: entweder ein Dokument
+    /// (UUID → einsortieren) oder eine andere Gruppe (Name → umsortieren).
+    private func verarbeiteAblage(_ eingeworfen: [String], aufGruppe ziel: String) -> Bool {
+        guard let wert = eingeworfen.first else { return false }
+        if let uuid = UUID(uuidString: wert),
+           let doc = store.documents.first(where: { $0.id == uuid }) {
+            guard doc.category != ziel else { return false }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                verschiebeDokument(doc, nach: ziel)
+            }
+            return true
+        }
+        guard wert != "Unsortiert", wert != ziel,
+              store.documentCategories.contains(wert) else { return false }
+        verschiebeGruppe(wert, vorGruppe: ziel)
+        return true
+    }
+
+    /// Gruppe per Drag & Drop vor eine andere setzen — „Unsortiert" bleibt fest vorn.
+    private func verschiebeGruppe(_ name: String, vorGruppe ziel: String) {
+        var rest = store.documentCategories.filter { $0 != "Unsortiert" }
+        guard let von = rest.firstIndex(of: name) else { return }
+        rest.remove(at: von)
+        let einfuegeIndex = ziel == "Unsortiert" ? 0 : (rest.firstIndex(of: ziel) ?? rest.count)
+        rest.insert(name, at: einfuegeIndex)
+        let hatUnsortiert = store.documentCategories.contains("Unsortiert")
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            store.documentCategories = (hatUnsortiert ? ["Unsortiert"] : []) + rest
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     /// Gruppe in der Reihenfolge verschieben — „Unsortiert" bleibt fest vorn.
@@ -1320,6 +1353,12 @@ struct HomeView: View {
                                                 onOpen: { openDocuments(category: gruppe.name) }
                                             )
                                             .contentShape(Rectangle())
+                                            // Ziehen: Gruppe umsortieren („Unsortiert" bleibt fest) —
+                                            // und Dokumente lassen sich auf Gruppen fallen lassen
+                                            .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
+                                            .dropDestination(for: String.self) { eingeworfen, _ in
+                                                verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
+                                            }
                                             // Gedrückt halten: Farbe, Reihenfolge, Name, Löschen —
                                             // alles synct über iCloud auf alle Geräte
                                             .contextMenu {
@@ -1338,16 +1377,6 @@ struct HomeView: View {
                                                     Label("Farbe", systemImage: "paintpalette")
                                                 }
                                                 if gruppe.name != "Unsortiert" {
-                                                    Button {
-                                                        verschiebeGruppe(gruppe.name, nachOben: true)
-                                                    } label: {
-                                                        Label("Nach oben", systemImage: "arrow.up")
-                                                    }
-                                                    Button {
-                                                        verschiebeGruppe(gruppe.name, nachOben: false)
-                                                    } label: {
-                                                        Label("Nach unten", systemImage: "arrow.down")
-                                                    }
                                                     Button {
                                                         gruppeUmbenennenText = gruppe.name
                                                         gruppeZumUmbenennen = gruppe.name
@@ -1972,6 +2001,14 @@ struct HomeFavoriteCard: View {
                 Label("Aus Favoriten entfernen", systemImage: "star.slash")
             }
         }
+    }
+}
+
+private extension View {
+    /// draggable nur, wenn erlaubt (Unsortiert bleibt unverrückbar)
+    @ViewBuilder
+    func wennDraggable(_ aktiv: Bool, _ wert: String) -> some View {
+        if aktiv { self.draggable(wert) } else { self }
     }
 }
 
