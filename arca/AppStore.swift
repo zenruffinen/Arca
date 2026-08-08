@@ -112,6 +112,24 @@ final class AppStore: ObservableObject {
     @Published var zeigeNotfall: Bool = false
     /// ⌘F: Suche auf dem Start fokussieren (Zähler als Signal)
     @Published var sucheFokusSignal: Int = 0
+    /// Reihenfolge der Bereichs-Blasen auf dem Start (und der Seitenleiste) —
+    /// frei sortierbar, neue Bereiche hängen sich automatisch hinten an.
+    var bereichsOrdnung: [HomeStreamFilter] {
+        get {
+            let roh = UserDefaults.standard.string(forKey: "arcaBereichsOrdnung") ?? ""
+            var folge = roh.split(separator: ",")
+                .compactMap { HomeStreamFilter(rawValue: String($0)) }
+            for f in HomeStreamFilter.allCases where !folge.contains(f) { folge.append(f) }
+            return folge
+        }
+        set {
+            UserDefaults.standard.set(
+                newValue.map(\.rawValue).joined(separator: ","),
+                forKey: "arcaBereichsOrdnung")
+            objectWillChange.send()
+        }
+    }
+
     /// Datum der letzten erfolgreichen Sicherung (für die Erinnerung)
     var letztesBackup: Date? {
         get { UserDefaults.standard.object(forKey: "arcaLetztesBackup") as? Date }

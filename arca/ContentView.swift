@@ -345,6 +345,13 @@ struct ArcaPlusKnopf: View {
     /// inaktiv = der Plus legt das unten Ausgewählte an.
     @AppStorage("plusSprechenAktiv") private var plusSprechenAktiv = true
 
+    /// In einem Bereich legt der Plus immer den Bereich an —
+    /// Sprechen gilt nur auf dem Start (langes Drücken diktiert überall).
+    private var imBereich: Bool {
+        [.documents, .lists, .vault, .notes].contains(selected)
+    }
+    private var sprichtJetzt: Bool { plusSprechenAktiv && !imBereich }
+
     /// Das Symbol des Schalters zeigt, was der Plus anlegen würde.
     private var kontextIcon: String {
         switch selected {
@@ -420,7 +427,7 @@ struct ArcaPlusKnopf: View {
             // Schalter inaktiv = das gerade Ausgewählte anlegen.
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                if plusSprechenAktiv {
+                if sprichtJetzt {
                     store.quickCaptureAutoRecord = true
                     store.pendingQuickCapture = true
                 } else {
@@ -437,7 +444,7 @@ struct ArcaPlusKnopf: View {
             .buttonStyle(.plain)
             // Im Sprach-Modus atmet der Plus Sonar-Wellen aus
             .background {
-                if plusSprechenAktiv {
+                if sprichtJetzt {
                     ArcaSprechPuls()
                 }
             }
@@ -452,14 +459,19 @@ struct ArcaPlusKnopf: View {
             .overlay(alignment: .topLeading) {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        plusSprechenAktiv.toggle()
+                    if imBereich {
+                        // Im Bereich ist die Plakette nur Anzeige — Tipp legt an
+                        legeKontextbezogenAn()
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            plusSprechenAktiv.toggle()
+                        }
                     }
                 } label: {
-                    Image(systemName: plusSprechenAktiv ? "mic.fill" : kontextIcon)
+                    Image(systemName: sprichtJetzt ? "mic.fill" : kontextIcon)
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(ArcaWarm.terrakotta)
-                        .symbolEffect(.pulse, isActive: plusSprechenAktiv)
+                        .symbolEffect(.pulse, isActive: sprichtJetzt)
                         .frame(width: 32, height: 32)
                         .background(ArcaWarm.karte, in: Circle())
                         .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.5))
@@ -467,9 +479,9 @@ struct ArcaPlusKnopf: View {
                 }
                 .buttonStyle(.plain)
                 .offset(x: -12, y: -12)
-                .accessibilityLabel(plusSprechenAktiv ? "Plus spricht (Diktat)" : "Plus legt das Ausgewählte an")
+                .accessibilityLabel(sprichtJetzt ? "Plus spricht (Diktat)" : "Plus legt das Ausgewählte an")
             }
-            .accessibilityLabel(plusSprechenAktiv ? "Blitzidee diktieren" : "Neu anlegen")
+            .accessibilityLabel(sprichtJetzt ? "Blitzidee diktieren" : "Neu anlegen")
     }
 }
 
@@ -485,15 +497,24 @@ struct ArcaIPadSidebar: View {
         let color: Color
     }
 
+    /// Start oben, Einstellungen unten — dazwischen die Bereiche in der
+    /// Reihenfolge, die auf dem Start zusammengezogen wurde.
     private var navItems: [NavItem] {
-        [
-            NavItem(section: .home,      icon: "house",     color: .primary),
-            NavItem(section: .vault,     icon: "key",       color: NoteColor.for_(2).accent),
-            NavItem(section: .documents, icon: "doc.text",  color: NoteColor.for_(5).accent),
-            NavItem(section: .notes,     icon: "note.text", color: NoteColor.for_(4).accent),
-            NavItem(section: .lists,     icon: "checklist", color: NoteColor.for_(3).accent),
-            NavItem(section: .settings,  icon: "gearshape", color: .secondary),
-        ]
+        var items = [NavItem(section: .home, icon: "house", color: .primary)]
+        for bereich in store.bereichsOrdnung {
+            switch bereich {
+            case .passwoerter:
+                items.append(NavItem(section: .vault,     icon: "key",       color: NoteColor.for_(2).accent))
+            case .dokumente:
+                items.append(NavItem(section: .documents, icon: "doc.text",  color: NoteColor.for_(5).accent))
+            case .notizen:
+                items.append(NavItem(section: .notes,     icon: "note.text", color: NoteColor.for_(4).accent))
+            case .tasks:
+                items.append(NavItem(section: .lists,     icon: "checklist", color: NoteColor.for_(3).accent))
+            }
+        }
+        items.append(NavItem(section: .settings, icon: "gearshape", color: .secondary))
+        return items
     }
 
     private func count(for section: ArcaSection) -> Int? {
@@ -673,6 +694,7 @@ struct HomeView: View {
     @State private var gruppeZumLoeschen: String? = nil
     @State private var sortiereGruppen = false
     @State private var backupSnoozeSignal = 0
+    @State private var gezogeneBlase: HomeStreamFilter? = nil
     // Notizen/Aufgaben/Passwörter im Strom bearbeiten
     @State private var streamRenameItem: FavoriteItem? = nil
     @State private var streamRenameText = ""
@@ -1355,13 +1377,10 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
-                                ForEach(HomeStreamFilter.allCases, id: \.self) { filter in
-                                    Button {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            store.homeStreamFilter = filter
-                                            streamLimit = 25
-                                        }
-                                    } label: {
+                                // Reihenfolge ist frei sortierbar: Blase gedrückt
+                                // halten und an die Wunschposition ziehen
+                                ForEach(store.bereichsOrdnung, id: \.self) { filter in
+                                    Group {
                                         // Liquid-Glass-Blasen (iOS 27): gewählt = dunkel gefüllt,
                                         // die übrigen schweben als Glas über dem Warmweiß
                                         if streamFilter == filter {
@@ -1380,7 +1399,19 @@ struct HomeView: View {
                                                 .glassEffect(.regular, in: Capsule())
                                         }
                                     }
-                                    .buttonStyle(.plain)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            store.homeStreamFilter = filter
+                                            streamLimit = 25
+                                        }
+                                    }
+                                    .onDrag {
+                                        gezogeneBlase = filter
+                                        return NSItemProvider(object: filter.rawValue as NSString)
+                                    }
+                                    .onDrop(of: [.text], delegate: BlasenTauschDelegate(
+                                        ziel: filter, gezogen: $gezogeneBlase, store: store))
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -2196,7 +2227,36 @@ struct ArcaHeroCard: View {
 
 // MARK: - Der Strom (gemischte Einträge mit Filter-Chips)
 
-enum HomeStreamFilter: CaseIterable {
+/// Klick-und-Ziehen für die Bereichs-Blasen: beim Darüberziehen
+/// rückt die gezogene Blase sofort an die neue Stelle.
+struct BlasenTauschDelegate: DropDelegate {
+    let ziel: HomeStreamFilter
+    @Binding var gezogen: HomeStreamFilter?
+    let store: AppStore
+
+    func dropEntered(info: DropInfo) {
+        guard let g = gezogen, g != ziel else { return }
+        var folge = store.bereichsOrdnung
+        guard let von = folge.firstIndex(of: g),
+              let nach = folge.firstIndex(of: ziel) else { return }
+        folge.move(fromOffsets: IndexSet(integer: von),
+                   toOffset: nach > von ? nach + 1 : nach)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            store.bereichsOrdnung = folge
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        gezogen = nil
+        return true
+    }
+}
+
+enum HomeStreamFilter: String, CaseIterable {
     case dokumente, notizen, tasks, passwoerter
 
     var label: String {
