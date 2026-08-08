@@ -668,6 +668,9 @@ struct HomeView: View {
     @State private var showNeueGruppe = false
     @State private var neueGruppeName = ""
     @State private var docFuerNeueGruppe: DocumentEntry? = nil
+    @State private var gruppeZumUmbenennen: String? = nil
+    @State private var gruppeUmbenennenText = ""
+    @State private var gruppeZumLoeschen: String? = nil
     // Notizen/Aufgaben/Passwörter im Strom bearbeiten
     @State private var streamRenameItem: FavoriteItem? = nil
     @State private var streamRenameText = ""
@@ -1015,6 +1018,20 @@ struct HomeView: View {
         return namen.map { ($0, zaehler[$0] ?? 0) }
     }
 
+    /// Gruppe in der Reihenfolge verschieben — „Unsortiert" bleibt fest vorn.
+    private func verschiebeGruppe(_ name: String, nachOben: Bool) {
+        var rest = store.documentCategories.filter { $0 != "Unsortiert" }
+        guard let i = rest.firstIndex(of: name) else { return }
+        let j = nachOben ? i - 1 : i + 1
+        guard rest.indices.contains(j) else { return }
+        rest.swapAt(i, j)
+        let hatUnsortiert = store.documentCategories.contains("Unsortiert")
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            store.documentCategories = (hatUnsortiert ? ["Unsortiert"] : []) + rest
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     /// Dokument in eine andere Gruppe verschieben (Untergruppe wird geleert).
     private func verschiebeDokument(_ doc: DocumentEntry, nach ziel: String) {
         guard let i = store.documents.firstIndex(where: { $0.id == doc.id }) else { return }
@@ -1301,6 +1318,48 @@ struct HomeView: View {
                                                 isExpanded: expandedFolders.contains(gruppe.name),
                                                 onOpen: { openDocuments(category: gruppe.name) }
                                             )
+                                            // Gedrückt halten: Farbe, Reihenfolge, Name, Löschen —
+                                            // alles synct über iCloud auf alle Geräte
+                                            .contextMenu {
+                                                Menu {
+                                                    ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
+                                                        Button {
+                                                            store.categoryColors[gruppe.name] = idx
+                                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                                        } label: {
+                                                            Label(NoteColor.palette[idx].name,
+                                                                  systemImage: store.categoryColors[gruppe.name] == idx
+                                                                      ? "checkmark.circle.fill" : "circle.fill")
+                                                        }
+                                                    }
+                                                } label: {
+                                                    Label("Farbe", systemImage: "paintpalette")
+                                                }
+                                                if gruppe.name != "Unsortiert" {
+                                                    Button {
+                                                        verschiebeGruppe(gruppe.name, nachOben: true)
+                                                    } label: {
+                                                        Label("Nach oben", systemImage: "arrow.up")
+                                                    }
+                                                    Button {
+                                                        verschiebeGruppe(gruppe.name, nachOben: false)
+                                                    } label: {
+                                                        Label("Nach unten", systemImage: "arrow.down")
+                                                    }
+                                                    Button {
+                                                        gruppeUmbenennenText = gruppe.name
+                                                        gruppeZumUmbenennen = gruppe.name
+                                                    } label: {
+                                                        Label("Umbenennen", systemImage: "pencil")
+                                                    }
+                                                    Divider()
+                                                    Button(role: .destructive) {
+                                                        gruppeZumLoeschen = gruppe.name
+                                                    } label: {
+                                                        Label("Gruppe löschen", systemImage: "trash")
+                                                    }
+                                                }
+                                            }
                                             if expandedFolders.contains(gruppe.name) {
                                                 folderDocumentRows(gruppe.name)
                                                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -1524,6 +1583,35 @@ struct HomeView: View {
                 punktFuerListe = nil
             }
             Button("Abbrechen", role: .cancel) { punktFuerListe = nil }
+        }
+        // Gruppe umbenennen — direkt vom Start
+        .alert("Gruppe umbenennen", isPresented: Binding(
+            get: { gruppeZumUmbenennen != nil },
+            set: { if !$0 { gruppeZumUmbenennen = nil } }
+        )) {
+            TextField("Name", text: $gruppeUmbenennenText)
+            Button("Sichern") {
+                if let alt = gruppeZumUmbenennen {
+                    store.renameCategory(from: alt, to: gruppeUmbenennenText)
+                }
+                gruppeZumUmbenennen = nil
+            }
+            Button("Abbrechen", role: .cancel) { gruppeZumUmbenennen = nil }
+        }
+        // Gruppe löschen — mit Rückfrage, Dokumente wandern nach Unsortiert
+        .alert("Gruppe löschen?", isPresented: Binding(
+            get: { gruppeZumLoeschen != nil },
+            set: { if !$0 { gruppeZumLoeschen = nil } }
+        )) {
+            Button("Löschen", role: .destructive) {
+                if let name = gruppeZumLoeschen {
+                    withAnimation { store.deleteCategory(name) }
+                }
+                gruppeZumLoeschen = nil
+            }
+            Button("Abbrechen", role: .cancel) { gruppeZumLoeschen = nil }
+        } message: {
+            Text("Die Dokumente darin gehen nicht verloren — sie wandern nach „Unsortiert“.")
         }
         // Dokument umbenennen — direkt vom Start
         .alert("Dokument umbenennen", isPresented: Binding(

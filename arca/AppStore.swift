@@ -1277,16 +1277,26 @@ final class AppStore: ObservableObject {
         if let idx = homeFolderQuickView.firstIndex(of: old) {
             homeFolderQuickView[idx] = trimmed
         }
+        if let farbe = categoryColors[old] {
+            categoryColors[trimmed] = farbe
+            categoryColors.removeValue(forKey: old)
+        }
     }
 
     func deleteCategory(_ name: String) {
-        let fallback = documentCategories.first(where: { $0 != name }) ?? "Unsortiert"
+        guard name != "Unsortiert" else { return }
+        if !documentCategories.contains("Unsortiert") {
+            documentCategories.append("Unsortiert")
+        }
         documents = documents.map { doc in
-            var d = doc; if d.category == name { d.category = fallback }; return d
+            var d = doc
+            if d.category == name { d.category = "Unsortiert"; d.subcategory = "" }
+            return d
         }
         documentCategories.removeAll { $0 == name }
         documentSubcategories.removeValue(forKey: name)
         homeFolderQuickView.removeAll { $0 == name }
+        categoryColors.removeValue(forKey: name)
     }
 
     func addSubcategory(to category: String, name: String) {
