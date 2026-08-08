@@ -58,9 +58,9 @@ struct HomeCalendarCard: View {
                 terminListe
             case .notDetermined:
                 verbindenKnopf
+            case .denied, .restricted:
+                einstellungenHinweis
             default:
-                // Abgelehnt/eingeschränkt: Karte verschwindet still —
-                // ändern lässt sich das jederzeit in den iOS-Einstellungen.
                 EmptyView()
             }
         }
@@ -118,6 +118,32 @@ struct HomeCalendarCard: View {
                 UIApplication.shared.open(url)
             }
         }
+    }
+
+    /// Zugriff wurde abgelehnt — iOS fragt nie zweimal, also führt
+    /// der Knopf direkt zu den Arca-Einstellungen des Systems.
+    private var einstellungenHinweis: some View {
+        Button {
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "calendar.badge.exclamationmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text("Kalenderzugriff ist aus — hier tippen und in den Einstellungen erlauben.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.forward.app")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
     }
 
     private var verbindenKnopf: some View {
