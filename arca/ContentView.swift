@@ -962,6 +962,9 @@ struct HomeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Der feste Kopfbereich hält dieselbe Maximalbreite wie der
+            // Strom darunter — auf iPad und Mac sitzt so alles auf einer Achse.
+            VStack(spacing: 0) {
             // ── Kopf: Marke + Space-Zeile + QR-Scan ──
             HStack(alignment: .center, spacing: 12) {
                 Button {
@@ -1056,6 +1059,9 @@ struct HomeView: View {
             HomeSearchBar(text: $searchText, focused: $isSearchFocused)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
+            }
+            .frame(maxWidth: homeContentMaxWidth)
+            .frame(maxWidth: .infinity)
 
             if isSearching {
                 ScrollView {
