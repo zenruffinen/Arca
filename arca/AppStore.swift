@@ -863,6 +863,13 @@ final class AppStore: ObservableObject {
 
     /// Übernimmt die Metadaten eines Backups (ersetzen oder zusammenführen).
     private func applyBackup(_ backup: ArcaBackup, merge: Bool) {
+        // Eine Wiederherstellung geschieht auf ausdrücklichen Nutzerwunsch —
+        // sie erhält Datenhoheit über alle Schlüssel, sonst würde die
+        // Schutzmauer (geladeneSchluessel) ihre eigenen Schreibzugriffe blocken.
+        geladeneSchluessel.formUnion([
+            "vaultItems", "documents", "notes", "lists",
+            "documentCategories", "categoryColors", "documentSubcategories", "homeFolderQuickView"
+        ])
         if merge {
             let existingNoteIDs  = Set(notes.map(\.id))
             let existingDocIDs   = Set(documents.map(\.id))
