@@ -740,7 +740,6 @@ final class AppStore: ObservableObject {
         guard archiveDirectory(stage, to: url, password: password, deriveBackupPassword: true),
               let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
               size > 0 else { return .failure(.archiveFailed) }
-        letztesBackup = Date()
         return .success(url)
     }
 

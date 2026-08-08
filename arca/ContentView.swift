@@ -7033,8 +7033,17 @@ final class BackupShareActivityItem: NSObject, UIActivityItemSource {
 // MARK: - Share Sheet
 struct ShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]
+    /// Meldet nach dem Schließen zurück: (Aktivität, wurde wirklich geteilt?)
+    var onComplete: ((String?, Bool) -> Void)? = nil
+
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        let vc = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        if let onComplete {
+            vc.completionWithItemsHandler = { activity, completed, _, _ in
+                onComplete(activity?.rawValue, completed)
+            }
+        }
+        return vc
     }
     func updateUIViewController(_ uvc: UIActivityViewController, context: Context) {}
 }
@@ -7286,6 +7295,7 @@ struct SettingsView: View {
     @State private var showImportPasswordReveal = false
     @State private var importMerge = true
     @State private var exportShareItem: ShareURLItem? = nil
+    @State private var exportErfolgText: String? = nil
 
     // Import flow
     @State private var showImportPicker = false
@@ -7415,9 +7425,9 @@ struct SettingsView: View {
             switch store.exportData(password: password) {
             case .success(let url):
                 showExportPasswordSheet = false
-                // Kurz warten bis Passwort-Sheet zu ist — sonst wird das Share-Sheet
-                // von iOS ignoriert (gleiches Muster wie beim Import).
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                // Warten bis das Passwort-Blatt wirklich zu ist — sonst schluckt
+                // iOS das Teilen-Blatt (0,6 s wie beim Import; 0,35 s war zu knapp).
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                     exportShareItem = ShareURLItem(url: url, isArcaBackup: true)
                 }
             case .failure(.passwordTooShort):
@@ -7717,7 +7727,27 @@ struct SettingsView: View {
             // --- Export: share sheet ---
             .sheet(item: $exportShareItem) { item in
                 if FileManager.default.fileExists(atPath: item.url.path) {
-                    ShareSheet(activityItems: backupShareActivityItems(for: item))
+                    ShareSheet(activityItems: backupShareActivityItems(for: item)) { aktivitaet, fertig in
+                        exportShareItem = nil
+                        guard fertig else { return }
+                        // Ein echtes Backup: Datum für die Erinnerung stempeln
+                        store.letztesBackup = Date()
+                        let ziel: String
+                        if let a = aktivitaet, a.contains("SaveToFiles") {
+                            ziel = "in der Dateien-App abgelegt"
+                        } else if let a = aktivitaet, a.contains("AirDrop") {
+                            ziel = "per AirDrop übertragen"
+                        } else if let a = aktivitaet, a.lowercased().contains("mail") {
+                            ziel = "per Mail versendet"
+                        } else {
+                            ziel = "übergeben"
+                        }
+                        let name = item.url.lastPathComponent
+                        // Kurz warten, bis das Teilen-Blatt zu ist (Blatt-auf-Blatt)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                            exportErfolgText = "„\(name)“ wurde \(ziel)."
+                        }
+                    }
                 } else {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -7735,6 +7765,16 @@ struct SettingsView: View {
                     }
                     .padding()
                 }
+            }
+
+            // --- Export: Bestätigung nach dem Sichern ---
+            .alert("Gesichert ✓", isPresented: Binding(
+                get: { exportErfolgText != nil },
+                set: { if !$0 { exportErfolgText = nil } }
+            )) {
+                Button("OK") { exportErfolgText = nil }
+            } message: {
+                Text(exportErfolgText ?? "")
             }
 
             // --- Import: file picker ---
