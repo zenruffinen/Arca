@@ -8384,6 +8384,18 @@ struct QuickCaptureSheet: View {
                 }
 
                 Spacer()
+
+                // Was mit dem Gesprochenen passiert — kurz erklärt
+                Label {
+                    Text("Deine Blitzidee wird unverändert in den Notizen gespeichert. Beginnst du mit „Aufgabe“ oder „Passwort“, landet sie gleich am richtigen Ort.")
+                } icon: {
+                    Image(systemName: "info.circle")
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 14)
             }
             .onAppear {
                 // „Halten = Diktat": Aufnahme startet sofort
