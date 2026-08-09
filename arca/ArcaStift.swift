@@ -22,7 +22,8 @@ struct StiftLeinwand: UIViewRepresentable {
         let leinwand = PKCanvasView()
         leinwand.drawing = zeichnung
         leinwand.drawingPolicy = .anyInput   // Pencil, Finger und Maus (Mac)
-        leinwand.backgroundColor = .white
+        leinwand.backgroundColor = .clear    // das Pergament liegt darunter
+        leinwand.isOpaque = false
         leinwand.delegate = context.coordinator
         leinwand.tool = PKInkingTool(.pen, color: .black, width: 3)
 
@@ -51,6 +52,49 @@ struct StiftLeinwand: UIViewRepresentable {
     }
 }
 
+// MARK: - Das Pergament
+
+/// Ein altes Pergament als Schreibgrund: warmer Grundton, dunkle,
+/// unregelmäßige Ränder und ein paar Altersflecken — deterministisch
+/// gezeichnet, damit es auf jedem Gerät gleich aussieht.
+struct PergamentHintergrund: View {
+    var body: some View {
+        ZStack {
+            // Grundton
+            Color(red: 0.93, green: 0.87, blue: 0.74)
+
+            // Leichtes Farbspiel in der Fläche
+            LinearGradient(
+                colors: [Color(red: 0.96, green: 0.91, blue: 0.79).opacity(0.9),
+                         Color(red: 0.90, green: 0.82, blue: 0.66).opacity(0.9)],
+                startPoint: .topLeading, endPoint: .bottomTrailing)
+
+            // Altersflecken
+            GeometryReader { geo in
+                let flecken: [(x: CGFloat, y: CGFloat, r: CGFloat, a: Double)] = [
+                    (0.18, 0.22, 130, 0.10), (0.78, 0.15, 90, 0.08),
+                    (0.65, 0.62, 160, 0.09), (0.25, 0.78, 110, 0.10),
+                    (0.88, 0.85, 80, 0.08), (0.45, 0.40, 200, 0.05)
+                ]
+                ForEach(0..<flecken.count, id: \.self) { i in
+                    let f = flecken[i]
+                    Circle()
+                        .fill(Color(red: 0.62, green: 0.50, blue: 0.32).opacity(f.a))
+                        .frame(width: f.r, height: f.r)
+                        .blur(radius: f.r * 0.35)
+                        .position(x: geo.size.width * f.x, y: geo.size.height * f.y)
+                }
+            }
+
+            // Dunkle, gealterte Ränder (Vignette)
+            RadialGradient(
+                colors: [.clear, .clear, Color(red: 0.48, green: 0.36, blue: 0.20).opacity(0.28)],
+                center: .center, startRadius: 100, endRadius: 700)
+        }
+        .ignoresSafeArea()
+    }
+}
+
 // MARK: - Die Stift-Notiz
 
 struct ArcaStiftNotiz: View {
@@ -64,7 +108,10 @@ struct ArcaStiftNotiz: View {
 
     var body: some View {
         NavigationStack {
-            StiftLeinwand(zeichnung: $zeichnung)
+            ZStack {
+                PergamentHintergrund()
+                StiftLeinwand(zeichnung: $zeichnung)
+            }
                 .ignoresSafeArea(edges: .bottom)
                 .overlay {
                     if arbeitet {
@@ -117,7 +164,7 @@ struct ArcaStiftNotiz: View {
         let rahmen = zeichnung.bounds.insetBy(dx: -24, dy: -24)
         let strich = zeichnung.image(from: rahmen, scale: 2)
         return UIGraphicsImageRenderer(size: strich.size).image { _ in
-            UIColor.white.setFill()
+            UIColor(red: 0.93, green: 0.87, blue: 0.74, alpha: 1).setFill()
             UIBezierPath(rect: CGRect(origin: .zero, size: strich.size)).fill()
             strich.draw(at: .zero)
         }

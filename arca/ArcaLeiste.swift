@@ -254,6 +254,7 @@ struct ArcaPlusKnopf: View {
 struct ArcaIPadSidebar: View {
     @Binding var selectedSection: ArcaSection
     @EnvironmentObject var store: AppStore
+    @State private var zeigeStiftNotiz = false
 
     private struct NavItem {
         let section: ArcaSection
@@ -328,8 +329,32 @@ struct ArcaIPadSidebar: View {
         .background(ArcaWarm.hintergrund)
         .navigationTitle("Arca")
         // Notfall immer griffbereit + die Kürzel als leiser Hinweis
+        .sheet(isPresented: $zeigeStiftNotiz) {
+            ArcaStiftNotiz()
+                .environmentObject(store)
+        }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
+                // Arca Pen: die Stift-Notiz immer griffbereit —
+                // Pergament-Gold, damit man Lust bekommt zu schreiben
+                Button {
+                    zeigeStiftNotiz = true
+                } label: {
+                    Label("Stift-Notiz", systemImage: "pencil.and.scribble")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
+                                         ArcaWarm.terrakotta],
+                                startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: Capsule())
+                        .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 5, x: 0, y: 2)
+                }
+                .buttonStyle(.plain)
+
                 Button {
                     store.zeigeNotfall = true
                 } label: {
