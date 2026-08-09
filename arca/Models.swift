@@ -123,6 +123,7 @@ enum DocumentType: String, Codable {
     case image = "Bild"
     case text = "Text"
     case video = "Video"
+    case mail = "Mail"
 }
 
 struct DocumentEntry: Identifiable, Codable, Hashable {

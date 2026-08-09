@@ -27,6 +27,7 @@ func docTypeColor(_ type: DocumentType) -> Color {
     case .image: return .blue
     case .text:  return .green
     case .video: return .orange
+    case .mail:  return .indigo
     }
 }
 
@@ -1114,6 +1115,7 @@ struct DocThumbnail: View {
         case .image: return "photo"
         case .text:  return "doc.text.fill"
         case .video: return "video.fill"
+        case .mail:  return "envelope.fill"
         }
     }
 

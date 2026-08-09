@@ -152,6 +152,71 @@ struct ContentView: View {
 
     // MARK: - iPhone Layout (unverändert)
 
+    /// Welche externen Inhalte das Fenster annimmt: Mails und Dateien.
+    /// (Interne Zieh-Aktionen nutzen Text-Payloads und bleiben unberührt.)
+    private var externeAblageTypen: [UTType] {
+        var typen: [UTType] = [.fileURL, .emailMessage]
+        if let mail = UTType("com.apple.mail.email") { typen.append(mail) }
+        return typen
+    }
+
+    /// Mail oder Datei entgegennehmen, in den Bestand kopieren und
+    /// als Dokument in „Unsortiert" anlegen — Mails als Mail markiert.
+    private func importiereExterneAblage(_ anbieter: [NSItemProvider]) -> Bool {
+        var genommen = false
+        for provider in anbieter {
+            let mailTyp = provider.registeredTypeIdentifiers.first {
+                $0 == "com.apple.mail.email" || UTType($0)?.conforms(to: .emailMessage) == true
+            }
+            if let mailTyp {
+                genommen = true
+                provider.loadFileRepresentation(forTypeIdentifier: mailTyp) { url, _ in
+                    guard let url else { return }
+                    uebernehmeExterneDatei(von: url, alsMail: true)
+                }
+            } else if provider.canLoadObject(ofClass: URL.self) {
+                genommen = true
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, url.isFileURL else { return }
+                    let hatZugriff = url.startAccessingSecurityScopedResource()
+                    uebernehmeExterneDatei(von: url, alsMail: false)
+                    if hatZugriff { url.stopAccessingSecurityScopedResource() }
+                }
+            }
+        }
+        return genommen
+    }
+
+    private func uebernehmeExterneDatei(von url: URL, alsMail: Bool) {
+        let endung = url.pathExtension.lowercased()
+        let titel = url.deletingPathExtension().lastPathComponent
+        let zielName = UUID().uuidString + (endung.isEmpty ? (alsMail ? ".eml" : "") : "." + endung)
+        let ziel = store.documentURL(for: zielName)
+        // Sofort kopieren — die Quelle lebt nur während der Übergabe
+        guard (try? FileManager.default.copyItem(at: url, to: ziel)) != nil else { return }
+
+        let typ: DocumentType
+        if alsMail || ["eml", "emlx"].contains(endung) {
+            typ = .mail
+        } else if endung == "pdf" {
+            typ = .pdf
+        } else if ["png", "jpg", "jpeg", "heic", "heif", "gif", "webp", "tiff"].contains(endung) {
+            typ = .image
+        } else if ["mov", "mp4", "m4v"].contains(endung) {
+            typ = .video
+        } else {
+            typ = .text
+        }
+        DispatchQueue.main.async {
+            store.addDocument(
+                title: titel.isEmpty ? (alsMail ? "Mail" : "Import") : titel,
+                type: typ,
+                filename: zielName,
+                category: store.ensureImportCategoryExists())
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+    }
+
     private var iPhoneLayout: some View {
         ZStack(alignment: .bottom) {
             Group {
@@ -238,6 +303,11 @@ struct ContentView: View {
                 // Überall dieselbe warme Bühne wie auf dem Start —
                 // kein Farbsprung beim Umschalten
                 .background(ArcaWarm.hintergrund.ignoresSafeArea())
+                // Von außen hineingezogen (Mail, Finder-Datei) →
+                // landet als Dokument in „Unsortiert"
+                .onDrop(of: externeAblageTypen, isTargeted: nil) { anbieter in
+                    importiereExterneAblage(anbieter)
+                }
             }
         }
         .navigationSplitViewStyle(.balanced)
