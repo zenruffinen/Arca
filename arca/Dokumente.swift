@@ -1190,7 +1190,20 @@ struct DocThumbnail: View {
             representationTypes: .thumbnail
         )
         QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
-            guard let img = rep?.uiImage else { return }
+            guard var img = rep?.uiImage else { return }
+            if gross {
+                // Fest auf Weiss legen: transparente PDF-Hintergruende und
+                // Passungs-Raender rendert das iPad sonst SCHWARZ
+                let format = UIGraphicsImageRendererFormat()
+                format.opaque = true
+                format.scale = img.scale
+                let groesse = img.size
+                img = UIGraphicsImageRenderer(size: groesse, format: format).image { ctx in
+                    UIColor.white.setFill()
+                    ctx.fill(CGRect(origin: .zero, size: groesse))
+                    img.draw(at: .zero)
+                }
+            }
             ThumbnailCache.shared.store(img, for: schluessel)
             DispatchQueue.main.async { image = img }
         }
