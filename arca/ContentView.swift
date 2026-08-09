@@ -646,7 +646,6 @@ struct ArcaDeskCard: View {
                             .padding(.horizontal, 8)
                             .background(.ultraThinMaterial)
                     }
-                    .background(ArcaWarm.karte)
                 }
             case .note:
                 if let notiz = store.notes.first(where: { $0.id == item.refID }) {
@@ -662,7 +661,7 @@ struct ArcaDeskCard: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
                     .padding(10)
-                    .background(NoteColor.for_(notiz.colorTag).bg)
+                    .background(NoteColor.for_(notiz.colorTag).bg.opacity(0.5))
                 }
             case .list:
                 if let liste = store.lists.first(where: { $0.id == item.refID }) {
@@ -689,12 +688,13 @@ struct ArcaDeskCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(9)
-                    .background(NoteColor.for_(3).bg.opacity(0.6))
+                    .background(NoteColor.for_(3).bg.opacity(0.35))
                 }
             case .vault:
                 EmptyView()
             }
         }
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
         // Klebestreifen oben — wie aufs Pult geklebt
