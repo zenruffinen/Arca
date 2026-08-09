@@ -204,14 +204,34 @@ struct ContentView: View {
             ArcaIPadSidebar(selectedSection: $selectedSection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 310)
         } detail: {
-            switch selectedSection {
-            case .home:      HomeView(selectedSection: $selectedSection)
-            case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
-            case .vault:     VaultView()
-            case .documents: DocumentsView(isUnlocked: isUnlocked)
-            case .notes:     NotesView()
-            case .lists:     ListsView()
-            case .settings:  SettingsView()
+            // Der Schreibtisch bleibt in JEDEM Bereich rechts stehen —
+            // die App arbeitet links, das Pult liegt daneben.
+            GeometryReader { geo in
+                let zonenBreite = (geo.size.width - 716 - 24) / 2
+                let zeigtDesk = zonenBreite >= 165
+                HStack(alignment: .top, spacing: 8) {
+                    Group {
+                        switch selectedSection {
+                        case .home:      HomeView(selectedSection: $selectedSection)
+                        case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
+                        case .vault:     VaultView()
+                        case .documents: DocumentsView(isUnlocked: isUnlocked)
+                        case .notes:     NotesView()
+                        case .lists:     ListsView()
+                        case .settings:  SettingsView()
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    if zeigtDesk {
+                        ArcaDeskRail(seite: "links",
+                                     selectedSection: $selectedSection,
+                                     breite: zonenBreite)
+                        ArcaDeskRail(seite: "rechts",
+                                     selectedSection: $selectedSection,
+                                     breite: zonenBreite)
+                            .padding(.trailing, 8)
+                    }
+                }
             }
         }
         .navigationSplitViewStyle(.balanced)

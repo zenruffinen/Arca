@@ -1150,12 +1150,6 @@ struct HomeView: View {
                     .onChange(of: geo.size.width) { _, neu in seitenBreite = neu }
             }
         )
-        // Der Arca-Schreibtisch: Karten auf den freien Flächen
-        // links und rechts der Start-Spalte
-        .overlay(alignment: .topLeading) {
-            homeDeskFlaechen
-                .padding(.leading, homeContentMaxWidth + 30)
-        }
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)
