@@ -135,6 +135,7 @@ struct ArcaDeskRail: View {
                         oeffne(item)
                     }
                     .frame(width: kartenBreite)
+                    .fixedSize(horizontal: false, vertical: true)
                     .position(position(item, index: index, in: geo.size))
                     .offset(item.id == zugID ? zugVersatz : .zero)
                     .shadow(color: .black.opacity(item.id == zugID ? 0.22 : 0),
@@ -470,9 +471,8 @@ struct ArcaDeskCard: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(7)
-                        Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 96, maxHeight: 170, alignment: .topLeading)
                     .padding(10)
                     .background(NoteColor.for_(notiz.colorTag).bg.opacity(0.5))
                 }
