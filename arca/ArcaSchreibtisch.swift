@@ -31,7 +31,8 @@ struct ArcaDeskRail: View {
     @State private var titelBearbeiten = false
     @State private var titelText = ""
 
-    private var kartenBreite: CGFloat { breite - 16 }
+    /// Die Karten bleiben handlich — die Fläche wächst, nicht die Post-its.
+    private var kartenBreite: CGFloat { min(breite - 16, 170) }
 
     /// Jede Fläche hat einen Namen: links „Zu erledigen",
     /// rechts „Schnellzugriff" — beides umbenennbar.
@@ -202,8 +203,7 @@ struct ArcaDeskRail: View {
             return CGPoint(x: min(max(CGFloat(x), kartenBreite / 2 + 4), groesse.width - kartenBreite / 2 - 4),
                            y: min(max(CGFloat(y), 70), max(groesse.height - 70, 70)))
         }
-        return CGPoint(x: groesse.width / 2,
-                       y: 90 + kartenBreite * 0.6 + CGFloat(index) * (kartenBreite + 40))
+        return CGPoint(x: groesse.width / 2, y: 150 + CGFloat(index) * 175)
     }
 
     private func titel(von item: DeskItem) -> String {
@@ -301,7 +301,7 @@ struct ArcaDeskCard: View {
                         // Formatfüllend: die Seite füllt das ganze Post-it
                         DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type,
                                      gross: true)
-                            .frame(height: max(150, breite * 0.95))
+                            .frame(height: 150)
                             .frame(maxWidth: .infinity)
                             .clipped()
                         Text(doc.title)
@@ -325,7 +325,7 @@ struct ArcaDeskCard: View {
                             .lineLimit(7)
                         Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, minHeight: max(96, breite * 0.55), alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
                     .padding(10)
                     .background(NoteColor.for_(notiz.colorTag).bg.opacity(0.5))
                 }
