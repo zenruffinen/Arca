@@ -82,6 +82,10 @@ final class AppStore: ObservableObject {
     @Published var categoryColors: [String: Int] = [:] {
         didSet { guard !isLoadingData else { return }; saveCategoryColors() }
     }
+    /// Der Schreibtisch (iPad/Mac): Karten links/rechts vom Space
+    @Published var deskItems: [DeskItem] = [] {
+        didSet { guard !isLoadingData else { return }; saveJSON(deskItems, key: "deskItems") }
+    }
     @Published var lists: [ListEntry] = [] {
         didSet { guard !isLoadingData else { return }; saveLists() }
     }
@@ -1510,6 +1514,9 @@ final class AppStore: ObservableObject {
         }
         if let decoded = loadJSON([ListEntry].self, key: "lists") {
             lists = decoded
+        }
+        if let decoded = loadJSON([DeskItem].self, key: "deskItems") {
+            deskItems = decoded
         }
         if let decoded = loadJSON([String].self, key: "documentCategories") {
             documentCategories = decoded

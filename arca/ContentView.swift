@@ -204,14 +204,30 @@ struct ContentView: View {
             ArcaIPadSidebar(selectedSection: $selectedSection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 310)
         } detail: {
-            switch selectedSection {
-            case .home:      HomeView(selectedSection: $selectedSection)
-            case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
-            case .vault:     VaultView()
-            case .documents: DocumentsView(isUnlocked: isUnlocked)
-            case .notes:     NotesView()
-            case .lists:     ListsView()
-            case .settings:  SettingsView()
+            // Der Arca-Schreibtisch: bei genug Breite liegen links und
+            // rechts Ablage-Spuren — Karten einfach hineinziehen.
+            GeometryReader { geo in
+                let zeigtDesk = geo.size.width > 980
+                HStack(spacing: 0) {
+                    if zeigtDesk {
+                        ArcaDeskRail(seite: "links", selectedSection: $selectedSection)
+                    }
+                    Group {
+                        switch selectedSection {
+                        case .home:      HomeView(selectedSection: $selectedSection)
+                        case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
+                        case .vault:     VaultView()
+                        case .documents: DocumentsView(isUnlocked: isUnlocked)
+                        case .notes:     NotesView()
+                        case .lists:     ListsView()
+                        case .settings:  SettingsView()
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    if zeigtDesk {
+                        ArcaDeskRail(seite: "rechts", selectedSection: $selectedSection)
+                    }
+                }
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -460,6 +476,192 @@ struct ArcaPlusKnopf: View {
             }
             .accessibilityLabel("Neu anlegen")
         }
+    }
+}
+
+// MARK: - Arca-Schreibtisch (iPad/Mac)
+
+/// Eine Ablage-Spur des Schreibtischs: kleine Karten-Verweise auf
+/// Dokumente, Notizen und Aufgabenlisten — hineinziehen, antippen, fertig.
+struct ArcaDeskRail: View {
+    let seite: String
+    @Binding var selectedSection: ArcaSection
+    @EnvironmentObject var store: AppStore
+    @State private var previewURL: URL? = nil
+    @State private var zielt = false
+
+    private var items: [DeskItem] {
+        store.deskItems.filter { $0.seite == seite }
+    }
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 10) {
+                ForEach(items) { item in
+                    ArcaDeskCard(item: item) {
+                        oeffne(item)
+                    }
+                    .contextMenu {
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                if let idx = store.deskItems.firstIndex(of: item) {
+                                    store.deskItems[idx].seite = seite == "links" ? "rechts" : "links"
+                                }
+                            }
+                        } label: {
+                            Label("Auf die andere Seite", systemImage: "arrow.left.arrow.right")
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                store.deskItems.removeAll { $0.id == item.id }
+                            }
+                        } label: {
+                            Label("Vom Schreibtisch nehmen", systemImage: "pin.slash")
+                        }
+                    }
+                }
+
+                // Leerzustand / Ziel-Rahmen
+                if items.isEmpty || zielt {
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(zielt ? ArcaWarm.terrakotta : ArcaWarm.terrakotta.opacity(0.25),
+                                      style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                        .frame(height: 90)
+                        .overlay {
+                            VStack(spacing: 6) {
+                                Image(systemName: "tray.and.arrow.down")
+                                    .font(.system(size: 17, weight: .semibold))
+                                Text("Hierher ziehen")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundStyle(zielt ? ArcaWarm.terrakotta : .secondary)
+                        }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 14)
+        }
+        .frame(width: 158)
+        .contentShape(Rectangle())
+        .dropDestination(for: String.self) { werte, _ in
+            legeAb(werte)
+        } isTargeted: { drueber in
+            withAnimation(.easeInOut(duration: 0.15)) { zielt = drueber }
+        }
+        .quickLookPreview($previewURL)
+    }
+
+    /// Abgelegtes einsortieren: UUID auflösen, Doppelte wandern statt doppeln.
+    private func legeAb(_ werte: [String]) -> Bool {
+        guard let wert = werte.first, let uuid = UUID(uuidString: wert) else { return false }
+        let art: FavoriteKind?
+        if store.documents.contains(where: { $0.id == uuid }) { art = .document }
+        else if store.notes.contains(where: { $0.id == uuid }) { art = .note }
+        else if store.lists.contains(where: { $0.id == uuid }) { art = .list }
+        else { art = nil }
+        guard let art else { return false }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            if let idx = store.deskItems.firstIndex(where: { $0.refID == uuid }) {
+                store.deskItems[idx].seite = seite
+            } else {
+                store.deskItems.append(DeskItem(kind: art, refID: uuid, seite: seite))
+            }
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        return true
+    }
+
+    private func oeffne(_ item: DeskItem) {
+        switch item.kind {
+        case .document:
+            if let doc = store.documents.first(where: { $0.id == item.refID }) {
+                previewURL = store.documentURL(for: doc.filename)
+            }
+        case .note:  selectedSection = .notes
+        case .list:  selectedSection = .lists
+        case .vault: selectedSection = .vault
+        }
+    }
+}
+
+/// Eine kleine Schreibtisch-Karte: Dokument mit Vorschau,
+/// Notiz als Zettel, Aufgabenliste mit den obersten Punkten.
+struct ArcaDeskCard: View {
+    let item: DeskItem
+    let onTap: () -> Void
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        Group {
+            switch item.kind {
+            case .document:
+                if let doc = store.documents.first(where: { $0.id == item.refID }) {
+                    VStack(spacing: 0) {
+                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+                            .frame(height: 84)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                        Text(doc.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                    }
+                    .background(ArcaWarm.karte)
+                }
+            case .note:
+                if let notiz = store.notes.first(where: { $0.id == item.refID }) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(notiz.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(2)
+                        Text(notiz.text)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(4)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(9)
+                    .background(NoteColor.for_(notiz.colorTag).bg)
+                }
+            case .list:
+                if let liste = store.lists.first(where: { $0.id == item.refID }) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(liste.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(1)
+                        ForEach(liste.items.prefix(3)) { punkt in
+                            HStack(spacing: 5) {
+                                Image(systemName: punkt.isDone ? "checkmark.square.fill" : "square")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(punkt.isDone ? .green : .secondary)
+                                Text(punkt.text)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        if liste.items.count > 3 {
+                            Text("+\(liste.items.count - 3) weitere")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(9)
+                    .background(NoteColor.for_(3).bg.opacity(0.6))
+                }
+            case .vault:
+                EmptyView()
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+        .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture(perform: onTap)
     }
 }
 
@@ -1570,6 +1772,8 @@ struct HomeView: View {
                                         }
                                     }
                                     .contentShape(Rectangle())
+                                    // Ziehbar auf den Schreibtisch (iPad/Mac)
+                                    .wennDraggable(item.kind != .vault, item.id.uuidString)
                                     // Gedrückt halten → Favorit, direkt im Strom
                                     .contextMenu {
                                         ArcaMenue.favorit(ist: istFav) {

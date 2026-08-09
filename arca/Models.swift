@@ -223,6 +223,31 @@ enum FavoriteKind: String {
     case document, note, list, vault
 }
 
+/// Ein Eintrag auf dem Arca-Schreibtisch (iPad/Mac): kleine Karten
+/// links und rechts vom Space — nur Verweise, keine Kopien.
+struct DeskItem: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var kindRaw: String
+    var refID: UUID
+    var seite: String = "rechts"   // "links" oder "rechts"
+
+    var kind: FavoriteKind { FavoriteKind(rawValue: kindRaw) ?? .note }
+
+    init(kind: FavoriteKind, refID: UUID, seite: String) {
+        self.kindRaw = kind.rawValue
+        self.refID = refID
+        self.seite = seite
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id      = try c.decodeIfPresent(UUID.self,   forKey: .id)      ?? UUID()
+        kindRaw = try c.decodeIfPresent(String.self, forKey: .kindRaw) ?? "note"
+        refID   = try c.decode(UUID.self,            forKey: .refID)
+        seite   = try c.decodeIfPresent(String.self, forKey: .seite)   ?? "rechts"
+    }
+}
+
 struct FavoriteItem: Identifiable, Hashable {
     let id: UUID
     let kind: FavoriteKind
