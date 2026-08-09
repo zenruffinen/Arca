@@ -30,6 +30,7 @@ struct ArcaDeskRail: View {
     @State private var umbenennenText = ""
     @State private var titelBearbeiten = false
     @State private var titelText = ""
+    @State private var flaechenFarbe: Int? = nil
 
     /// Die Karten bleiben handlich — die Fläche wächst, nicht die Post-its.
     private var kartenBreite: CGFloat { min(breite - 16, 170) }
@@ -42,6 +43,11 @@ struct ArcaDeskRail: View {
         UserDefaults.standard.string(forKey: "arcaDeskTitel_" + seite) ?? standardTitel
     }
 
+    /// Sanfter Farb-Anstrich der Fläche — wählbar über die Überschrift.
+    private var flaechenHintergrund: Color {
+        flaechenFarbe.map { NoteColor.for_($0).bg.opacity(0.45) } ?? Color.clear
+    }
+
     /// Nur Karten, deren Original noch existiert.
     private var items: [DeskItem] {
         store.deskItems.filter { $0.seite == seite && existiert($0) }
@@ -50,7 +56,9 @@ struct ArcaDeskRail: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .top) {
-                Color.clear
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(flaechenHintergrund)
+                    .padding(4)
 
                 // Die Überschrift der Fläche — im Stil der Start-Rubriken
                 VStack(alignment: .leading, spacing: 7) {
@@ -79,6 +87,18 @@ struct ArcaDeskRail: View {
                     ArcaMenue.umbenennen {
                         titelText = flaechenTitel
                         titelBearbeiten = true
+                    }
+                    ArcaMenue.farbe(aktuell: flaechenFarbe) { idx in
+                        flaechenFarbe = idx
+                        UserDefaults.standard.set(idx, forKey: "arcaDeskFarbe_" + seite)
+                    }
+                    if flaechenFarbe != nil {
+                        Button {
+                            flaechenFarbe = nil
+                            UserDefaults.standard.removeObject(forKey: "arcaDeskFarbe_" + seite)
+                        } label: {
+                            Label("Farbe entfernen", systemImage: "circle.slash")
+                        }
                     }
                 }
                 .alert("Fläche umbenennen", isPresented: $titelBearbeiten) {
@@ -179,6 +199,16 @@ struct ArcaDeskRail: View {
             }
         }
         .frame(width: breite)
+        .onAppear {
+            flaechenFarbe = UserDefaults.standard.object(forKey: "arcaDeskFarbe_" + seite) as? Int
+        }
+        // Die Stoppuhr wohnt unten auf dem Schnellzugriff
+        .overlay(alignment: .bottom) {
+            if seite == "rechts" {
+                ArcaDeskUhr()
+                    .padding(.bottom, 96)
+            }
+        }
         .quickLookPreview($previewURL)
         // Umbenennen wirkt auf das Original — überall, auf allen Geräten
         .alert("Umbenennen", isPresented: Binding(
@@ -284,6 +314,115 @@ struct ArcaDeskRail: View {
     }
 }
 
+// MARK: - Die Schreibtisch-Uhr
+
+/// Eine kleine, feine Stoppuhr: misst, wie lange der Arca Desktop heute
+/// in Gebrauch war — Start/Stopp per Tipp, der Tag setzt sie zurück.
+struct ArcaDeskUhr: View {
+    @State private var laeuft = false
+    @State private var startZeit: Date? = nil
+    @State private var gesammelt: TimeInterval = 0
+
+    private var heuteKey: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: Date())
+    }
+
+    private func lade() {
+        let tag = UserDefaults.standard.string(forKey: "arcaDeskUhrTag")
+        if tag == heuteKey {
+            gesammelt = UserDefaults.standard.double(forKey: "arcaDeskUhrSekunden")
+        } else {
+            gesammelt = 0
+            UserDefaults.standard.set(heuteKey, forKey: "arcaDeskUhrTag")
+            UserDefaults.standard.set(0.0, forKey: "arcaDeskUhrSekunden")
+        }
+    }
+
+    private func speichere() {
+        UserDefaults.standard.set(heuteKey, forKey: "arcaDeskUhrTag")
+        UserDefaults.standard.set(gesammelt, forKey: "arcaDeskUhrSekunden")
+    }
+
+    private func gesamt(_ jetzt: Date) -> TimeInterval {
+        gesammelt + (laeuft ? jetzt.timeIntervalSince(startZeit ?? jetzt) : 0)
+    }
+
+    private func zeitText(_ jetzt: Date) -> String {
+        let s = Int(gesamt(jetzt))
+        return s >= 3600
+            ? String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+            : String(format: "%02d:%02d", s / 60, s % 60)
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { kontext in
+            HStack(spacing: 10) {
+                // Das Zifferblatt: der Ring füllt sich im Minutentakt
+                ZStack {
+                    Circle()
+                        .stroke(ArcaWarm.terrakotta.opacity(0.18), lineWidth: 3)
+                    Circle()
+                        .trim(from: 0, to: (gesamt(kontext.date).truncatingRemainder(dividingBy: 60)) / 60)
+                        .stroke(ArcaWarm.terrakotta, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Image(systemName: "stopwatch.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .symbolEffect(.pulse, isActive: laeuft)
+                }
+                .frame(width: 30, height: 30)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(zeitText(kontext.date))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                    Text("Arca Desktop heute")
+                        .font(.system(size: 8.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                }
+
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    if laeuft {
+                        gesammelt += Date().timeIntervalSince(startZeit ?? Date())
+                        laeuft = false
+                        startZeit = nil
+                        speichere()
+                    } else {
+                        lade()
+                        startZeit = Date()
+                        laeuft = true
+                    }
+                } label: {
+                    Image(systemName: laeuft ? "pause.fill" : "play.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(ArcaWarm.terrakotta, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .glassEffect(.regular, in: Capsule())
+            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+        }
+        .onAppear { lade() }
+        .onDisappear {
+            if laeuft {
+                gesammelt += Date().timeIntervalSince(startZeit ?? Date())
+                laeuft = false
+                speichere()
+            }
+        }
+    }
+}
+
 // MARK: - Die Post-it-Karte
 
 /// Eine Schreibtisch-Karte: Dokument mit formatfüllender Vorschau,
@@ -381,6 +520,18 @@ struct ArcaDeskCard: View {
                 .rotationEffect(.degrees(-4))
                 .offset(y: -7)
                 .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
+        }
+        // Typ-Plakette: man erkennt die Briefmarke auf einen Blick
+        .overlay(alignment: .topLeading) {
+            if item.kind != .document {
+                Image(systemName: item.kind == .note ? "note.text" : "checkmark.square.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(item.kind == .note ? ArcaWarm.terrakotta : .green)
+                    .frame(width: 20, height: 20)
+                    .background(ArcaWarm.karte, in: Circle())
+                    .overlay(Circle().strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                    .offset(x: -6, y: -6)
+            }
         }
         .shadow(color: .black.opacity(0.13), radius: 5, x: 0, y: 3)
         .rotationEffect(.degrees(neigung))

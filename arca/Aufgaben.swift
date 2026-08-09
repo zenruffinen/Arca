@@ -184,6 +184,8 @@ struct ListsView: View {
                     ListRow(list: list)
                             .contentShape(Rectangle())
                             .onTapGesture { selectedList = list }
+                            // Ziehbar auf den Schreibtisch (iPad/Mac)
+                            .onDrag { NSItemProvider(object: list.id.uuidString as NSString) }
                             .listRowBackground(Color(.secondarySystemBackground))
                             .listRowSeparator(.visible)
                             .listRowSeparatorTint(Color.primary.opacity(0.06))

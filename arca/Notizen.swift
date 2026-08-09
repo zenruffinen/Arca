@@ -231,6 +231,8 @@ struct NotesView: View {
                     NoteRow(note: note)
                         .contentShape(Rectangle())
                         .onTapGesture { selectedNote = note }
+                        // Ziehbar auf den Schreibtisch (iPad/Mac)
+                        .onDrag { NSItemProvider(object: note.id.uuidString as NSString) }
                         .listRowBackground(Color(.secondarySystemBackground))
                         .listRowSeparator(.visible)
                         .listRowSeparatorTint(Color.primary.opacity(0.06))
