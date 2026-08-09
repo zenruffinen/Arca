@@ -378,8 +378,10 @@ struct ArcaDeskRail: View {
         return true
     }
 
-    /// Erledigt: Erfolgs-Haptik, kurzer Jubel, Karte verlässt das Pult.
-    /// Das Original bleibt unangetastet — nur der Griff verschwindet.
+    /// Erledigt: Erfolgs-Haptik, kurzer Jubel, Karte verlässt das Pult —
+    /// und Arca sortiert automatisch ein: Dokumente aus „Unsortiert"
+    /// wandern in die Gruppe „Erledigt". Bereits einsortierte bleiben,
+    /// wo sie hingehören.
     private func erledige(_ item: DeskItem) {
         guard erledigtID == nil else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -387,6 +389,15 @@ struct ArcaDeskRail: View {
             erledigtID = item.id
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if item.kind == .document,
+               let idx = store.documents.firstIndex(where: { $0.id == item.refID }),
+               store.documents[idx].category == "Unsortiert" {
+                if !store.documentCategories.contains("Erledigt") {
+                    store.documentCategories.append("Erledigt")
+                }
+                store.documents[idx].category = "Erledigt"
+                store.documents[idx].subcategory = ""
+            }
             store.deskItems.removeAll { $0.id == item.id }
             erledigtID = nil
         }
