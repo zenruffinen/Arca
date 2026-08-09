@@ -230,6 +230,9 @@ struct DeskItem: Identifiable, Codable, Hashable {
     var kindRaw: String
     var refID: UUID
     var seite: String = "rechts"   // "links" oder "rechts"
+    var posX: Double? = nil        // frei positioniert? (Canvas-Koordinaten)
+    var posY: Double? = nil
+    var colorTag: Int? = nil       // farbiger Rand (NoteColor-Palette)
 
     var kind: FavoriteKind { FavoriteKind(rawValue: kindRaw) ?? .note }
 
@@ -241,10 +244,13 @@ struct DeskItem: Identifiable, Codable, Hashable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id      = try c.decodeIfPresent(UUID.self,   forKey: .id)      ?? UUID()
-        kindRaw = try c.decodeIfPresent(String.self, forKey: .kindRaw) ?? "note"
-        refID   = try c.decode(UUID.self,            forKey: .refID)
-        seite   = try c.decodeIfPresent(String.self, forKey: .seite)   ?? "rechts"
+        id       = try c.decodeIfPresent(UUID.self,   forKey: .id)       ?? UUID()
+        kindRaw  = try c.decodeIfPresent(String.self, forKey: .kindRaw)  ?? "note"
+        refID    = try c.decode(UUID.self,            forKey: .refID)
+        seite    = try c.decodeIfPresent(String.self, forKey: .seite)    ?? "rechts"
+        posX     = try c.decodeIfPresent(Double.self, forKey: .posX)
+        posY     = try c.decodeIfPresent(Double.self, forKey: .posY)
+        colorTag = try c.decodeIfPresent(Int.self,    forKey: .colorTag)
     }
 }
 

@@ -2,8 +2,8 @@
 //  ArcaSchreibtisch.swift
 //  Arca
 //
-//  Der Arca-Schreibtisch: Ablage-Spuren und Post-it-Karten (iPad/Mac).
-//  (Aus ContentView.swift herausgelöst — Code unverändert.)
+//  Der Arca-Schreibtisch (iPad/Mac): frei positionierbare Post-it-Karten
+//  auf den Flächen links und rechts des Space — Verweise, keine Kopien.
 //
 //  Entwickler: Hans zen Ruffinen
 //
@@ -12,93 +12,41 @@ import SwiftUI
 import UniformTypeIdentifiers
 import QuickLook
 
-// MARK: - Arca-Schreibtisch (iPad/Mac)
+// MARK: - Die Schreibtisch-Fläche
 
-/// Welche Schreibtisch-Karte gerade gezogen wird — spurübergreifend.
-enum DeskZug {
-    static var gezogen: UUID? = nil
-}
-
-/// Klick-und-Ziehen auf dem Schreibtisch: beim Darüberziehen rückt die
-/// Karte live an die neue Stelle — auch über die Seiten hinweg.
-struct DeskTauschDelegate: DropDelegate {
-    let ziel: DeskItem
-    let store: AppStore
-
-    func dropEntered(info: DropInfo) {
-        guard let g = DeskZug.gezogen, g != ziel.id,
-              let von = store.deskItems.firstIndex(where: { $0.id == g }),
-              let nach = store.deskItems.firstIndex(where: { $0.id == ziel.id }) else { return }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            store.deskItems[von].seite = ziel.seite
-            store.deskItems.move(fromOffsets: IndexSet(integer: von),
-                                 toOffset: nach > von ? nach + 1 : nach)
-        }
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        DeskZug.gezogen = nil
-        return true
-    }
-}
-
-/// Eine Ablage-Spur des Schreibtischs: kleine Karten-Verweise auf
-/// Dokumente, Notizen und Aufgabenlisten — hineinziehen, antippen, fertig.
+/// Eine freie Fläche des Schreibtischs: Karten hineinziehen, mit der Maus
+/// oder dem Finger frei anordnen, antippen zum Öffnen.
 struct ArcaDeskRail: View {
     let seite: String
     @Binding var selectedSection: ArcaSection
     var breite: CGFloat = 158
     @EnvironmentObject var store: AppStore
+
     @State private var previewURL: URL? = nil
     @State private var zielt = false
+    @State private var zugID: UUID? = nil
+    @State private var zugVersatz: CGSize = .zero
+    @State private var umbenennenItem: DeskItem? = nil
+    @State private var umbenennenText = ""
 
+    private var kartenBreite: CGFloat { breite - 16 }
+
+    /// Nur Karten, deren Original noch existiert.
     private var items: [DeskItem] {
-        store.deskItems.filter { $0.seite == seite }
+        store.deskItems.filter { $0.seite == seite && existiert($0) }
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 10) {
-                ForEach(items) { item in
-                    ArcaDeskCard(item: item) {
-                        oeffne(item)
-                    }
-                    .onDrag {
-                        DeskZug.gezogen = item.id
-                        return NSItemProvider(object: ("desk:" + item.id.uuidString) as NSString)
-                    }
-                    .onDrop(of: [.text], delegate: DeskTauschDelegate(ziel: item, store: store))
-                    .contextMenu {
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                if let idx = store.deskItems.firstIndex(of: item) {
-                                    store.deskItems[idx].seite = seite == "links" ? "rechts" : "links"
-                                }
-                            }
-                        } label: {
-                            Label("Auf die andere Seite", systemImage: "arrow.left.arrow.right")
-                        }
-                        Divider()
-                        Button(role: .destructive) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                store.deskItems.removeAll { $0.id == item.id }
-                            }
-                        } label: {
-                            Label("Vom Schreibtisch nehmen", systemImage: "pin.slash")
-                        }
-                    }
-                }
+        GeometryReader { geo in
+            ZStack(alignment: .top) {
+                Color.clear
 
                 // Leerzustand / Ziel-Rahmen
                 if items.isEmpty || zielt {
                     RoundedRectangle(cornerRadius: 14)
                         .strokeBorder(zielt ? ArcaWarm.terrakotta : ArcaWarm.terrakotta.opacity(0.25),
                                       style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                        .frame(height: 90)
+                        .frame(width: kartenBreite, height: 90)
                         .overlay {
                             VStack(spacing: 6) {
                                 Image(systemName: "tray.and.arrow.down")
@@ -108,46 +56,164 @@ struct ArcaDeskRail: View {
                             }
                             .foregroundStyle(zielt ? ArcaWarm.terrakotta : .secondary)
                         }
+                        .padding(.top, 14)
+                }
+
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    ArcaDeskCard(item: item) {
+                        oeffne(item)
+                    }
+                    .frame(width: kartenBreite)
+                    .position(position(item, index: index, in: geo.size))
+                    .offset(item.id == zugID ? zugVersatz : .zero)
+                    .shadow(color: .black.opacity(item.id == zugID ? 0.22 : 0),
+                            radius: 10, x: 0, y: 5)
+                    .zIndex(item.id == zugID ? 10 : 0)
+                    // Frei verschieben: greifen und ablegen — die Stelle wird gemerkt
+                    .gesture(
+                        DragGesture(minimumDistance: 4)
+                            .onChanged { wert in
+                                zugID = item.id
+                                zugVersatz = wert.translation
+                            }
+                            .onEnded { wert in
+                                let start = position(item, index: index, in: geo.size)
+                                let ziel = CGPoint(x: start.x + wert.translation.width,
+                                                   y: start.y + wert.translation.height)
+                                if let idx = store.deskItems.firstIndex(where: { $0.id == item.id }) {
+                                    store.deskItems[idx].posX = Double(min(max(ziel.x, kartenBreite / 2 + 4),
+                                                                           geo.size.width - kartenBreite / 2 - 4))
+                                    store.deskItems[idx].posY = Double(min(max(ziel.y, 70),
+                                                                           geo.size.height - 70))
+                                }
+                                zugID = nil
+                                zugVersatz = .zero
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            }
+                    )
+                    .contextMenu {
+                        ArcaMenue.umbenennen {
+                            umbenennenText = titel(von: item)
+                            umbenennenItem = item
+                        }
+                        ArcaMenue.farbe(aktuell: item.colorTag) { farbIdx in
+                            if let idx = store.deskItems.firstIndex(where: { $0.id == item.id }) {
+                                store.deskItems[idx].colorTag = farbIdx
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                if let idx = store.deskItems.firstIndex(where: { $0.id == item.id }) {
+                                    store.deskItems[idx].seite = seite == "links" ? "rechts" : "links"
+                                }
+                            }
+                        } label: {
+                            Label("Auf die andere Seite", systemImage: "arrow.left.arrow.right")
+                        }
+                        ArcaMenue.loeschen("Vom Schreibtisch nehmen") {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                store.deskItems.removeAll { $0.id == item.id }
+                            }
+                        }
+                    }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+            // Neues landet dort, wo man es fallen lässt
+            .dropDestination(for: String.self) { werte, ort in
+                legeAb(werte, an: ort, in: geo.size)
+            } isTargeted: { drueber in
+                withAnimation(.easeInOut(duration: 0.15)) { zielt = drueber }
+            }
         }
         .frame(width: breite)
-        .contentShape(Rectangle())
-        .dropDestination(for: String.self) { werte, _ in
-            legeAb(werte)
-        } isTargeted: { drueber in
-            withAnimation(.easeInOut(duration: 0.15)) { zielt = drueber }
-        }
         .quickLookPreview($previewURL)
+        // Umbenennen wirkt auf das Original — überall, auf allen Geräten
+        .alert("Umbenennen", isPresented: Binding(
+            get: { umbenennenItem != nil },
+            set: { if !$0 { umbenennenItem = nil } }
+        )) {
+            TextField("Titel", text: $umbenennenText)
+            Button("Sichern") {
+                if let item = umbenennenItem { benenneUm(item, in: umbenennenText) }
+                umbenennenItem = nil
+            }
+            Button("Abbrechen", role: .cancel) { umbenennenItem = nil }
+        }
     }
 
-    /// Abgelegtes einsortieren: UUID auflösen, Doppelte wandern statt doppeln.
-    private func legeAb(_ werte: [String]) -> Bool {
-        guard let wert = werte.first else { return false }
-        // Eine Schreibtisch-Karte selbst? Dann nur die Seite wechseln.
-        if wert.hasPrefix("desk:"), let kartenID = UUID(uuidString: String(wert.dropFirst(5))) {
-            if let idx = store.deskItems.firstIndex(where: { $0.id == kartenID }) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    store.deskItems[idx].seite = seite
-                }
-            }
-            DeskZug.gezogen = nil
-            return true
+    // MARK: Helfer
+
+    private func existiert(_ item: DeskItem) -> Bool {
+        switch item.kind {
+        case .document: return store.documents.contains { $0.id == item.refID }
+        case .note:     return store.notes.contains { $0.id == item.refID }
+        case .list:     return store.lists.contains { $0.id == item.refID }
+        case .vault:    return false
         }
-        guard let uuid = UUID(uuidString: wert) else { return false }
+    }
+
+    /// Gemerkte Stelle — oder Stapel-Ordnung, solange nie verschoben wurde.
+    private func position(_ item: DeskItem, index: Int, in groesse: CGSize) -> CGPoint {
+        if let x = item.posX, let y = item.posY {
+            return CGPoint(x: min(max(CGFloat(x), kartenBreite / 2 + 4), groesse.width - kartenBreite / 2 - 4),
+                           y: min(max(CGFloat(y), 70), max(groesse.height - 70, 70)))
+        }
+        return CGPoint(x: groesse.width / 2, y: 120 + CGFloat(index) * 200)
+    }
+
+    private func titel(von item: DeskItem) -> String {
+        switch item.kind {
+        case .document: return store.documents.first(where: { $0.id == item.refID })?.title ?? ""
+        case .note:     return store.notes.first(where: { $0.id == item.refID })?.title ?? ""
+        case .list:     return store.lists.first(where: { $0.id == item.refID })?.title ?? ""
+        case .vault:    return ""
+        }
+    }
+
+    private func benenneUm(_ item: DeskItem, in neu: String) {
+        let name = neu.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        switch item.kind {
+        case .document:
+            if let idx = store.documents.firstIndex(where: { $0.id == item.refID }) {
+                store.documents[idx].title = name
+            }
+        case .note:
+            if let idx = store.notes.firstIndex(where: { $0.id == item.refID }) {
+                store.notes[idx].title = name
+            }
+        case .list:
+            if let idx = store.lists.firstIndex(where: { $0.id == item.refID }) {
+                store.lists[idx].title = name
+            }
+        case .vault:
+            break
+        }
+    }
+
+    /// Abgelegtes an der Wurfstelle einsortieren; Doppelte wandern nur.
+    private func legeAb(_ werte: [String], an ort: CGPoint, in groesse: CGSize) -> Bool {
+        guard let wert = werte.first, let uuid = UUID(uuidString: wert) else { return false }
         let art: FavoriteKind?
         if store.documents.contains(where: { $0.id == uuid }) { art = .document }
         else if store.notes.contains(where: { $0.id == uuid }) { art = .note }
         else if store.lists.contains(where: { $0.id == uuid }) { art = .list }
         else { art = nil }
         guard let art else { return false }
+        let x = Double(min(max(ort.x, kartenBreite / 2 + 4), groesse.width - kartenBreite / 2 - 4))
+        let y = Double(min(max(ort.y, 70), max(groesse.height - 70, 70)))
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             if let idx = store.deskItems.firstIndex(where: { $0.refID == uuid }) {
                 store.deskItems[idx].seite = seite
+                store.deskItems[idx].posX = x
+                store.deskItems[idx].posY = y
             } else {
-                store.deskItems.append(DeskItem(kind: art, refID: uuid, seite: seite))
+                var neu = DeskItem(kind: art, refID: uuid, seite: seite)
+                neu.posX = x
+                neu.posY = y
+                store.deskItems.append(neu)
             }
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -167,12 +233,20 @@ struct ArcaDeskRail: View {
     }
 }
 
-/// Eine kleine Schreibtisch-Karte: Dokument mit Vorschau,
+// MARK: - Die Post-it-Karte
+
+/// Eine Schreibtisch-Karte: Dokument mit formatfüllender Vorschau,
 /// Notiz als Zettel, Aufgabenliste mit den obersten Punkten.
 struct ArcaDeskCard: View {
     let item: DeskItem
     let onTap: () -> Void
     @EnvironmentObject var store: AppStore
+
+    /// Farbiger Rand, wenn gewählt — sonst die feine Haarlinie.
+    private var randFarbe: Color {
+        item.colorTag.map { NoteColor.for_($0).accent } ?? ArcaWarm.haarlinie
+    }
+    private var randStaerke: CGFloat { item.colorTag != nil ? 2.5 : 1 }
 
     var body: some View {
         Group {
@@ -180,13 +254,11 @@ struct ArcaDeskCard: View {
             case .document:
                 if let doc = store.documents.first(where: { $0.id == item.refID }) {
                     ZStack(alignment: .bottom) {
-                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type,
-                                     passendEinpassen: true)
-                            .frame(height: 170)
+                        // Formatfüllend: die Seite füllt das ganze Post-it
+                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+                            .frame(height: 190)
                             .frame(maxWidth: .infinity)
                             .clipped()
-                            .padding(.bottom, 24)
-                        // Titel-Etikett auf dem Post-it
                         Text(doc.title)
                             .font(.system(size: 12, weight: .semibold))
                             .lineLimit(1)
@@ -245,7 +317,7 @@ struct ArcaDeskCard: View {
         }
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
         .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(randFarbe, lineWidth: randStaerke))
         // Klebestreifen oben — wie aufs Pult geklebt
         .overlay(alignment: .top) {
             RoundedRectangle(cornerRadius: 3)
@@ -269,4 +341,3 @@ struct ArcaDeskCard: View {
         return Double(summe % 5 - 2) * 1.2
     }
 }
-
