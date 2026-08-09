@@ -422,22 +422,22 @@ struct DocumentsView: View {
 
     @ViewBuilder
     private func documentRow(_ doc: DocumentEntry, indented: Bool = false) -> some View {
-        Button {
-            openDocument(doc)
-        } label: {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(docTypeColor(doc.type))
-                    .frame(width: 8, height: 8)
-                DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
-                Text(doc.title)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Spacer()
-            }
-            .padding(.vertical, 4)
+        HStack(spacing: 12) {
+            Circle()
+                .fill(docTypeColor(doc.type))
+                .frame(width: 8, height: 8)
+            DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+            Text(doc.title)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Spacer()
         }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture { openDocument(doc) }
+        // Ziehbar: in andere Gruppen oder auf den Schreibtisch
+        .onDrag { NSItemProvider(object: doc.id.uuidString as NSString) }
         .foregroundStyle(.primary)
         .listRowBackground(Color(.secondarySystemBackground))
         .listRowSeparator(.visible)
@@ -597,6 +597,19 @@ struct DocumentsView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                // Datei auf den Gruppen-Kopf ziehen = dort einsortieren
+                                .dropDestination(for: String.self) { werte, _ in
+                                    guard let wert = werte.first,
+                                          let uuid = UUID(uuidString: wert),
+                                          let idx = store.documents.firstIndex(where: { $0.id == uuid }),
+                                          store.documents[idx].category != category else { return false }
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        store.documents[idx].category = category
+                                        store.documents[idx].subcategory = ""
+                                    }
+                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                    return true
+                                }
                                 .contextMenu {
                                     Button {
                                         colorPickerCategory = category
