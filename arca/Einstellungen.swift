@@ -698,6 +698,8 @@ struct SettingsView: View {
 
             }
             .listSectionSpacing(14)
+            .scrollContentBackground(.hidden)
+            .background(ArcaWarm.hintergrund)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

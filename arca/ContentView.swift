@@ -166,6 +166,9 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Überall dieselbe warme Bühne wie auf dem Start —
+            // kein Farbsprung beim Umschalten
+            .background(ArcaWarm.hintergrund.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 104) }
 
             ArcaTabBar(selected: $selectedSection)
@@ -232,6 +235,9 @@ struct ContentView: View {
                             .padding(.trailing, 8)
                     }
                 }
+                // Überall dieselbe warme Bühne wie auf dem Start —
+                // kein Farbsprung beim Umschalten
+                .background(ArcaWarm.hintergrund.ignoresSafeArea())
             }
         }
         .navigationSplitViewStyle(.balanced)
