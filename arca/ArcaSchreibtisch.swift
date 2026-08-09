@@ -52,21 +52,29 @@ struct ArcaDeskRail: View {
             ZStack(alignment: .top) {
                 Color.clear
 
-                // Das Titel-Schild der Fläche
-                HStack(spacing: 6) {
-                    Image(systemName: titelSymbol)
-                        .font(.system(size: 10, weight: .bold))
-                    Text(flaechenTitel)
-                        .font(.system(size: 11, weight: .semibold))
-                        .textCase(.uppercase)
-                        .tracking(0.8)
-                        .lineLimit(1)
+                // Die Überschrift der Fläche — im Stil der Start-Rubriken
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 6) {
+                        Image(systemName: titelSymbol)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                        Text(flaechenTitel)
+                            .font(.system(size: 14, weight: .bold))
+                            .textCase(.uppercase)
+                            .tracking(0.8)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        Spacer(minLength: 0)
+                    }
+                    // Feine Terrakotta-Linie als Unterstreichung
+                    Capsule()
+                        .fill(ArcaWarm.terrakotta.opacity(0.45))
+                        .frame(width: 46, height: 3)
                 }
-                .foregroundStyle(ArcaWarm.terrakotta)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .glassEffect(.regular, in: Capsule())
-                .padding(.top, 10)
+                .frame(width: kartenBreite + 8, alignment: .leading)
+                .padding(.top, 12)
+                .contentShape(Rectangle())
                 .contextMenu {
                     ArcaMenue.umbenennen {
                         titelText = flaechenTitel
