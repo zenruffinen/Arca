@@ -277,13 +277,14 @@ struct ArcaDeskRail: View {
         .onAppear {
             flaechenFarbe = UserDefaults.standard.object(forKey: "arcaDeskFarbe_" + seite) as? Int
         }
-        // Die Stoppuhr: unten links auf dem Schnellzugriff,
-        // auf einer Höhe mit Mikrofon und Plus
+        // Die Stoppuhr: unten links auf dem Schnellzugriff.
+        // Breite Fläche (Mac): auf Knopf-Höhe neben Mikro und Plus —
+        // schmale Fläche (iPad): eine Etage höher, damit nichts überlappt.
         .overlay(alignment: .bottomLeading) {
             if seite == "rechts" {
                 ArcaDeskUhr()
                     .padding(.leading, 6)
-                    .padding(.bottom, 28)
+                    .padding(.bottom, breite >= 250 ? 28 : 100)
             }
         }
         .quickLookPreview($previewURL)
