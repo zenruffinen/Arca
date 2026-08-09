@@ -32,6 +32,7 @@ struct ArcaDeskRail: View {
     @State private var titelText = ""
     @State private var flaechenFarbe: Int? = nil
     @State private var dockAktiv = false
+    @State private var erledigtID: UUID? = nil
 
     /// Wo das Auswurf-Dock sitzt (rechts oben in der Fläche).
     private func dockPunkt(in groesse: CGSize) -> CGPoint {
@@ -159,7 +160,38 @@ struct ArcaDeskRail: View {
                     }
                     .frame(width: kartenBreite)
                     .fixedSize(horizontal: false, vertical: true)
+                    // Die Erledigt-Geste: ein Tipp auf den Haken,
+                    // kleiner Jubel, die Karte fliegt vom Pult
+                    .overlay(alignment: .bottomTrailing) {
+                        Button {
+                            erledige(item)
+                        } label: {
+                            Image(systemName: erledigtID == item.id ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(erledigtID == item.id ? .green : Color.secondary.opacity(0.55))
+                                .background(Circle().fill(ArcaWarm.karte).padding(1))
+                                .scaleEffect(erledigtID == item.id ? 1.5 : 1)
+                        }
+                        .buttonStyle(.plain)
+                        .offset(x: 6, y: 6)
+                        .accessibilityLabel("Erledigt — vom Schreibtisch nehmen")
+                    }
+                    // Jubel-Ring beim Erledigen
+                    .overlay {
+                        if erledigtID == item.id {
+                            Circle()
+                                .stroke(Color.green.opacity(0.6), lineWidth: 3)
+                                .frame(width: 40, height: 40)
+                                .scaleEffect(2.6)
+                                .opacity(0)
+                                .animation(.easeOut(duration: 0.45), value: erledigtID)
+                                .transition(.identity)
+                        }
+                    }
+                    .scaleEffect(erledigtID == item.id ? 1.12 : 1)
+                    .opacity(erledigtID == item.id ? 0 : 1)
                     .position(position(item, index: index, in: geo.size))
+                    .offset(y: erledigtID == item.id ? -44 : 0)
                     .offset(item.id == zugID ? zugVersatz : .zero)
                     .shadow(color: .black.opacity(item.id == zugID ? 0.22 : 0),
                             radius: 10, x: 0, y: 5)
@@ -344,6 +376,20 @@ struct ArcaDeskRail: View {
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         return true
+    }
+
+    /// Erledigt: Erfolgs-Haptik, kurzer Jubel, Karte verlässt das Pult.
+    /// Das Original bleibt unangetastet — nur der Griff verschwindet.
+    private func erledige(_ item: DeskItem) {
+        guard erledigtID == nil else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+            erledigtID = item.id
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            store.deskItems.removeAll { $0.id == item.id }
+            erledigtID = nil
+        }
     }
 
     private func oeffne(_ item: DeskItem) {
