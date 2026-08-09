@@ -202,7 +202,7 @@ struct ArcaDeskRail: View {
             return CGPoint(x: min(max(CGFloat(x), kartenBreite / 2 + 4), groesse.width - kartenBreite / 2 - 4),
                            y: min(max(CGFloat(y), 70), max(groesse.height - 70, 70)))
         }
-        return CGPoint(x: groesse.width / 2, y: 160 + CGFloat(index) * 200)
+        return CGPoint(x: groesse.width / 2, y: 150 + CGFloat(index) * 170)
     }
 
     private func titel(von item: DeskItem) -> String {
@@ -299,7 +299,7 @@ struct ArcaDeskCard: View {
                         // Formatfüllend: die Seite füllt das ganze Post-it
                         DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type,
                                      gross: true)
-                            .frame(height: 190)
+                            .frame(height: 150)
                             .frame(maxWidth: .infinity)
                             .clipped()
                         Text(doc.title)
@@ -323,7 +323,7 @@ struct ArcaDeskCard: View {
                             .lineLimit(7)
                         Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
                     .padding(10)
                     .background(NoteColor.for_(notiz.colorTag).bg.opacity(0.5))
                 }

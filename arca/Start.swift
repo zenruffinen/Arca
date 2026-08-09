@@ -392,20 +392,30 @@ struct HomeView: View {
         return "Letzte Sicherung vor \(tage) Tagen"
     }
 
-    /// Freier Rand neben der zentrierten Start-Spalte — dort wohnt
-    /// der Schreibtisch (nur iPad/Mac, wenn wirklich Platz ist).
-    private var deskSpaltenBreite: CGFloat {
-        max(0, (seitenBreite - homeContentMaxWidth) / 2 - 32)
+    /// Der Schreibtisch wohnt rechts: die App rückt nach links, beide
+    /// Flächen (Zu erledigen · Schnellzugriff) teilen sich den freien Raum.
+    private var deskZonenBreite: CGFloat {
+        let frei = seitenBreite - homeContentMaxWidth - 44
+        return min((frei - 16) / 2, 250)
+    }
+
+    private var deskSichtbar: Bool {
+        horizontalSizeClass == .regular && deskZonenBreite >= 165
     }
 
     @ViewBuilder
-    private func homeDeskSpalte(_ seite: String) -> some View {
-        if horizontalSizeClass == .regular && deskSpaltenBreite >= 190 {
-            ArcaDeskRail(seite: seite,
-                         selectedSection: $selectedSection,
-                         breite: min(deskSpaltenBreite, 290))
-                .padding(.top, 6)
-                .padding(seite == "links" ? .leading : .trailing, 10)
+    private var homeDeskFlaechen: some View {
+        if deskSichtbar {
+            HStack(alignment: .top, spacing: 8) {
+                ArcaDeskRail(seite: "links",
+                             selectedSection: $selectedSection,
+                             breite: deskZonenBreite)
+                ArcaDeskRail(seite: "rechts",
+                             selectedSection: $selectedSection,
+                             breite: deskZonenBreite)
+            }
+            .padding(.top, 6)
+            .padding(.trailing, 12)
         }
     }
 
@@ -673,7 +683,8 @@ struct HomeView: View {
                 .padding(.bottom, 12)
             }
             .frame(maxWidth: homeContentMaxWidth)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: deskSichtbar ? .leading : .center)
+            .padding(.leading, deskSichtbar ? 16 : 0)
 
             if isSearching {
                 ScrollView {
@@ -1114,7 +1125,8 @@ struct HomeView: View {
                     Spacer().frame(height: 24)
                     }
                     .frame(maxWidth: homeContentMaxWidth)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: deskSichtbar ? .leading : .center)
+                    .padding(.leading, deskSichtbar ? 16 : 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollDismissesKeyboard(.interactively)
@@ -1139,8 +1151,7 @@ struct HomeView: View {
         )
         // Der Arca-Schreibtisch: Karten auf den freien Flächen
         // links und rechts der Start-Spalte
-        .overlay(alignment: .topLeading) { homeDeskSpalte("links") }
-        .overlay(alignment: .topTrailing) { homeDeskSpalte("rechts") }
+        .overlay(alignment: .topTrailing) { homeDeskFlaechen }
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)

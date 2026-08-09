@@ -48,12 +48,26 @@ enum ArcaMenue {
         Menu {
             ForEach(0..<NoteColor.palette.count, id: \.self) { idx in
                 Button { aktion(idx) } label: {
-                    Label(NoteColor.palette[idx].name,
-                          systemImage: aktuell == idx ? "checkmark.circle.fill" : "circle.fill")
+                    Label {
+                        Text(NoteColor.palette[idx].name + (aktuell == idx ? "  ✓" : ""))
+                    } icon: {
+                        // Echte Farbvorschau: Menüs färben Symbole sonst grau ein
+                        Image(uiImage: kreisBild(UIColor(NoteColor.palette[idx].accent)))
+                            .renderingMode(.original)
+                    }
                 }
             }
         } label: {
             Label("Farbe", systemImage: "paintpalette")
+        }
+    }
+
+    /// Gefüllter Farbkreis als Bild — behält seine Farbe auch im Menü.
+    static func kreisBild(_ farbe: UIColor) -> UIImage {
+        let groesse = CGSize(width: 22, height: 22)
+        return UIGraphicsImageRenderer(size: groesse).image { ctx in
+            farbe.setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(origin: .zero, size: groesse).insetBy(dx: 1, dy: 1))
         }
     }
 
