@@ -394,9 +394,10 @@ struct HomeView: View {
 
     /// Der Schreibtisch wohnt rechts: die App rückt nach links, beide
     /// Flächen (Zu erledigen · Schnellzugriff) teilen sich den freien Raum.
+    /// Je breiter das Fenster, desto größer die Flächen (bis 340 pt).
     private var deskZonenBreite: CGFloat {
         let frei = seitenBreite - homeContentMaxWidth - 44
-        return min((frei - 16) / 2, 250)
+        return min((frei - 16) / 2, 340)
     }
 
     private var deskSichtbar: Bool {
@@ -406,7 +407,7 @@ struct HomeView: View {
     @ViewBuilder
     private var homeDeskFlaechen: some View {
         if deskSichtbar {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
                 ArcaDeskRail(seite: "links",
                              selectedSection: $selectedSection,
                              breite: deskZonenBreite)
@@ -415,7 +416,6 @@ struct HomeView: View {
                              breite: deskZonenBreite)
             }
             .padding(.top, 6)
-            .padding(.trailing, 12)
         }
     }
 
@@ -1151,7 +1151,10 @@ struct HomeView: View {
         )
         // Der Arca-Schreibtisch: Karten auf den freien Flächen
         // links und rechts der Start-Spalte
-        .overlay(alignment: .topTrailing) { homeDeskFlaechen }
+        .overlay(alignment: .topLeading) {
+            homeDeskFlaechen
+                .padding(.leading, homeContentMaxWidth + 30)
+        }
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)
