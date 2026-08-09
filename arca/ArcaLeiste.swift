@@ -200,6 +200,11 @@ struct ArcaPlusKnopf: View {
         // Zwei Freunde nebeneinander: links das Blitzidee-Mikro,
         // rechts der Plus für die vier Eingaben (Plakette = Gruppe).
         HStack(spacing: 14) {
+            // Die Schreibtisch-Uhr: ganz links in der Werkzeug-Reihe
+            if groessenKlasse == .regular {
+                ArcaDeskUhr()
+            }
+
             // Arca Pen: immer griffbereit, auch bei eingeklappter
             // Seitenleiste (nur iPad/Mac)
             if groessenKlasse == .regular {

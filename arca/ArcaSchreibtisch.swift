@@ -277,16 +277,6 @@ struct ArcaDeskRail: View {
         .onAppear {
             flaechenFarbe = UserDefaults.standard.object(forKey: "arcaDeskFarbe_" + seite) as? Int
         }
-        // Die Stoppuhr: unten links auf dem Schnellzugriff.
-        // Breite Fläche (Mac): auf Knopf-Höhe neben Mikro und Plus —
-        // schmale Fläche (iPad): eine Etage höher, damit nichts überlappt.
-        .overlay(alignment: .bottomLeading) {
-            if seite == "rechts" {
-                ArcaDeskUhr()
-                    .padding(.leading, 6)
-                    .padding(.bottom, breite >= 250 ? 28 : 100)
-            }
-        }
         .quickLookPreview($previewURL)
         // Umbenennen wirkt auf das Original — überall, auf allen Geräten
         .alert("Umbenennen", isPresented: Binding(
