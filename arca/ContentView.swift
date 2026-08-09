@@ -204,30 +204,14 @@ struct ContentView: View {
             ArcaIPadSidebar(selectedSection: $selectedSection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 310)
         } detail: {
-            // Der Arca-Schreibtisch: bei genug Breite liegen links und
-            // rechts Ablage-Spuren — Karten einfach hineinziehen.
-            GeometryReader { geo in
-                let zeigtDesk = geo.size.width > 980
-                HStack(spacing: 0) {
-                    if zeigtDesk {
-                        ArcaDeskRail(seite: "links", selectedSection: $selectedSection)
-                    }
-                    Group {
-                        switch selectedSection {
-                        case .home:      HomeView(selectedSection: $selectedSection)
-                        case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
-                        case .vault:     VaultView()
-                        case .documents: DocumentsView(isUnlocked: isUnlocked)
-                        case .notes:     NotesView()
-                        case .lists:     ListsView()
-                        case .settings:  SettingsView()
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    if zeigtDesk {
-                        ArcaDeskRail(seite: "rechts", selectedSection: $selectedSection)
-                    }
-                }
+            switch selectedSection {
+            case .home:      HomeView(selectedSection: $selectedSection)
+            case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
+            case .vault:     VaultView()
+            case .documents: DocumentsView(isUnlocked: isUnlocked)
+            case .notes:     NotesView()
+            case .lists:     ListsView()
+            case .settings:  SettingsView()
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -486,6 +470,7 @@ struct ArcaPlusKnopf: View {
 struct ArcaDeskRail: View {
     let seite: String
     @Binding var selectedSection: ArcaSection
+    var breite: CGFloat = 158
     @EnvironmentObject var store: AppStore
     @State private var previewURL: URL? = nil
     @State private var zielt = false
@@ -542,7 +527,7 @@ struct ArcaDeskRail: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 14)
         }
-        .frame(width: 158)
+        .frame(width: breite)
         .contentShape(Rectangle())
         .dropDestination(for: String.self) { werte, _ in
             legeAb(werte)
@@ -599,11 +584,11 @@ struct ArcaDeskCard: View {
                 if let doc = store.documents.first(where: { $0.id == item.refID }) {
                     VStack(spacing: 0) {
                         DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
-                            .frame(height: 84)
+                            .frame(height: 120)
                             .frame(maxWidth: .infinity)
                             .clipped()
                         Text(doc.title)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -615,12 +600,12 @@ struct ArcaDeskCard: View {
                 if let notiz = store.notes.first(where: { $0.id == item.refID }) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(notiz.title)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .lineLimit(2)
                         Text(notiz.text)
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
-                            .lineLimit(4)
+                            .lineLimit(6)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(9)
@@ -630,21 +615,21 @@ struct ArcaDeskCard: View {
                 if let liste = store.lists.first(where: { $0.id == item.refID }) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(liste.title)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .lineLimit(1)
-                        ForEach(liste.items.prefix(3)) { punkt in
+                        ForEach(liste.items.prefix(4)) { punkt in
                             HStack(spacing: 5) {
                                 Image(systemName: punkt.isDone ? "checkmark.square.fill" : "square")
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 10))
                                     .foregroundStyle(punkt.isDone ? .green : .secondary)
                                 Text(punkt.text)
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                             }
                         }
-                        if liste.items.count > 3 {
-                            Text("+\(liste.items.count - 3) weitere")
+                        if liste.items.count > 4 {
+                            Text("+\(liste.items.count - 4) weitere")
                                 .font(.system(size: 9))
                                 .foregroundStyle(.tertiary)
                         }
@@ -1145,6 +1130,23 @@ struct HomeView: View {
         }
         let tage = max(1, Int(Date().timeIntervalSince(letzt) / 86400))
         return "Letzte Sicherung vor \(tage) Tagen"
+    }
+
+    /// Freier Rand neben der zentrierten Start-Spalte — dort wohnt
+    /// der Schreibtisch (nur iPad/Mac, wenn wirklich Platz ist).
+    private var deskSpaltenBreite: CGFloat {
+        max(0, (seitenBreite - homeContentMaxWidth) / 2 - 32)
+    }
+
+    @ViewBuilder
+    private func homeDeskSpalte(_ seite: String) -> some View {
+        if horizontalSizeClass == .regular && deskSpaltenBreite >= 190 {
+            ArcaDeskRail(seite: seite,
+                         selectedSection: $selectedSection,
+                         breite: min(deskSpaltenBreite, 290))
+                .padding(.top, 6)
+                .padding(seite == "links" ? .leading : .trailing, 10)
+        }
     }
 
     /// Farbe des Strom-Eintrags lesen (für das Häkchen im Farb-Menü).
@@ -1875,6 +1877,10 @@ struct HomeView: View {
                     .onChange(of: geo.size.width) { _, neu in seitenBreite = neu }
             }
         )
+        // Der Arca-Schreibtisch: Karten auf den freien Flächen
+        // links und rechts der Start-Spalte
+        .overlay(alignment: .topLeading) { homeDeskSpalte("links") }
+        .overlay(alignment: .topTrailing) { homeDeskSpalte("rechts") }
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)
