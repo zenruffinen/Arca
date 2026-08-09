@@ -234,6 +234,12 @@ struct ArcaDeskRail: View {
             } isTargeted: { drueber in
                 withAnimation(.easeInOut(duration: 0.15)) { zielt = drueber }
             }
+            // Von außen (Mail, Finder): übernehmen + hier anheften
+            .onDrop(of: AppStore.externeAblageTypen,
+                    delegate: ExterneDeskAblage(seite: seite, store: store,
+                                                groesse: geo.size,
+                                                kartenBreite: kartenBreite,
+                                                zielt: $zielt))
         }
         .frame(width: breite)
         .onAppear {
@@ -349,6 +355,73 @@ struct ArcaDeskRail: View {
         case .note:  selectedSection = .notes
         case .list:  selectedSection = .lists
         case .vault: selectedSection = .vault
+        }
+    }
+}
+
+// MARK: - Externer Einwurf auf die Fläche
+
+/// Mail oder Datei direkt auf eine Schreibtisch-Fläche ziehen:
+/// sie wird in „Unsortiert" übernommen UND an der Wurfstelle angeheftet.
+struct ExterneDeskAblage: DropDelegate {
+    let seite: String
+    let store: AppStore
+    let groesse: CGSize
+    let kartenBreite: CGFloat
+    @Binding var zielt: Bool
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: AppStore.externeAblageTypen)
+    }
+
+    func dropEntered(info: DropInfo) {
+        withAnimation(.easeInOut(duration: 0.15)) { zielt = true }
+    }
+
+    func dropExited(info: DropInfo) {
+        withAnimation(.easeInOut(duration: 0.15)) { zielt = false }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        withAnimation(.easeInOut(duration: 0.15)) { zielt = false }
+        let ort = info.location
+        let x = Double(min(max(ort.x, kartenBreite / 2 + 4), groesse.width - kartenBreite / 2 - 4))
+        let y = Double(min(max(ort.y, 70), max(groesse.height - 70, 70)))
+        var genommen = false
+
+        for provider in info.itemProviders(for: AppStore.externeAblageTypen) {
+            let mailTyp = provider.registeredTypeIdentifiers.first {
+                $0 == "com.apple.mail.email" || UTType($0)?.conforms(to: .emailMessage) == true
+            }
+            if let mailTyp {
+                genommen = true
+                provider.loadFileRepresentation(forTypeIdentifier: mailTyp) { url, _ in
+                    guard let url else { return }
+                    store.uebernimmExterneDatei(von: url, alsMail: true) { id in
+                        hefteAn(id, x: x, y: y)
+                    }
+                }
+            } else if provider.canLoadObject(ofClass: URL.self) {
+                genommen = true
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, url.isFileURL else { return }
+                    let zugriff = url.startAccessingSecurityScopedResource()
+                    store.uebernimmExterneDatei(von: url, alsMail: false) { id in
+                        hefteAn(id, x: x, y: y)
+                    }
+                    if zugriff { url.stopAccessingSecurityScopedResource() }
+                }
+            }
+        }
+        return genommen
+    }
+
+    private func hefteAn(_ id: UUID, x: Double, y: Double) {
+        var neu = DeskItem(kind: .document, refID: id, seite: seite)
+        neu.posX = x
+        neu.posY = y
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            store.deskItems.append(neu)
         }
     }
 }

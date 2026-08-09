@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import UniformTypeIdentifiers
 import CryptoKit
 import WidgetKit
 import AppleArchive
@@ -1284,6 +1285,49 @@ final class AppStore: ObservableObject {
     }
 
     // MARK: - Dokumente
+
+    /// Externe Inhalte, die Arca-Fenster und Schreibtisch annehmen.
+    static var externeAblageTypen: [UTType] {
+        var typen: [UTType] = [.fileURL, .emailMessage]
+        if let mail = UTType("com.apple.mail.email") { typen.append(mail) }
+        return typen
+    }
+
+    /// Externe Datei (Mail, Finder) übernehmen: sofort in den Bestand
+    /// kopieren, als Dokument in „Unsortiert" anlegen. `fertig` liefert
+    /// die neue Dokument-ID am Main-Thread (z. B. fürs Anheften).
+    func uebernimmExterneDatei(von url: URL, alsMail: Bool, fertig: ((UUID) -> Void)? = nil) {
+        let endung = url.pathExtension.lowercased()
+        let titel = url.deletingPathExtension().lastPathComponent
+        let zielName = UUID().uuidString + (endung.isEmpty ? (alsMail ? ".eml" : "") : "." + endung)
+        let ziel = documentURL(for: zielName)
+        // Sofort kopieren — die Quelle lebt nur während der Übergabe
+        guard (try? FileManager.default.copyItem(at: url, to: ziel)) != nil else { return }
+
+        let typ: DocumentType
+        if alsMail || ["eml", "emlx"].contains(endung) {
+            typ = .mail
+        } else if endung == "pdf" {
+            typ = .pdf
+        } else if ["png", "jpg", "jpeg", "heic", "heif", "gif", "webp", "tiff"].contains(endung) {
+            typ = .image
+        } else if ["mov", "mp4", "m4v"].contains(endung) {
+            typ = .video
+        } else {
+            typ = .text
+        }
+        let neueID = UUID()
+        DispatchQueue.main.async {
+            let kategorie = self.ensureImportCategoryExists()
+            let eintrag = DocumentEntry(
+                id: neueID,
+                title: titel.isEmpty ? (alsMail ? "Mail" : "Import") : titel,
+                type: typ, filename: zielName, dateAdded: Date(), category: kategorie)
+            self.documents.append(eintrag)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            fertig?(neueID)
+        }
+    }
 
     func addDocument(title: String, type: DocumentType, filename: String, category: String = "Unsortiert", subcategory: String = "", ocrText: String = "") {
         let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category, subcategory: subcategory, ocrText: ocrText)

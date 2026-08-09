@@ -154,11 +154,7 @@ struct ContentView: View {
 
     /// Welche externen Inhalte das Fenster annimmt: Mails und Dateien.
     /// (Interne Zieh-Aktionen nutzen Text-Payloads und bleiben unberührt.)
-    private var externeAblageTypen: [UTType] {
-        var typen: [UTType] = [.fileURL, .emailMessage]
-        if let mail = UTType("com.apple.mail.email") { typen.append(mail) }
-        return typen
-    }
+    private var externeAblageTypen: [UTType] { AppStore.externeAblageTypen }
 
     /// Mail oder Datei entgegennehmen, in den Bestand kopieren und
     /// als Dokument in „Unsortiert" anlegen — Mails als Mail markiert.
@@ -188,33 +184,7 @@ struct ContentView: View {
     }
 
     private func uebernehmeExterneDatei(von url: URL, alsMail: Bool) {
-        let endung = url.pathExtension.lowercased()
-        let titel = url.deletingPathExtension().lastPathComponent
-        let zielName = UUID().uuidString + (endung.isEmpty ? (alsMail ? ".eml" : "") : "." + endung)
-        let ziel = store.documentURL(for: zielName)
-        // Sofort kopieren — die Quelle lebt nur während der Übergabe
-        guard (try? FileManager.default.copyItem(at: url, to: ziel)) != nil else { return }
-
-        let typ: DocumentType
-        if alsMail || ["eml", "emlx"].contains(endung) {
-            typ = .mail
-        } else if endung == "pdf" {
-            typ = .pdf
-        } else if ["png", "jpg", "jpeg", "heic", "heif", "gif", "webp", "tiff"].contains(endung) {
-            typ = .image
-        } else if ["mov", "mp4", "m4v"].contains(endung) {
-            typ = .video
-        } else {
-            typ = .text
-        }
-        DispatchQueue.main.async {
-            store.addDocument(
-                title: titel.isEmpty ? (alsMail ? "Mail" : "Import") : titel,
-                type: typ,
-                filename: zielName,
-                category: store.ensureImportCategoryExists())
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        }
+        store.uebernimmExterneDatei(von: url, alsMail: alsMail)
     }
 
     private var iPhoneLayout: some View {
