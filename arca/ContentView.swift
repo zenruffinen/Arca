@@ -583,10 +583,12 @@ struct ArcaDeskCard: View {
             case .document:
                 if let doc = store.documents.first(where: { $0.id == item.refID }) {
                     ZStack(alignment: .bottom) {
-                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type,
+                                     passendEinpassen: true)
                             .frame(height: 170)
                             .frame(maxWidth: .infinity)
                             .clipped()
+                            .padding(.bottom, 24)
                         // Titel-Etikett auf dem Post-it
                         Text(doc.title)
                             .font(.system(size: 12, weight: .semibold))
@@ -5251,6 +5253,8 @@ private final class ThumbnailCache {
 struct DocThumbnail: View {
     let url: URL
     var type: DocumentType = .image
+    /// true: ganze Seite einpassen (Schreibtisch-Post-it) statt fuellen/anschneiden
+    var passendEinpassen = false
 
     @State private var image: UIImage? = nil
     @Environment(\.displayScale) private var displayScale
@@ -5269,9 +5273,17 @@ struct DocThumbnail: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(.tertiarySystemFill))
             if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
+                if passendEinpassen {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .shadow(color: .black.opacity(0.10), radius: 2, x: 0, y: 1)
+                        .padding(6)
+                } else {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                }
             } else {
                 Image(systemName: fallbackIcon)
                     .font(.system(size: 15, weight: .semibold))
