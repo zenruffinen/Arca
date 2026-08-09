@@ -623,11 +623,14 @@ struct ArcaDeskCard: View {
                             .clipped()
                         Text(doc.title)
                             .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.29, green: 0.25, blue: 0.33))
                             .lineLimit(1)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
                             .padding(.horizontal, 8)
-                            .background(.ultraThinMaterial)
+                            // Deckendes Weiss statt Milchglas: das Material
+                            // rendert auf dem iPad schwarz und flimmert
+                            .background(Color.white.opacity(0.93))
                     }
                 }
             case .note:
