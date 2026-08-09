@@ -1086,6 +1086,8 @@ struct DocThumbnail: View {
     var type: DocumentType = .image
     /// true: ganze Seite einpassen (Schreibtisch-Post-it) statt fuellen/anschneiden
     var passendEinpassen = false
+    /// true: frei skalierend in voller Groesse (Schreibtisch) statt 42×50-Stempel
+    var gross = false
 
     @State private var image: UIImage? = nil
     @Environment(\.displayScale) private var displayScale
@@ -1117,7 +1119,7 @@ struct DocThumbnail: View {
                 }
             } else {
                 Image(systemName: fallbackIcon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: gross ? 34 : 15, weight: .semibold))
                     .foregroundStyle(docTypeColor(type).opacity(0.7))
             }
             if type == .video, image != nil {
@@ -1127,7 +1129,7 @@ struct DocThumbnail: View {
                     .shadow(radius: 2)
             }
         }
-        .frame(width: 42, height: 50)
+        .frame(width: gross ? nil : 42, height: gross ? nil : 50)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay {
             RoundedRectangle(cornerRadius: 6)
@@ -1137,20 +1139,23 @@ struct DocThumbnail: View {
     }
 
     private func loadThumbnail() {
-        if let cached = ThumbnailCache.shared.image(for: url) {
+        // Grosse Vorschau getrennt zwischenspeichern — sonst liefert der
+        // Cache die 42×50-Briefmarke auch auf dem Schreibtisch
+        let schluessel = gross ? URL(fileURLWithPath: url.path + "#gross") : url
+        if let cached = ThumbnailCache.shared.image(for: schluessel) {
             image = cached
             return
         }
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
-            size: CGSize(width: 42, height: 50),
+            size: gross ? CGSize(width: 320, height: 420) : CGSize(width: 42, height: 50),
             scale: displayScale,
             representationTypes: .thumbnail
         )
         QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
             guard let img = rep?.uiImage else { return }
-            ThumbnailCache.shared.store(img, for: url)
+            ThumbnailCache.shared.store(img, for: schluessel)
             DispatchQueue.main.async { image = img }
         }
     }

@@ -297,7 +297,8 @@ struct ArcaDeskCard: View {
                 if let doc = store.documents.first(where: { $0.id == item.refID }) {
                     ZStack(alignment: .bottom) {
                         // Formatfüllend: die Seite füllt das ganze Post-it
-                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type,
+                                     gross: true)
                             .frame(height: 190)
                             .frame(maxWidth: .infinity)
                             .clipped()
