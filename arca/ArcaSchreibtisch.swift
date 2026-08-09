@@ -28,8 +28,18 @@ struct ArcaDeskRail: View {
     @State private var zugVersatz: CGSize = .zero
     @State private var umbenennenItem: DeskItem? = nil
     @State private var umbenennenText = ""
+    @State private var titelBearbeiten = false
+    @State private var titelText = ""
 
     private var kartenBreite: CGFloat { breite - 16 }
+
+    /// Jede Fläche hat einen Namen: links „Zu erledigen",
+    /// rechts „Schnellzugriff" — beides umbenennbar.
+    private var standardTitel: String { seite == "links" ? "Zu erledigen" : "Schnellzugriff" }
+    private var titelSymbol: String { seite == "links" ? "checkmark.circle" : "bolt.fill" }
+    private var flaechenTitel: String {
+        UserDefaults.standard.string(forKey: "arcaDeskTitel_" + seite) ?? standardTitel
+    }
 
     /// Nur Karten, deren Original noch existiert.
     private var items: [DeskItem] {
@@ -40,6 +50,38 @@ struct ArcaDeskRail: View {
         GeometryReader { geo in
             ZStack(alignment: .top) {
                 Color.clear
+
+                // Das Titel-Schild der Fläche
+                HStack(spacing: 6) {
+                    Image(systemName: titelSymbol)
+                        .font(.system(size: 10, weight: .bold))
+                    Text(flaechenTitel)
+                        .font(.system(size: 11, weight: .semibold))
+                        .textCase(.uppercase)
+                        .tracking(0.8)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(ArcaWarm.terrakotta)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .glassEffect(.regular, in: Capsule())
+                .padding(.top, 10)
+                .contextMenu {
+                    ArcaMenue.umbenennen {
+                        titelText = flaechenTitel
+                        titelBearbeiten = true
+                    }
+                }
+                .alert("Fläche umbenennen", isPresented: $titelBearbeiten) {
+                    TextField("Name", text: $titelText)
+                    Button("Sichern") {
+                        let name = titelText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        UserDefaults.standard.set(name.isEmpty ? standardTitel : name,
+                                                  forKey: "arcaDeskTitel_" + seite)
+                    }
+                    Button("Abbrechen", role: .cancel) {}
+                }
+                .zIndex(20)
 
                 // Leerzustand / Ziel-Rahmen
                 if items.isEmpty || zielt {
@@ -56,7 +98,7 @@ struct ArcaDeskRail: View {
                             }
                             .foregroundStyle(zielt ? ArcaWarm.terrakotta : .secondary)
                         }
-                        .padding(.top, 14)
+                        .padding(.top, 48)
                 }
 
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
@@ -160,7 +202,7 @@ struct ArcaDeskRail: View {
             return CGPoint(x: min(max(CGFloat(x), kartenBreite / 2 + 4), groesse.width - kartenBreite / 2 - 4),
                            y: min(max(CGFloat(y), 70), max(groesse.height - 70, 70)))
         }
-        return CGPoint(x: groesse.width / 2, y: 120 + CGFloat(index) * 200)
+        return CGPoint(x: groesse.width / 2, y: 160 + CGFloat(index) * 200)
     }
 
     private func titel(von item: DeskItem) -> String {
