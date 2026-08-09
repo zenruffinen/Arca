@@ -7418,6 +7418,38 @@ struct SettingsView: View {
         }
     }
 
+    /// Welches App-Symbol gerade auf dem Home-Bildschirm liegt
+    @State private var aktivesIcon: String? = UIApplication.shared.alternateIconName
+
+    /// Eine wählbare Icon-Kachel: Tipp wechselt das Home-Bildschirm-Symbol.
+    @ViewBuilder
+    private func iconWahl(name: String?, bild: String, titel: String) -> some View {
+        let gewaehlt = aktivesIcon == name
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            UIApplication.shared.setAlternateIconName(name) { fehler in
+                if fehler == nil {
+                    DispatchQueue.main.async { aktivesIcon = name }
+                }
+            }
+        } label: {
+            VStack(spacing: 4) {
+                Image(bild)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 46, height: 46)
+                    .clipShape(RoundedRectangle(cornerRadius: 11))
+                    .overlay(RoundedRectangle(cornerRadius: 11)
+                        .strokeBorder(gewaehlt ? ArcaWarm.terrakotta : Color.secondary.opacity(0.25),
+                                      lineWidth: gewaehlt ? 2.5 : 1))
+                Text(titel)
+                    .font(.system(size: 10, weight: gewaehlt ? .semibold : .regular))
+                    .foregroundStyle(gewaehlt ? ArcaWarm.terrakotta : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     private var arcabackupType: UTType {
         AppStore.arcabackupContentType
     }
@@ -7552,52 +7584,53 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // ── Kopf: großer Titel wie im Entwurf ──
+                // ── Kopf: kompakt ──
                 Section {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("Einstellungen")
-                                .font(.system(size: 30, weight: .bold, design: .rounded))
-                            Text("Verwalte deine App, Daten und Präferenzen.")
-                                .font(.system(size: 13))
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                            Text("App, Daten und Präferenzen.")
+                                .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        ArcaGlassIcon(size: 42)
+                        ArcaGlassIcon(size: 34)
                     }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 }
 
-                // ── Profil ──
+                // ── Profil: eine Zeile, Name direkt hier tippbar ──
                 Section {
                     HStack(spacing: 12) {
                         Image(systemName: "person.fill")
-                            .font(.system(size: 19, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(ArcaWarm.terrakotta)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 38, height: 38)
                             .background(ArcaWarm.terrakotta.opacity(0.14), in: Circle())
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(userName.isEmpty ? "Dein Profil" : userName)
+                        VStack(alignment: .leading, spacing: 1) {
+                            TextField("Dein Name", text: $userName)
                                 .font(.system(size: 16, weight: .semibold))
-                            Text("Entwickler & Nutzer")
-                                .font(.system(size: 12))
-                                .foregroundStyle(ArcaWarm.terrakotta)
+                                .textInputAutocapitalization(.words)
+                            Text("Für die Begrüßung auf dem Start")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
                         }
-                        Spacer()
                     }
-                    .padding(.vertical, 2)
-                    HStack {
-                        Label("Dein Name", systemImage: "person.text.rectangle")
-                        Spacer()
-                        TextField("Name", text: $userName)
-                            .multilineTextAlignment(.trailing)
-                            .textInputAutocapitalization(.words)
-                            .frame(maxWidth: 160)
+                    .padding(.vertical, 1)
+
+                    // App-Symbol: Standard oder Gold
+                    if UIApplication.shared.supportsAlternateIcons {
+                        HStack(spacing: 16) {
+                            Label("App-Symbol", systemImage: "app.gift")
+                            Spacer()
+                            iconWahl(name: nil, bild: "ArcaIcon", titel: "Arca")
+                            iconWahl(name: "ArcaGold", bild: "ArcaGoldVorschau", titel: "Gold")
+                        }
+                        .padding(.vertical, 2)
                     }
-                } footer: {
-                    Text("Für die Begrüßung auf dem Startbildschirm.")
                 }
 
                 aboutSection
@@ -7619,22 +7652,21 @@ struct SettingsView: View {
                                          store.iCloudStatus == .downloading ? .orange : .secondary)
                     }
 
-                    // „Gut zu wissen" — die Karte aus dem Entwurf
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
+                    // „Gut zu wissen" — kompakt
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "icloud.and.arrow.down.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.blue.opacity(0.75))
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("Gut zu wissen")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.blue)
-                            Text("Deine Daten werden sicher über iCloud zwischen deinen Geräten synchronisiert. Bei „Warte auf Download“ werden Inhalte noch aus der Cloud geladen.")
-                                .font(.system(size: 12))
+                            Text("Deine Daten wandern sicher über iCloud zwischen deinen Geräten. „Warte auf Download“ heißt: Inhalte kommen gerade aus der Cloud.")
+                                .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer(minLength: 8)
-                        Image(systemName: "icloud.and.arrow.down.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(.blue.opacity(0.7))
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 2)
                     .listRowBackground(Color.blue.opacity(0.07))
                 } header: {
                     Text("Nutzer & Synchronisation")
@@ -7659,21 +7691,21 @@ struct SettingsView: View {
                         Label("Daten wiederherstellen", systemImage: "square.and.arrow.down.fill")
                             .foregroundStyle(.green)
                     }
-                    // „Deine Daten. Deine Sicherheit." — die Karte aus dem Entwurf
+                    // „Deine Daten. Deine Sicherheit." — kompakt
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "checkmark.shield.fill")
-                            .font(.system(size: 20))
+                            .font(.system(size: 18))
                             .foregroundStyle(.green)
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("Deine Daten. Deine Sicherheit.")
-                                .font(.system(size: 13, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.green)
-                            Text("Backups werden verschlüsselt gespeichert. Du kannst sie in iCloud Drive, per Mail oder lokal sichern und jederzeit in Arca wiederherstellen — auch nach einem PIN-Reset.")
-                                .font(.system(size: 12))
+                            Text("Backups sind verschlüsselt — in iCloud Drive, per Mail oder lokal gesichert, jederzeit wiederherstellbar.")
+                                .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 2)
                     .listRowBackground(Color.green.opacity(0.08))
                 } header: {
                     Text("Sichern und Wiederherstellen")
@@ -7692,6 +7724,7 @@ struct SettingsView: View {
                 }
 
             }
+            .listSectionSpacing(14)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
