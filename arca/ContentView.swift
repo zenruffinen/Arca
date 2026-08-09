@@ -465,6 +465,38 @@ struct ArcaPlusKnopf: View {
 
 // MARK: - Arca-Schreibtisch (iPad/Mac)
 
+/// Welche Schreibtisch-Karte gerade gezogen wird — spurübergreifend.
+enum DeskZug {
+    static var gezogen: UUID? = nil
+}
+
+/// Klick-und-Ziehen auf dem Schreibtisch: beim Darüberziehen rückt die
+/// Karte live an die neue Stelle — auch über die Seiten hinweg.
+struct DeskTauschDelegate: DropDelegate {
+    let ziel: DeskItem
+    let store: AppStore
+
+    func dropEntered(info: DropInfo) {
+        guard let g = DeskZug.gezogen, g != ziel.id,
+              let von = store.deskItems.firstIndex(where: { $0.id == g }),
+              let nach = store.deskItems.firstIndex(where: { $0.id == ziel.id }) else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            store.deskItems[von].seite = ziel.seite
+            store.deskItems.move(fromOffsets: IndexSet(integer: von),
+                                 toOffset: nach > von ? nach + 1 : nach)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        DeskZug.gezogen = nil
+        return true
+    }
+}
+
 /// Eine Ablage-Spur des Schreibtischs: kleine Karten-Verweise auf
 /// Dokumente, Notizen und Aufgabenlisten — hineinziehen, antippen, fertig.
 struct ArcaDeskRail: View {
@@ -486,6 +518,11 @@ struct ArcaDeskRail: View {
                     ArcaDeskCard(item: item) {
                         oeffne(item)
                     }
+                    .onDrag {
+                        DeskZug.gezogen = item.id
+                        return NSItemProvider(object: ("desk:" + item.id.uuidString) as NSString)
+                    }
+                    .onDrop(of: [.text], delegate: DeskTauschDelegate(ziel: item, store: store))
                     .contextMenu {
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -539,7 +576,18 @@ struct ArcaDeskRail: View {
 
     /// Abgelegtes einsortieren: UUID auflösen, Doppelte wandern statt doppeln.
     private func legeAb(_ werte: [String]) -> Bool {
-        guard let wert = werte.first, let uuid = UUID(uuidString: wert) else { return false }
+        guard let wert = werte.first else { return false }
+        // Eine Schreibtisch-Karte selbst? Dann nur die Seite wechseln.
+        if wert.hasPrefix("desk:"), let kartenID = UUID(uuidString: String(wert.dropFirst(5))) {
+            if let idx = store.deskItems.firstIndex(where: { $0.id == kartenID }) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    store.deskItems[idx].seite = seite
+                }
+            }
+            DeskZug.gezogen = nil
+            return true
+        }
+        guard let uuid = UUID(uuidString: wert) else { return false }
         let art: FavoriteKind?
         if store.documents.contains(where: { $0.id == uuid }) { art = .document }
         else if store.notes.contains(where: { $0.id == uuid }) { art = .note }
