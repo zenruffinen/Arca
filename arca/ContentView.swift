@@ -237,8 +237,12 @@ struct ContentView: View {
 
     // MARK: - iPad Layout
 
+    /// Die Seitenleiste startet eingeklappt — mehr Platz für den
+    /// Arca Desktop; der Knopf oben links holt sie jederzeit zurück.
+    @State private var spaltenSichtbarkeit: NavigationSplitViewVisibility = .detailOnly
+
     private var iPadLayout: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $spaltenSichtbarkeit) {
             ArcaIPadSidebar(selectedSection: $selectedSection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 310)
         } detail: {

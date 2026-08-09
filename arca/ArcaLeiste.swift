@@ -123,6 +123,8 @@ struct ArcaTabBar: View {
 struct ArcaPlusKnopf: View {
     @Binding var selected: ArcaSection
     @EnvironmentObject var store: AppStore
+    @Environment(\.horizontalSizeClass) private var groessenKlasse
+    @State private var zeigeStiftNotiz = false
 
     /// Das Symbol der Plakette zeigt, was der Plus anlegen würde.
     private var kontextIcon: String {
@@ -198,6 +200,28 @@ struct ArcaPlusKnopf: View {
         // Zwei Freunde nebeneinander: links das Blitzidee-Mikro,
         // rechts der Plus für die vier Eingaben (Plakette = Gruppe).
         HStack(spacing: 14) {
+            // Arca Pen: immer griffbereit, auch bei eingeklappter
+            // Seitenleiste (nur iPad/Mac)
+            if groessenKlasse == .regular {
+                Button {
+                    zeigeStiftNotiz = true
+                } label: {
+                    Image(systemName: "pencil.and.scribble")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 52, height: 52)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
+                                         ArcaWarm.terrakotta],
+                                startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: Circle())
+                        .shadow(color: ArcaWarm.terrakotta.opacity(0.3), radius: 6, x: 0, y: 3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Arca Pen — Stift-Notiz")
+            }
+
             // Das Blitzidee-Mikro: Glas-Tropfen mit Terrakotta-Mikro
             // und kleinem Blitz — ein Tipp, sprechen, fertig.
             Button {
@@ -245,6 +269,10 @@ struct ArcaPlusKnopf: View {
                     .allowsHitTesting(false)
             }
             .accessibilityLabel("Neu anlegen")
+        }
+        .sheet(isPresented: $zeigeStiftNotiz) {
+            ArcaStiftNotiz()
+                .environmentObject(store)
         }
     }
 }
