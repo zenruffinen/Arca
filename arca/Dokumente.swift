@@ -1138,6 +1138,16 @@ struct DocThumbnail: View {
                         .scaledToFit()
                         .shadow(color: .black.opacity(0.10), radius: 2, x: 0, y: 1)
                         .padding(6)
+                } else if gross {
+                    // Oben ausgerichtet statt mittig: Kamera-Scans haben oft
+                    // schwarze Raender unten - der Briefkopf soll zaehlen
+                    GeometryReader { geo in
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                            .clipped()
+                    }
                 } else {
                     Image(uiImage: image)
                         .resizable()
