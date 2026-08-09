@@ -55,7 +55,7 @@ struct DocSource: Identifiable {
     let colorTag: Int
     let action: Action
 
-    enum Action { case scan, pdf, image, text, diktat }
+    enum Action { case scan, pdf, image, text, diktat, stift }
 
     static let all: [DocSource] = [
         DocSource(id: "scan",  icon: "doc.viewfinder",            label: "Scannen",        colorTag: 4, action: .scan),  // Lila
@@ -63,6 +63,7 @@ struct DocSource: Identifiable {
         DocSource(id: "image", icon: "photo.fill.on.rectangle.fill", label: "Fotos / Videos", colorTag: 2, action: .image), // Blau
         DocSource(id: "text",  icon: "doc.text.fill",             label: "Text",           colorTag: 3, action: .text),  // Grün
         DocSource(id: "diktat", icon: "mic.fill",                 label: "Diktieren",      colorTag: 5, action: .diktat), // Pfirsich
+        DocSource(id: "stift", icon: "pencil.and.scribble",       label: "Stift",          colorTag: 0, action: .stift),  // Gelb
     ]
 }
 
@@ -78,6 +79,7 @@ struct DocumentsView: View {
     @State private var previewURL: URL? = nil
     @State private var previewImageURL: URL? = nil
     @State private var showTextInput = false
+    @State private var showStiftNotiz = false
     @State private var textDiktatStart = false
     @State private var textTitle = ""
     @State private var textContent = ""
@@ -164,6 +166,8 @@ struct DocumentsView: View {
             textCategory = store.ensureImportCategoryExists()
             textDiktatStart = true
             showTextInput = true
+        case .stift:
+            showStiftNotiz = true
         }
     }
 
@@ -286,6 +290,10 @@ struct DocumentsView: View {
                     scanReady = true
                     showScanner = false
                 }
+            }
+            .sheet(isPresented: $showStiftNotiz) {
+                ArcaStiftNotiz()
+                    .environmentObject(store)
             }
             .sheet(isPresented: $showTextInput) {
                 TextDocumentInputView(title: $textTitle, content: $textContent, category: $textCategory,
