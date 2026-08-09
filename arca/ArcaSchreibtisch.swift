@@ -102,7 +102,7 @@ struct ArcaDeskRail: View {
                 }
 
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    ArcaDeskCard(item: item) {
+                    ArcaDeskCard(item: item, breite: kartenBreite) {
                         oeffne(item)
                     }
                     .frame(width: kartenBreite)
@@ -202,7 +202,8 @@ struct ArcaDeskRail: View {
             return CGPoint(x: min(max(CGFloat(x), kartenBreite / 2 + 4), groesse.width - kartenBreite / 2 - 4),
                            y: min(max(CGFloat(y), 70), max(groesse.height - 70, 70)))
         }
-        return CGPoint(x: groesse.width / 2, y: 150 + CGFloat(index) * 170)
+        return CGPoint(x: groesse.width / 2,
+                       y: 90 + kartenBreite * 0.6 + CGFloat(index) * (kartenBreite + 40))
     }
 
     private func titel(von item: DeskItem) -> String {
@@ -281,6 +282,7 @@ struct ArcaDeskRail: View {
 /// Notiz als Zettel, Aufgabenliste mit den obersten Punkten.
 struct ArcaDeskCard: View {
     let item: DeskItem
+    var breite: CGFloat = 160
     let onTap: () -> Void
     @EnvironmentObject var store: AppStore
 
@@ -299,7 +301,7 @@ struct ArcaDeskCard: View {
                         // Formatfüllend: die Seite füllt das ganze Post-it
                         DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type,
                                      gross: true)
-                            .frame(height: 150)
+                            .frame(height: max(150, breite * 0.95))
                             .frame(maxWidth: .infinity)
                             .clipped()
                         Text(doc.title)
@@ -323,7 +325,7 @@ struct ArcaDeskCard: View {
                             .lineLimit(7)
                         Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: max(96, breite * 0.55), alignment: .topLeading)
                     .padding(10)
                     .background(NoteColor.for_(notiz.colorTag).bg.opacity(0.5))
                 }
