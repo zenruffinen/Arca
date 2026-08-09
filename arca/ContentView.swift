@@ -7396,6 +7396,12 @@ struct SettingsView: View {
                 HStack {
                     Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.1")", systemImage: "app.badge")
                     Spacer()
+                    Text("Aktuell")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.green)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.green.opacity(0.14), in: Capsule())
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -7546,11 +7552,44 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                aboutSection
-
+                // ── Kopf: großer Titel wie im Entwurf ──
                 Section {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Einstellungen")
+                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                            Text("Verwalte deine App, Daten und Präferenzen.")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        ArcaGlassIcon(size: 42)
+                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
+                // ── Profil ──
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                            .frame(width: 44, height: 44)
+                            .background(ArcaWarm.terrakotta.opacity(0.14), in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(userName.isEmpty ? "Dein Profil" : userName)
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Entwickler & Nutzer")
+                                .font(.system(size: 12))
+                                .foregroundStyle(ArcaWarm.terrakotta)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 2)
                     HStack {
-                        Label("Dein Name", systemImage: "person.fill")
+                        Label("Dein Name", systemImage: "person.text.rectangle")
                         Spacer()
                         TextField("Name", text: $userName)
                             .multilineTextAlignment(.trailing)
@@ -7561,16 +7600,44 @@ struct SettingsView: View {
                     Text("Für die Begrüßung auf dem Startbildschirm.")
                 }
 
+                aboutSection
+
+                // ── Nutzer & Synchronisation ──
                 Section {
                     HStack {
                         Label("iCloud", systemImage: "icloud.fill")
                         Spacer()
-                        Text(store.iCloudStatus.rawValue)
-                            .font(.subheadline)
-                            .foregroundStyle(store.iCloudStatus == .downloading ? .orange : .secondary)
+                        HStack(spacing: 4) {
+                            if store.iCloudStatus == .synced {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 13))
+                            }
+                            Text(store.iCloudStatus.rawValue)
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(store.iCloudStatus == .synced ? .green :
+                                         store.iCloudStatus == .downloading ? .orange : .secondary)
                     }
-                } footer: {
-                    Text("Deine Daten werden über iCloud zwischen Geräten synchronisiert. Bei „Warte auf Download“ werden Inhalte noch aus der Cloud geladen.")
+
+                    // „Gut zu wissen" — die Karte aus dem Entwurf
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Gut zu wissen")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.blue)
+                            Text("Deine Daten werden sicher über iCloud zwischen deinen Geräten synchronisiert. Bei „Warte auf Download“ werden Inhalte noch aus der Cloud geladen.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: "icloud.and.arrow.down.fill")
+                            .font(.system(size: 26))
+                            .foregroundStyle(.blue.opacity(0.7))
+                    }
+                    .padding(.vertical, 6)
+                    .listRowBackground(Color.blue.opacity(0.07))
+                } header: {
+                    Text("Nutzer & Synchronisation")
                 }
 
                 // Backup — wichtigste Funktion, direkt oben
@@ -7592,10 +7659,24 @@ struct SettingsView: View {
                         Label("Daten wiederherstellen", systemImage: "square.and.arrow.down.fill")
                             .foregroundStyle(.green)
                     }
+                    // „Deine Daten. Deine Sicherheit." — die Karte aus dem Entwurf
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Deine Daten. Deine Sicherheit.")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.green)
+                            Text("Backups werden verschlüsselt gespeichert. Du kannst sie in iCloud Drive, per Mail oder lokal sichern und jederzeit in Arca wiederherstellen — auch nach einem PIN-Reset.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .listRowBackground(Color.green.opacity(0.08))
                 } header: {
-                    Text("Sichern und wiederherstellen")
-                } footer: {
-                    Text("Das Backup wird verschlüsselt gespeichert. Du kannst es in iCloud Drive, per Mail oder lokal sichern. Falls du deinen PIN vergisst und die App zurücksetzen musst, kannst du alle Daten daraus wiederherstellen.")
+                    Text("Sichern und Wiederherstellen")
                 }
 
                 // Wusstest du? – wechselnde Tipps & versteckte Funktionen
