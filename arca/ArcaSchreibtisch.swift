@@ -31,6 +31,12 @@ struct ArcaDeskRail: View {
     @State private var titelBearbeiten = false
     @State private var titelText = ""
     @State private var flaechenFarbe: Int? = nil
+    @State private var dockAktiv = false
+
+    /// Wo das Auswurf-Dock sitzt (rechts oben in der Fläche).
+    private func dockPunkt(in groesse: CGSize) -> CGPoint {
+        CGPoint(x: groesse.width - 28, y: 30)
+    }
 
     /// Die Karten bleiben handlich — die Fläche wächst, nicht die Post-its.
     private var kartenBreite: CGFloat { min(breite - 16, 170) }
@@ -112,6 +118,23 @@ struct ArcaDeskRail: View {
                 }
                 .zIndex(20)
 
+                // Der Auswurf: Karte hierher ziehen = vom Schreibtisch nehmen
+                // (das Original bleibt, wo es ist)
+                ZStack {
+                    Circle()
+                        .strokeBorder(dockAktiv ? Color.red : ArcaWarm.terrakotta.opacity(zugID != nil ? 0.8 : 0.3),
+                                      style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .background(Circle().fill(dockAktiv ? Color.red.opacity(0.15) : Color.clear))
+                    Image(systemName: "tray.and.arrow.up")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(dockAktiv ? .red : (zugID != nil ? ArcaWarm.terrakotta : .secondary))
+                }
+                .frame(width: 34, height: 34)
+                .scaleEffect(dockAktiv ? 1.3 : 1)
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: dockAktiv)
+                .position(dockPunkt(in: geo.size))
+                .zIndex(15)
+
                 // Leerzustand / Ziel-Rahmen
                 if items.isEmpty || zielt {
                     RoundedRectangle(cornerRadius: 14)
@@ -147,20 +170,33 @@ struct ArcaDeskRail: View {
                             .onChanged { wert in
                                 zugID = item.id
                                 zugVersatz = wert.translation
+                                let start = position(item, index: index, in: geo.size)
+                                let jetzt = CGPoint(x: start.x + wert.translation.width,
+                                                    y: start.y + wert.translation.height)
+                                let dock = dockPunkt(in: geo.size)
+                                dockAktiv = hypot(jetzt.x - dock.x, jetzt.y - dock.y) < 55
                             }
                             .onEnded { wert in
                                 let start = position(item, index: index, in: geo.size)
                                 let ziel = CGPoint(x: start.x + wert.translation.width,
                                                    y: start.y + wert.translation.height)
-                                if let idx = store.deskItems.firstIndex(where: { $0.id == item.id }) {
+                                let dock = dockPunkt(in: geo.size)
+                                if hypot(ziel.x - dock.x, ziel.y - dock.y) < 55 {
+                                    // In den Auswurf gezogen: Karte vom Schreibtisch nehmen
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        store.deskItems.removeAll { $0.id == item.id }
+                                    }
+                                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                } else if let idx = store.deskItems.firstIndex(where: { $0.id == item.id }) {
                                     store.deskItems[idx].posX = Double(min(max(ziel.x, kartenBreite / 2 + 4),
                                                                            geo.size.width - kartenBreite / 2 - 4))
                                     store.deskItems[idx].posY = Double(min(max(ziel.y, 70),
                                                                            geo.size.height - 70))
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
                                 zugID = nil
                                 zugVersatz = .zero
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                dockAktiv = false
                             }
                     )
                     .contextMenu {
@@ -203,11 +239,13 @@ struct ArcaDeskRail: View {
         .onAppear {
             flaechenFarbe = UserDefaults.standard.object(forKey: "arcaDeskFarbe_" + seite) as? Int
         }
-        // Die Stoppuhr wohnt unten auf dem Schnellzugriff
-        .overlay(alignment: .bottom) {
+        // Die Stoppuhr: unten links auf dem Schnellzugriff,
+        // auf einer Höhe mit Mikrofon und Plus
+        .overlay(alignment: .bottomLeading) {
             if seite == "rechts" {
                 ArcaDeskUhr()
-                    .padding(.bottom, 96)
+                    .padding(.leading, 6)
+                    .padding(.bottom, 28)
             }
         }
         .quickLookPreview($previewURL)
