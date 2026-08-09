@@ -582,17 +582,19 @@ struct ArcaDeskCard: View {
             switch item.kind {
             case .document:
                 if let doc = store.documents.first(where: { $0.id == item.refID }) {
-                    VStack(spacing: 0) {
+                    ZStack(alignment: .bottom) {
                         DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
-                            .frame(height: 120)
+                            .frame(height: 170)
                             .frame(maxWidth: .infinity)
                             .clipped()
+                        // Titel-Etikett auf dem Post-it
                         Text(doc.title)
                             .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(8)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 8)
+                            .background(.ultraThinMaterial)
                     }
                     .background(ArcaWarm.karte)
                 }
@@ -605,10 +607,11 @@ struct ArcaDeskCard: View {
                         Text(notiz.text)
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
-                            .lineLimit(6)
+                            .lineLimit(7)
+                        Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(9)
+                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+                    .padding(10)
                     .background(NoteColor.for_(notiz.colorTag).bg)
                 }
             case .list:
@@ -642,11 +645,29 @@ struct ArcaDeskCard: View {
                 EmptyView()
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
-        .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
-        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+        // Klebestreifen oben — wie aufs Pult geklebt
+        .overlay(alignment: .top) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.white.opacity(0.5))
+                .overlay(RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8))
+                .frame(width: 46, height: 15)
+                .rotationEffect(.degrees(-4))
+                .offset(y: -7)
+                .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
+        }
+        .shadow(color: .black.opacity(0.13), radius: 5, x: 0, y: 3)
+        .rotationEffect(.degrees(neigung))
+        .contentShape(RoundedRectangle(cornerRadius: 10))
         .onTapGesture(perform: onTap)
+    }
+
+    /// Leichte, pro Karte feste Neigung (-2,4° … +2,4°) — Post-it-Charme.
+    private var neigung: Double {
+        let summe = item.refID.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return Double(summe % 5 - 2) * 1.2
     }
 }
 
