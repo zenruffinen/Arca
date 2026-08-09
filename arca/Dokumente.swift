@@ -33,8 +33,11 @@ func docTypeColor(_ type: DocumentType) -> Color {
 // Deterministische Farbe pro Kategorie-Name (gleicher Name → gleiche Farbe)
 func categoryColor(_ name: String, overrides: [String: Int] = [:]) -> NoteColor {
     if let idx = overrides[name] { return NoteColor.for_(idx) }
-    let hash = abs(name.hashValue)
-    return NoteColor.for_(hash % NoteColor.palette.count)
+    // Stabiler Wert statt hashValue: der wechselt bei jedem App-Start
+    // (Zufalls-Saat) — so bekam dieselbe Gruppe je nach Gerät und
+    // Sitzung andere Farben. Die Zeichensumme bleibt für immer gleich.
+    let summe = name.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+    return NoteColor.for_(summe % NoteColor.palette.count)
 }
 
 // Helper-Struct für Untergruppen-Operationen (Tuples können nicht direkt als @State verwendet werden)
