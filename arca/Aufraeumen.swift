@@ -22,6 +22,8 @@ struct AufraeumModus: View {
     @State private var gesamt = 0
     @State private var previewURL: URL? = nil
     @State private var geladen = false
+    @State private var zeigeNeueGruppe = false
+    @State private var neueGruppeName = ""
 
     private var aktuellesDok: DocumentEntry? {
         guard let id = schlange.first else { return nil }
@@ -36,6 +38,25 @@ struct AufraeumModus: View {
         NavigationStack {
             ZStack {
                 ArcaWarm.hintergrund.ignoresSafeArea()
+
+                // Die Bögen — Arcas Motiv, ganz leise in der Ecke
+                VStack {
+                    HStack {
+                        Spacer()
+                        ZStack {
+                            Circle().stroke(ArcaWarm.terrakotta.opacity(0.10), lineWidth: 26)
+                                .frame(width: 340, height: 340)
+                            Circle().stroke(ArcaWarm.terrakotta.opacity(0.16), lineWidth: 26)
+                                .frame(width: 230, height: 230)
+                            Circle().stroke(ArcaWarm.terrakotta.opacity(0.24), lineWidth: 26)
+                                .frame(width: 120, height: 120)
+                        }
+                        .offset(x: 130, y: -130)
+                    }
+                    Spacer()
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
                 if let doc = aktuellesDok {
                     arbeitsAnsicht(doc)
@@ -70,6 +91,22 @@ struct AufraeumModus: View {
                 }
             }
             .quickLookPreview($previewURL)
+            .alert("Neue Gruppe", isPresented: $zeigeNeueGruppe) {
+                TextField("Name der Gruppe", text: $neueGruppeName)
+                Button("Anlegen und einsortieren") {
+                    let name = neueGruppeName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !name.isEmpty else { return }
+                    if !store.documentCategories.contains(name) {
+                        store.documentCategories.append(name)
+                    }
+                    if let doc = aktuellesDok {
+                        sortiere(doc, nach: name)
+                    }
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Die Gruppe wird angelegt und das Dokument direkt hineinsortiert.")
+            }
         }
     }
 
@@ -98,7 +135,30 @@ struct AufraeumModus: View {
 
             Spacer(minLength: 0)
 
-            // Die Karte vom Stapel — Post-it-Stil, Tipp öffnet die Vollansicht
+            // Die Karte vom Stapel — dahinter lugt der Rest des Stapels hervor
+            ZStack {
+                if schlange.count > 2 {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(ArcaWarm.karte.opacity(0.8))
+                        .overlay(RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                        .frame(maxWidth: 400)
+                        .aspectRatio(0.78, contentMode: .fit)
+                        .rotationEffect(.degrees(2.6))
+                        .offset(y: 16)
+                        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+                }
+                if schlange.count > 1 {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(ArcaWarm.karte)
+                        .overlay(RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
+                        .frame(maxWidth: 415)
+                        .aspectRatio(0.78, contentMode: .fit)
+                        .rotationEffect(.degrees(-2.8))
+                        .offset(y: 8)
+                        .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 3)
+                }
             VStack(spacing: 0) {
                 DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type,
                              passendEinpassen: true, gross: true)
@@ -116,9 +176,19 @@ struct AufraeumModus: View {
             .background(ArcaWarm.karte)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
-            .shadow(color: .black.opacity(0.15), radius: 9, x: 0, y: 5)
+            // Der Klebestreifen — wie auf dem Schreibtisch
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.white.opacity(0.55))
+                    .overlay(RoundedRectangle(cornerRadius: 3)
+                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8))
+                    .frame(width: 64, height: 20)
+                    .rotationEffect(.degrees(-3.5))
+                    .offset(y: -10)
+                    .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
+            }
+            .shadow(color: .black.opacity(0.16), radius: 10, x: 0, y: 6)
             .rotationEffect(.degrees(-1.2))
-            .padding(.horizontal, 24)
             .contentShape(Rectangle())
             .onTapGesture {
                 previewURL = store.documentURL(for: doc.filename)
@@ -129,6 +199,8 @@ struct AufraeumModus: View {
             .transition(.asymmetric(
                 insertion: .scale(scale: 0.92).combined(with: .opacity),
                 removal: .move(edge: .trailing).combined(with: .opacity)))
+            }
+            .padding(.horizontal, 24)
 
             Spacer(minLength: 0)
 
@@ -141,6 +213,26 @@ struct AufraeumModus: View {
                     .padding(.horizontal, 24)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
+                        // Ziel gibt es noch nicht? Hier entsteht es
+                        Button {
+                            neueGruppeName = ""
+                            zeigeNeueGruppe = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "folder.badge.plus")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Neue Gruppe")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 9)
+                            .background(
+                                Capsule().strokeBorder(ArcaWarm.terrakotta.opacity(0.55),
+                                                       style: StrokeStyle(lineWidth: 1.4, dash: [4, 3])))
+                        }
+                        .buttonStyle(.plain)
+
                         ForEach(zielGruppen, id: \.self) { gruppe in
                             let farben = categoryColor(gruppe, overrides: store.categoryColors)
                             Button {
