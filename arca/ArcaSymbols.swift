@@ -16,6 +16,18 @@ enum ArcaSymbol: String, CaseIterable, Identifiable {
     case note = "ArcaNote"
     case folder = "ArcaFolder"
     case lock = "ArcaLock"
+    case done = "ArcaDone"
+    case search = "ArcaSearch"
+    case place = "ArcaPlace"
+    case calendar = "ArcaCalendar"
+    case star = "ArcaStar"
+    case home = "ArcaHome"
+    case card = "ArcaCard"
+    case travel = "ArcaTravel"
+    case health = "ArcaHealth"
+    case invoice = "ArcaInvoice"
+    case settings = "ArcaSettings"
+    case scan = "ArcaScan"
 
     var id: String { rawValue }
 }
