@@ -280,6 +280,31 @@ struct ContentView: View {
                 // Überall dieselbe warme Bühne wie auf dem Start —
                 // kein Farbsprung beim Umschalten
                 .background(ArcaWarm.hintergrund.ignoresSafeArea())
+                // Zurück zum Space: bei eingeklappter Leiste sonst kein Weg raus
+                .overlay(alignment: .topLeading) {
+                    if selectedSection != .home {
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                selectedSection = .home
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text("Space")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .glassEffect(.regular, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 14)
+                        .padding(.top, 6)
+                        .accessibilityLabel("Zurück zum Space")
+                    }
+                }
                 // Von außen hineingezogen (Mail, Finder-Datei) →
                 // landet als Dokument in „Unsortiert"
                 .onDrop(of: externeAblageTypen, isTargeted: nil) { anbieter in
