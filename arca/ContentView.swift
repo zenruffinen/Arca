@@ -249,9 +249,9 @@ struct ContentView: View {
             // Der Schreibtisch bleibt in JEDEM Bereich rechts stehen —
             // die App arbeitet links, das Pult liegt daneben.
             GeometryReader { geo in
-                // Die App-Spalte bleibt schlank (Blasen-Breite) —
+                // Die App-Spalte endet an der Passwörter-Blase —
                 // der Löwenanteil gehört dem Schreibtisch
-                let inhaltsBreite: CGFloat = geo.size.width < 1250 ? 480 : 560
+                let inhaltsBreite: CGFloat = 410
                 let zonenBreite = (geo.size.width - inhaltsBreite - 24) / 2
                 let zeigtDesk = zonenBreite >= 165
                 HStack(alignment: .top, spacing: 8) {
