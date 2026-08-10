@@ -249,9 +249,9 @@ struct ContentView: View {
             // Der Schreibtisch bleibt in JEDEM Bereich rechts stehen —
             // die App arbeitet links, das Pult liegt daneben.
             GeometryReader { geo in
-                // Auf dem iPad (weniger Gesamtbreite) rückt die App enger
-                // zusammen — mehr Platz für Zu erledigen und Schnellzugriff
-                let inhaltsBreite: CGFloat = geo.size.width < 1250 ? 560 : 716
+                // Die App-Spalte bleibt schlank (Blasen-Breite) —
+                // der Löwenanteil gehört dem Schreibtisch
+                let inhaltsBreite: CGFloat = geo.size.width < 1250 ? 480 : 560
                 let zonenBreite = (geo.size.width - inhaltsBreite - 24) / 2
                 let zeigtDesk = zonenBreite >= 165
                 HStack(alignment: .top, spacing: 8) {

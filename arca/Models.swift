@@ -224,6 +224,25 @@ enum FavoriteKind: String {
     case document, note, list, vault
 }
 
+/// Aussehen der Schreibtisch-Flächen: Titel und Farben — synct über
+/// iCloud, damit iPad und Mac dasselbe Pult zeigen.
+struct DeskFlaechenStil: Codable {
+    var titelLinks: String? = nil
+    var titelRechts: String? = nil
+    var farbeLinks: Int? = nil
+    var farbeRechts: Int? = nil
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        titelLinks  = try c.decodeIfPresent(String.self, forKey: .titelLinks)
+        titelRechts = try c.decodeIfPresent(String.self, forKey: .titelRechts)
+        farbeLinks  = try c.decodeIfPresent(Int.self,    forKey: .farbeLinks)
+        farbeRechts = try c.decodeIfPresent(Int.self,    forKey: .farbeRechts)
+    }
+}
+
 /// Ein Eintrag auf dem Arca-Schreibtisch (iPad/Mac): kleine Karten
 /// links und rechts vom Space — nur Verweise, keine Kopien.
 struct DeskItem: Identifiable, Codable, Hashable {

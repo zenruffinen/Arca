@@ -679,6 +679,24 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("QR-Code scannen")
+
+                // Zahnrad: auf iPad/Mac ist die Seitenleiste oft zu —
+                // die Einstellungen bleiben trotzdem einen Tipp entfernt
+                if horizontalSizeClass == .regular {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            selectedSection = .settings
+                        }
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 36, height: 36)
+                            .glassEffect(.regular, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Einstellungen")
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)

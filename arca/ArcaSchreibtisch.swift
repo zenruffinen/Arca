@@ -30,7 +30,7 @@ struct ArcaDeskRail: View {
     @State private var umbenennenText = ""
     @State private var titelBearbeiten = false
     @State private var titelText = ""
-    @State private var flaechenFarbe: Int? = nil
+
     @State private var dockAktiv = false
     @State private var erledigtID: UUID? = nil
 
@@ -47,7 +47,23 @@ struct ArcaDeskRail: View {
     private var standardTitel: String { seite == "links" ? "Zu erledigen" : "Schnellzugriff" }
     private var titelSymbol: String { seite == "links" ? "checkmark.circle" : "bolt.fill" }
     private var flaechenTitel: String {
-        UserDefaults.standard.string(forKey: "arcaDeskTitel_" + seite) ?? standardTitel
+        (seite == "links" ? store.deskStil.titelLinks : store.deskStil.titelRechts) ?? standardTitel
+    }
+
+    private var flaechenFarbe: Int? {
+        seite == "links" ? store.deskStil.farbeLinks : store.deskStil.farbeRechts
+    }
+
+    private func setzeFlaeche(titel: String? = nil, farbe: Int?? = nil) {
+        var stil = store.deskStil
+        if seite == "links" {
+            if let titel { stil.titelLinks = titel }
+            if let farbe { stil.farbeLinks = farbe }
+        } else {
+            if let titel { stil.titelRechts = titel }
+            if let farbe { stil.farbeRechts = farbe }
+        }
+        store.deskStil = stil
     }
 
     /// Sanfter Farb-Anstrich der Fläche — wählbar über die Überschrift.
@@ -96,13 +112,11 @@ struct ArcaDeskRail: View {
                         titelBearbeiten = true
                     }
                     ArcaMenue.farbe(aktuell: flaechenFarbe) { idx in
-                        flaechenFarbe = idx
-                        UserDefaults.standard.set(idx, forKey: "arcaDeskFarbe_" + seite)
+                        setzeFlaeche(farbe: idx)
                     }
                     if flaechenFarbe != nil {
                         Button {
-                            flaechenFarbe = nil
-                            UserDefaults.standard.removeObject(forKey: "arcaDeskFarbe_" + seite)
+                            setzeFlaeche(farbe: .some(nil))
                         } label: {
                             Label("Farbe entfernen", systemImage: "circle.slash")
                         }
@@ -112,8 +126,7 @@ struct ArcaDeskRail: View {
                     TextField("Name", text: $titelText)
                     Button("Sichern") {
                         let name = titelText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        UserDefaults.standard.set(name.isEmpty ? standardTitel : name,
-                                                  forKey: "arcaDeskTitel_" + seite)
+                        setzeFlaeche(titel: name.isEmpty ? standardTitel : name)
                     }
                     Button("Abbrechen", role: .cancel) {}
                 }
@@ -275,7 +288,17 @@ struct ArcaDeskRail: View {
         }
         .frame(width: breite)
         .onAppear {
-            flaechenFarbe = UserDefaults.standard.object(forKey: "arcaDeskFarbe_" + seite) as? Int
+            // Alte, geräte-lokale Einstellungen einmalig in den Sync heben
+            if flaechenFarbe == nil,
+               let alt = UserDefaults.standard.object(forKey: "arcaDeskFarbe_" + seite) as? Int {
+                setzeFlaeche(farbe: alt)
+                UserDefaults.standard.removeObject(forKey: "arcaDeskFarbe_" + seite)
+            }
+            if (seite == "links" ? store.deskStil.titelLinks : store.deskStil.titelRechts) == nil,
+               let alt = UserDefaults.standard.string(forKey: "arcaDeskTitel_" + seite) {
+                setzeFlaeche(titel: alt)
+                UserDefaults.standard.removeObject(forKey: "arcaDeskTitel_" + seite)
+            }
         }
         .quickLookPreview($previewURL)
         // Umbenennen wirkt auf das Original — überall, auf allen Geräten

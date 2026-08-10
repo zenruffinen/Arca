@@ -87,6 +87,10 @@ final class AppStore: ObservableObject {
     @Published var deskItems: [DeskItem] = [] {
         didSet { guard !isLoadingData else { return }; saveJSON(deskItems, key: "deskItems") }
     }
+    /// Titel und Farben der Schreibtisch-Flächen — überall gleich
+    @Published var deskStil = DeskFlaechenStil() {
+        didSet { guard !isLoadingData else { return }; saveJSON(deskStil, key: "deskStil") }
+    }
     @Published var lists: [ListEntry] = [] {
         didSet { guard !isLoadingData else { return }; saveLists() }
     }
@@ -1561,6 +1565,9 @@ final class AppStore: ObservableObject {
         }
         if let decoded = loadJSON([DeskItem].self, key: "deskItems") {
             deskItems = decoded
+        }
+        if let decoded = loadJSON(DeskFlaechenStil.self, key: "deskStil") {
+            deskStil = decoded
         }
         if let decoded = loadJSON([String].self, key: "documentCategories") {
             documentCategories = decoded
