@@ -123,6 +123,8 @@ struct AufraeumModus: View {
             .onTapGesture {
                 previewURL = store.documentURL(for: doc.filename)
             }
+            // Anpacken und auf einen Chip oder eine Entscheidung ziehen
+            .onDrag { NSItemProvider(object: doc.id.uuidString as NSString) }
             .id(doc.id)
             .transition(.asymmetric(
                 insertion: .scale(scale: 0.92).combined(with: .opacity),
@@ -156,6 +158,10 @@ struct AufraeumModus: View {
                                 .background(farben.bg.opacity(0.8), in: Capsule())
                             }
                             .buttonStyle(.plain)
+                            .dropDestination(for: String.self) { _, _ in
+                                sortiere(doc, nach: gruppe)
+                                return true
+                            }
                         }
                     }
                     .padding(.horizontal, 24)
@@ -200,6 +206,10 @@ struct AufraeumModus: View {
             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 13))
         }
         .buttonStyle(.plain)
+        .dropDestination(for: String.self) { _, _ in
+            aktion()
+            return true
+        }
     }
 
     // MARK: Der Jubel
