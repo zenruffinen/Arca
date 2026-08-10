@@ -119,6 +119,11 @@ struct HomeView: View {
     @State private var gruppeUmbenennenText = ""
     @State private var gruppeZumLoeschen: String? = nil
     @State private var sortiereGruppen = false
+    @State private var zeigeAufraeumen = false
+
+    private var unsortierteAnzahl: Int {
+        store.documents.filter { $0.category == "Unsortiert" }.count
+    }
     @State private var backupSnoozeSignal = 0
     @State private var gezogeneBlase: HomeStreamFilter? = nil
     @State private var ziehZielGruppe: String? = nil
@@ -909,8 +914,36 @@ struct HomeView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 8)
                                 } else {
-                                    // Neue Gruppe anlegen · Reihenfolge sortieren
+                                    // Aufräumen · Neue Gruppe · Reihenfolge sortieren
                                     HStack(spacing: 8) {
+                                        if unsortierteAnzahl > 0 {
+                                            Button {
+                                                zeigeAufraeumen = true
+                                            } label: {
+                                                HStack(spacing: 7) {
+                                                    Image(systemName: "sparkles")
+                                                        .font(.system(size: 14, weight: .semibold))
+                                                    Text("Aufräumen")
+                                                        .font(.system(size: 13, weight: .bold))
+                                                    Text("\(unsortierteAnzahl)")
+                                                        .font(.system(size: 11, weight: .bold))
+                                                        .padding(.horizontal, 7)
+                                                        .padding(.vertical, 2)
+                                                        .background(Color.white.opacity(0.25), in: Capsule())
+                                                }
+                                                .foregroundStyle(.white)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 10)
+                                                .background(
+                                                    LinearGradient(
+                                                        colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
+                                                                 ArcaWarm.terrakotta],
+                                                        startPoint: .topLeading, endPoint: .bottomTrailing),
+                                                    in: RoundedRectangle(cornerRadius: 12))
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+
                                         Button {
                                             docFuerNeueGruppe = nil
                                             neueGruppeName = ""
@@ -1196,6 +1229,10 @@ struct HomeView: View {
                     .onChange(of: geo.size.width) { _, neu in seitenBreite = neu }
             }
         )
+        .fullScreenCover(isPresented: $zeigeAufraeumen) {
+            AufraeumModus()
+                .environmentObject(store)
+        }
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)
