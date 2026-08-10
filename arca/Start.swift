@@ -121,8 +121,13 @@ struct HomeView: View {
     @State private var sortiereGruppen = false
     @State private var zeigeAufraeumen = false
 
+    /// Was aufzuräumen ist: alles in „Unsortiert" PLUS Waisen,
+    /// deren Gruppe es nicht mehr gibt — wie der Unsortiert-Balken zählt.
     private var unsortierteAnzahl: Int {
-        store.documents.filter { $0.category == "Unsortiert" }.count
+        let bekannte = Set(store.documentCategories)
+        return store.documents.filter {
+            $0.category == "Unsortiert" || !bekannte.contains($0.category)
+        }.count
     }
     @State private var backupSnoozeSignal = 0
     @State private var gezogeneBlase: HomeStreamFilter? = nil
@@ -914,36 +919,37 @@ struct HomeView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 8)
                                 } else {
-                                    // Aufräumen · Neue Gruppe · Reihenfolge sortieren
-                                    HStack(spacing: 8) {
-                                        if unsortierteAnzahl > 0 {
-                                            Button {
-                                                zeigeAufraeumen = true
-                                            } label: {
-                                                HStack(spacing: 7) {
-                                                    Image(systemName: "sparkles")
-                                                        .font(.system(size: 14, weight: .semibold))
-                                                    Text("Aufräumen")
-                                                        .font(.system(size: 13, weight: .bold))
-                                                    Text("\(unsortierteAnzahl)")
-                                                        .font(.system(size: 11, weight: .bold))
-                                                        .padding(.horizontal, 7)
-                                                        .padding(.vertical, 2)
-                                                        .background(Color.white.opacity(0.25), in: Capsule())
-                                                }
-                                                .foregroundStyle(.white)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 10)
-                                                .background(
-                                                    LinearGradient(
-                                                        colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
-                                                                 ArcaWarm.terrakotta],
-                                                        startPoint: .topLeading, endPoint: .bottomTrailing),
-                                                    in: RoundedRectangle(cornerRadius: 12))
+                                    // Aufräumen: eigene Zeile, sonst quetscht es in der
+                                    // schmalen Spalte — darunter Neue Gruppe · Sortieren
+                                    if unsortierteAnzahl > 0 {
+                                        Button {
+                                            zeigeAufraeumen = true
+                                        } label: {
+                                            HStack(spacing: 7) {
+                                                Image(systemName: "sparkles")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                Text("Aufräumen")
+                                                    .font(.system(size: 13, weight: .bold))
+                                                Text("\(unsortierteAnzahl)")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .padding(.horizontal, 7)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.white.opacity(0.25), in: Capsule())
                                             }
-                                            .buttonStyle(.plain)
+                                            .foregroundStyle(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                            .background(
+                                                LinearGradient(
+                                                    colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
+                                                             ArcaWarm.terrakotta],
+                                                    startPoint: .topLeading, endPoint: .bottomTrailing),
+                                                in: RoundedRectangle(cornerRadius: 12))
                                         }
+                                        .buttonStyle(.plain)
+                                    }
 
+                                    HStack(spacing: 8) {
                                         Button {
                                             docFuerNeueGruppe = nil
                                             neueGruppeName = ""

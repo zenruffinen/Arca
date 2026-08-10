@@ -58,8 +58,11 @@ struct AufraeumModus: View {
             }
             .onAppear {
                 if !geladen {
+                    // Wie der Unsortiert-Balken: auch Waisen (gelöschte
+                    // Gruppen) gehören auf den Stapel
+                    let bekannte = Set(store.documentCategories)
                     schlange = store.documents
-                        .filter { $0.category == "Unsortiert" }
+                        .filter { $0.category == "Unsortiert" || !bekannte.contains($0.category) }
                         .sorted { $0.dateAdded > $1.dateAdded }
                         .map(\.id)
                     gesamt = schlange.count
