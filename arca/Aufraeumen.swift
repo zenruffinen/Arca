@@ -24,6 +24,7 @@ struct AufraeumModus: View {
     @State private var geladen = false
     @State private var zeigeNeueGruppe = false
     @State private var neueGruppeName = ""
+    @State private var loeschKandidat: DocumentEntry? = nil
 
     private var aktuellesDok: DocumentEntry? {
         guard let id = schlange.first else { return nil }
@@ -91,6 +92,22 @@ struct AufraeumModus: View {
                 }
             }
             .quickLookPreview($previewURL)
+            .alert("Wirklich löschen?", isPresented: Binding(
+                get: { loeschKandidat != nil },
+                set: { if !$0 { loeschKandidat = nil } }
+            )) {
+                Button("Löschen", role: .destructive) {
+                    if let doc = loeschKandidat {
+                        store.deleteDocument(doc)
+                        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                        weiter()
+                    }
+                    loeschKandidat = nil
+                }
+                Button("Abbrechen", role: .cancel) { loeschKandidat = nil }
+            } message: {
+                Text("„\(loeschKandidat?.title ?? "")“ wird endgültig gelöscht — samt Datei.")
+            }
             .alert("Neue Gruppe", isPresented: $zeigeNeueGruppe) {
                 TextField("Name der Gruppe", text: $neueGruppeName)
                 Button("Anlegen und einsortieren") {
@@ -273,6 +290,9 @@ struct AufraeumModus: View {
                 }
                 entscheidung("Später", symbol: "arrow.uturn.right", farbe: .secondary) {
                     weiter()
+                }
+                entscheidung("Löschen", symbol: "trash", farbe: .red) {
+                    loeschKandidat = doc
                 }
             }
             .padding(.horizontal, 24)
