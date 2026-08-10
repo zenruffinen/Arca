@@ -101,6 +101,7 @@ struct HomeView: View {
     @State private var quickAccessNote: NoteEntry? = nil
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
+    @State private var sucheOffen = false
     @AppStorage("arcaUserName") private var userName: String = ""
     @AppStorage("arcaUserNameAsked") private var userNameAsked: Bool = false
     @State private var showNamePrompt = false
@@ -631,6 +632,30 @@ struct HomeView: View {
 
                 Spacer()
 
+                // Die Lupe: holt das Suchfeld hervor und schickt es wieder weg
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        sucheOffen.toggle()
+                    }
+                    if sucheOffen {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            isSearchFocused = true
+                        }
+                    } else {
+                        searchText = ""
+                        isSearchFocused = false
+                    }
+                } label: {
+                    Image(systemName: sucheOffen ? "xmark" : "magnifyingglass")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(sucheOffen ? ArcaWarm.terrakotta : .primary)
+                        .frame(width: 36, height: 36)
+                        .glassEffect(.regular, in: Circle())
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Alles durchsuchen")
+
                 // Notfall immer griffbereit: Notrufnummern + Karten sperren
                 Button {
                     store.zeigeNotfall = true
@@ -678,10 +703,13 @@ struct HomeView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // ── Danach die Suche: „Alles durchsuchen" ──
-            HomeSearchBar(text: $searchText, focused: $isSearchFocused)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
+            // ── Die Suche kommt nur auf Ruf der Lupe ──
+            if sucheOffen || isSearching {
+                HomeSearchBar(text: $searchText, focused: $isSearchFocused)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
             }
             .frame(maxWidth: homeContentMaxWidth)
             .frame(maxWidth: .infinity, alignment: deskSichtbar ? .leading : .center)
@@ -1288,6 +1316,7 @@ struct HomeView: View {
         }
         // ⌘F vom Mac/iPad: Suchfeld fokussieren
         .onChange(of: store.sucheFokusSignal) { _, _ in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { sucheOffen = true }
             isSearchFocused = true
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: store.favoriteItems.count)
