@@ -402,8 +402,7 @@ struct ArcaSectionTitle: View {
     var body: some View {
         HStack(spacing: 5) {
             if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                ArcaIcon(name: icon, groesse: 13)
             }
             Text(title)
                 .textCase(.uppercase)

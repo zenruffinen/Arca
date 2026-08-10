@@ -58,8 +58,8 @@ struct DocSource: Identifiable {
     enum Action { case scan, pdf, image, text, diktat, stift }
 
     static let all: [DocSource] = [
-        DocSource(id: "scan",  icon: "doc.viewfinder",            label: "Scannen",        colorTag: 4, action: .scan),  // Lila
-        DocSource(id: "pdf",   icon: "doc.fill",                  label: "PDF",            colorTag: 1, action: .pdf),   // Rosa
+        DocSource(id: "scan",  icon: "ArcaScan",                  label: "Scannen",        colorTag: 4, action: .scan),  // Lila
+        DocSource(id: "pdf",   icon: "ArcaDocument",              label: "PDF",            colorTag: 1, action: .pdf),   // Rosa
         DocSource(id: "image", icon: "photo.fill.on.rectangle.fill", label: "Fotos / Videos", colorTag: 2, action: .image), // Blau
         DocSource(id: "text",  icon: "doc.text.fill",             label: "Text",           colorTag: 3, action: .text),  // Grün
         DocSource(id: "diktat", icon: "mic.fill",                 label: "Diktieren",      colorTag: 5, action: .diktat), // Pfirsich
@@ -1398,8 +1398,7 @@ struct NewDocumentSourceSheet: View {
                             }
                         } label: {
                             VStack(spacing: 8) {
-                                Image(systemName: source.icon)
-                                    .font(.system(size: 20, weight: .semibold))
+                                ArcaIcon(name: source.icon, groesse: 21)
                                     .foregroundStyle(NoteColor.for_(source.colorTag).accent)
                                     .frame(width: 44, height: 44)
                                     .background(NoteColor.for_(source.colorTag).bg.opacity(0.7),

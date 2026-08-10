@@ -173,10 +173,10 @@ struct AufraeumModus: View {
                 entscheidung("Zu erledigen", symbol: "pin.fill", farbe: ArcaWarm.terrakotta) {
                     pinne(doc, seite: "links")
                 }
-                entscheidung("Schnellzugriff", symbol: "bolt.fill", farbe: .orange) {
+                entscheidung("Schnellzugriff", symbol: "ArcaBolt", farbe: .orange) {
                     pinne(doc, seite: "rechts")
                 }
-                entscheidung("Erledigt", symbol: "checkmark.circle.fill", farbe: .green) {
+                entscheidung("Erledigt", symbol: "ArcaDone", farbe: .green) {
                     erledige(doc)
                 }
                 entscheidung("Später", symbol: "arrow.uturn.right", farbe: .secondary) {
@@ -192,8 +192,7 @@ struct AufraeumModus: View {
                               aktion: @escaping () -> Void) -> some View {
         Button(action: aktion) {
             VStack(spacing: 5) {
-                Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .semibold))
+                ArcaIcon(name: symbol, groesse: 18)
                     .foregroundStyle(farbe)
                 Text(titel)
                     .font(.system(size: 10.5, weight: .semibold))

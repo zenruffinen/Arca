@@ -656,12 +656,10 @@ struct HomeView: View {
                         isSearchFocused = false
                     }
                 } label: {
-                    Image(systemName: sucheOffen ? "xmark" : "magnifyingglass")
-                        .font(.system(size: 16, weight: .semibold))
+                    ArcaIcon(name: sucheOffen ? "xmark" : "ArcaSearch", groesse: 17)
                         .foregroundStyle(sucheOffen ? ArcaWarm.terrakotta : .primary)
                         .frame(width: 36, height: 36)
                         .glassEffect(.regular, in: Circle())
-                        .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Alles durchsuchen")
@@ -681,8 +679,7 @@ struct HomeView: View {
 
                 // Erfassen läuft sonst komplett über den Plus unten
                 Button { showQRScanner = true } label: {
-                    Image(systemName: "qrcode.viewfinder")
-                        .font(.system(size: 17, weight: .semibold))
+                    ArcaIcon(name: "ArcaScan", groesse: 18)
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .glassEffect(.regular, in: Circle())
@@ -698,8 +695,7 @@ struct HomeView: View {
                             selectedSection = .settings
                         }
                     } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 16, weight: .semibold))
+                        ArcaIcon(name: "ArcaSettings", groesse: 18)
                             .foregroundStyle(.primary)
                             .frame(width: 36, height: 36)
                             .glassEffect(.regular, in: Circle())
@@ -815,7 +811,7 @@ struct HomeView: View {
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     VStack(alignment: .leading, spacing: 10) {
-                        ArcaSectionTitle(title: "Favoriten", icon: "star")
+                        ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
                             .padding(.horizontal, 20)
                         if store.favoriteItems.isEmpty {
                             // Leerzustand: zeigen, dass es die Reihe gibt — und wie man sie füllt
@@ -1628,10 +1624,10 @@ struct HomeFavoriteCard: View {
 
     private var icon: String {
         switch item.kind {
-        case .document: return "doc.fill"
-        case .note:     return "note.text"
-        case .list:     return "checklist"
-        case .vault:    return "lock.fill"
+        case .document: return "ArcaDocument"
+        case .note:     return "ArcaNote"
+        case .list:     return "ArcaChecklist"
+        case .vault:    return "ArcaLock"
         }
     }
 
@@ -1835,10 +1831,10 @@ struct HomeStreamRow: View {
 
     private var icon: String {
         switch item.kind {
-        case .document: return "doc.fill"
-        case .note:     return "note.text"
-        case .list:     return "checklist"
-        case .vault:    return "lock.fill"
+        case .document: return "ArcaDocument"
+        case .note:     return "ArcaNote"
+        case .list:     return "ArcaChecklist"
+        case .vault:    return "ArcaLock"
         }
     }
 
@@ -1854,8 +1850,7 @@ struct HomeStreamRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
+                ArcaIcon(name: icon, groesse: 17)
                     .foregroundStyle(tint)
                     .frame(width: 34, height: 34)
                     .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))

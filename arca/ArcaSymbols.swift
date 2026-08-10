@@ -32,6 +32,28 @@ enum ArcaSymbol: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Zeichnet ein Symbol: beginnt der Name mit „Arca", kommt das eigene
+/// Vektor-Asset (Template, färbbar) — sonst das SF-Symbol. So lassen
+/// sich die Familien Stück für Stück tauschen.
+struct ArcaIcon: View {
+    let name: String
+    var groesse: CGFloat = 16
+    var gewicht: Font.Weight = .semibold
+
+    var body: some View {
+        if name.hasPrefix("Arca") {
+            Image(name)
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: groesse, height: groesse)
+        } else {
+            Image(systemName: name)
+                .font(.system(size: groesse * 0.92, weight: gewicht))
+        }
+    }
+}
+
 struct ArcaSymbolImage: View {
     let symbol: ArcaSymbol
     var size: CGFloat = 24

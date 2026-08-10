@@ -45,7 +45,7 @@ struct ArcaDeskRail: View {
     /// Jede Fläche hat einen Namen: links „Zu erledigen",
     /// rechts „Schnellzugriff" — beides umbenennbar.
     private var standardTitel: String { seite == "links" ? "Zu erledigen" : "Schnellzugriff" }
-    private var titelSymbol: String { seite == "links" ? "checkmark.circle" : "bolt.fill" }
+    private var titelSymbol: String { seite == "links" ? "ArcaDone" : "ArcaBolt" }
     private var flaechenTitel: String {
         (seite == "links" ? store.deskStil.titelLinks : store.deskStil.titelRechts) ?? standardTitel
     }
@@ -86,8 +86,7 @@ struct ArcaDeskRail: View {
                 // Die Überschrift der Fläche — im Stil der Start-Rubriken
                 VStack(alignment: .leading, spacing: 7) {
                     HStack(spacing: 6) {
-                        Image(systemName: titelSymbol)
-                            .font(.system(size: 14, weight: .semibold))
+                        ArcaIcon(name: titelSymbol, groesse: 15)
                             .foregroundStyle(ArcaWarm.terrakotta)
                         Text(flaechenTitel)
                             .font(.system(size: 14, weight: .bold))

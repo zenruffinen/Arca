@@ -69,8 +69,7 @@ struct HomeCalendarCard: View {
 
     private var kopfzeile: some View {
         HStack(spacing: 6) {
-            Image(systemName: "calendar")
-                .font(.system(size: 12, weight: .semibold))
+            ArcaIcon(name: "ArcaCalendar", groesse: 13)
             Text("Heute · \(datumHeute)")
                 .textCase(.uppercase)
                 .tracking(0.6)

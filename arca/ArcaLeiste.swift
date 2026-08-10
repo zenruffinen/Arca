@@ -32,7 +32,7 @@ struct ArcaTabBar: View {
         // Schwebende Glas-Pille links, Blitzidee-Plus rechts (Craft-Stil)
         HStack(spacing: 12) {
             HStack(spacing: 2) {
-                pillButton(icon: "square.grid.2x2", active: spaceActive, label: "Space") {
+                pillButton(icon: "ArcaHome", active: spaceActive, label: "Space") {
                     // Schon auf dem Start? Dann nach oben springen.
                     if selected == .home {
                         store.homeSprungNachOben += 1
@@ -68,8 +68,7 @@ struct ArcaTabBar: View {
                         Label("Einstellungen", systemImage: "gearshape")
                     }
                 } label: {
-                    Image(systemName: selected == .settings ? "gearshape.fill" : "gearshape")
-                        .font(.system(size: 18, weight: .semibold))
+                    ArcaIcon(name: "ArcaSettings", groesse: 20)
                         .foregroundStyle(selected == .settings ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
                         .symbolRenderingMode(.hierarchical)
                         .frame(width: 54, height: 44)
@@ -98,8 +97,7 @@ struct ArcaTabBar: View {
         Button {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { action() }
         } label: {
-            Image(systemName: active ? icon + ".fill" : icon)
-                .font(.system(size: 18, weight: .semibold))
+            ArcaIcon(name: icon.hasPrefix("Arca") ? icon : (active ? icon + ".fill" : icon), groesse: 20)
                 .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
                 .symbolRenderingMode(.hierarchical)
                 .frame(width: 54, height: 44)
@@ -302,16 +300,16 @@ struct ArcaIPadSidebar: View {
         for bereich in store.bereichsOrdnung {
             switch bereich {
             case .passwoerter:
-                items.append(NavItem(section: .vault,     icon: "key",       color: NoteColor.for_(2).accent))
+                items.append(NavItem(section: .vault,     icon: "ArcaKey",       color: NoteColor.for_(2).accent))
             case .dokumente:
-                items.append(NavItem(section: .documents, icon: "doc.text",  color: NoteColor.for_(5).accent))
+                items.append(NavItem(section: .documents, icon: "ArcaDocument",  color: NoteColor.for_(5).accent))
             case .notizen:
-                items.append(NavItem(section: .notes,     icon: "note.text", color: NoteColor.for_(4).accent))
+                items.append(NavItem(section: .notes,     icon: "ArcaNote", color: NoteColor.for_(4).accent))
             case .tasks:
-                items.append(NavItem(section: .lists,     icon: "checklist", color: NoteColor.for_(3).accent))
+                items.append(NavItem(section: .lists,     icon: "ArcaChecklist", color: NoteColor.for_(3).accent))
             }
         }
-        items.append(NavItem(section: .settings, icon: "gearshape", color: .secondary))
+        items.append(NavItem(section: .settings, icon: "ArcaSettings", color: .secondary))
         return items
     }
 
@@ -333,8 +331,7 @@ struct ArcaIPadSidebar: View {
                     selectedSection = item.section
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: item.icon)
-                            .font(.system(size: 14, weight: .semibold))
+                        ArcaIcon(name: item.icon, groesse: 16)
                             .foregroundStyle(isSelected ? .white : item.color)
                             .frame(width: 30, height: 30)
                             .background(
