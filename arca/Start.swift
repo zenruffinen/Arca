@@ -1108,6 +1108,33 @@ struct HomeView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 8)
                         } else {
+                            if streamFilter == .notizen {
+                                Button {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                        store.zeigeIdeenPinnwand = true
+                                    }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "pin.fill")
+                                            .font(.system(size: 13, weight: .bold))
+                                        Text("Ideen-Pinnwand öffnen")
+                                            .font(.system(size: 13, weight: .bold))
+                                        Spacer()
+                                        Image(systemName: "arrow.up.right")
+                                            .font(.system(size: 12, weight: .bold))
+                                    }
+                                    .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.05))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 11)
+                                    .background(ArcaWarm.ideenGelb.opacity(0.25),
+                                                in: RoundedRectangle(cornerRadius: 12))
+                                    .overlay(RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(ArcaWarm.ideenGelb.opacity(0.5), lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 8)
+                            }
                             LazyVStack(spacing: 8) {
                                 ForEach(streamItems.prefix(streamLimit)) { item in
                                     let istFav = istFavorit(item)

@@ -90,6 +90,32 @@ struct ContentView: View {
         .sheet(isPresented: $store.zeigeNotfall) {
             NotfallView(karten: store.vaultItems.filter { !$0.sperrHotline.isEmpty })
         }
+        // Die Ideen-Pinnwand: rechts angedockt, links bleibt der Space sichtbar
+        .overlay {
+            if store.zeigeIdeenPinnwand {
+                GeometryReader { geo in
+                    let breit = horizontalSizeClass == .regular
+                    HStack(spacing: 0) {
+                        if breit {
+                            Color.black.opacity(0.18)
+                                .ignoresSafeArea()
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                        store.zeigeIdeenPinnwand = false
+                                    }
+                                }
+                        }
+                        IdeenPinnwand()
+                            .environmentObject(store)
+                            .frame(width: breit ? geo.size.width * 0.6 : geo.size.width)
+                            .clipShape(RoundedRectangle(cornerRadius: breit ? 20 : 0))
+                            .shadow(color: .black.opacity(0.2), radius: 16, x: -4, y: 0)
+                    }
+                }
+                .transition(.move(edge: .trailing))
+                .zIndex(50)
+            }
+        }
         // ── Tastaturkürzel (Mac & iPad mit Tastatur) ──
         // ⌘1–⌘6 Bereiche · ⌘N Neu (Blitzidee) · ⇧⌘N Diktat · ⌘F Suche
         .background {

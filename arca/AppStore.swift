@@ -126,6 +126,10 @@ final class AppStore: ObservableObject {
     @Published var deskStil = DeskFlaechenStil() {
         didSet { guard !isLoadingData else { return }; saveJSON(deskStil, key: "deskStil") }
     }
+    /// Positionen der Ideen auf der Pinnwand (id → [x,y]) — synct mit
+    @Published var pinnwandLayout: [String: [Double]] = [:] {
+        didSet { guard !isLoadingData else { return }; saveJSON(pinnwandLayout, key: "pinnwandLayout") }
+    }
     @Published var lists: [ListEntry] = [] {
         didSet {
             guard !isLoadingData, !stempeltGerade else { return }
@@ -160,6 +164,8 @@ final class AppStore: ObservableObject {
     @Published var pendingSettingsAktion: String? = nil
     /// Notfall-Bereich anzeigen (aus dem Mehr-Menü der Leiste)
     @Published var zeigeNotfall: Bool = false
+    /// Die Ideen-Pinnwand rechts eingeblendet?
+    @Published var zeigeIdeenPinnwand: Bool = false
     /// ⌘F: Suche auf dem Start fokussieren (Zähler als Signal)
     @Published var sucheFokusSignal: Int = 0
     /// Reihenfolge der Bereichs-Blasen auf dem Start (und der Seitenleiste) —
@@ -673,7 +679,7 @@ final class AppStore: ObservableObject {
     private let synchronisierteSchluessel = [
         "vaultItems", "documents", "notes", "lists", "deskItems", "deskStil",
         "documentCategories", "categoryColors", "documentSubcategories",
-        "grabsteine", "homeFolderQuickView"
+        "grabsteine", "homeFolderQuickView", "pinnwandLayout"
     ]
 
     private func dateiStand(_ key: String) -> Date? {
@@ -728,6 +734,7 @@ final class AppStore: ObservableObject {
         if faellig.contains("documentCategories") { saveDocumentCategories() }
         if faellig.contains("categoryColors") { saveCategoryColors() }
         if faellig.contains("documentSubcategories") { saveDocumentSubcategories() }
+        if faellig.contains("pinnwandLayout") { saveJSON(pinnwandLayout, key: "pinnwandLayout") }
     }
 
     private func saveJSON<T: Encodable>(_ value: T, key: String) {
@@ -1930,6 +1937,11 @@ final class AppStore: ObservableObject {
             let vereint = documentSubcategories.merging(decoded) { _, wolke in wolke }
             if vereint != decoded { nachfusionSpeichern.insert("documentSubcategories") }
             documentSubcategories = vereint
+        }
+        if let decoded = loadJSON([String: [Double]].self, key: "pinnwandLayout") {
+            let vereint = pinnwandLayout.merging(decoded) { _, wolke in wolke }
+            if vereint != decoded { nachfusionSpeichern.insert("pinnwandLayout") }
+            pinnwandLayout = vereint
         }
         if let decoded = loadJSON([String].self, key: "homeFolderQuickView") {
             homeFolderQuickView = decoded
