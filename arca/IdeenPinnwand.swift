@@ -89,10 +89,8 @@ struct IdeenPinnwand: View {
                 // Kopfzeile: Titel · + Idee · (Vollbild) · Schließen
                 kopf
 
-                // Am Handy: Schließen unten, gut mit dem Daumen erreichbar
-                if groessenKlasse != .regular {
-                    untenSchliessen
-                }
+                // Schließen unten — gut mit dem Daumen erreichbar (iPhone & iPad)
+                untenSchliessen
             }
         }
         .sheet(item: $bearbeite) { note in
@@ -137,20 +135,6 @@ struct IdeenPinnwand: View {
                           ? "arrow.down.right.and.arrow.up.left"
                           : "arrow.up.left.and.arrow.down.right")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.05))
-                        .frame(width: 34, height: 34)
-                        .background(.ultraThinMaterial, in: Circle())
-                }
-                .buttonStyle(.plain)
-            }
-            if groessenKlasse == .regular {
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                        store.zeigeIdeenPinnwand = false
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.05))
                         .frame(width: 34, height: 34)
                         .background(.ultraThinMaterial, in: Circle())
