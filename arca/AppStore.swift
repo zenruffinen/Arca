@@ -526,6 +526,52 @@ final class AppStore: ObservableObject {
         return ergebnis
     }
 
+    // MARK: - Frische-Wächter: Cloud-Änderungen auch bei offener App
+
+    private var frischeWaechter: Timer?
+    /// Zuletzt gesehene Datei-Stände — nur ECHTE Fremd-Änderungen lösen aus.
+    private var bekannteStaende: [String: Date] = [:]
+    private let synchronisierteSchluessel = [
+        "vaultItems", "documents", "notes", "lists", "deskItems", "deskStil",
+        "documentCategories", "categoryColors", "documentSubcategories",
+        "grabsteine", "homeFolderQuickView"
+    ]
+
+    private func dateiStand(_ key: String) -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: dataURL(key).path))?[.modificationDate] as? Date
+    }
+
+    private func merkeStand(_ key: String) {
+        bekannteStaende[key] = dateiStand(key)
+    }
+
+    /// Alle 20 Sekunden: Downloads anstoßen und bei fremden Datei-
+    /// Änderungen frisch fusionieren — die App bleibt lebendig, auch
+    /// wenn sie den ganzen Tag offen auf dem Pult steht.
+    func starteFrischeWaechter() {
+        guard frischeWaechter == nil else { return }
+        frischeWaechter = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            self?.pruefeAufFrisches()
+        }
+    }
+
+    private func pruefeAufFrisches() {
+        downloadAllCloudFiles()
+        var fremdesNeues = false
+        for key in synchronisierteSchluessel {
+            if dateiStand(key) != bekannteStaende[key] {
+                fremdesNeues = true
+                break
+            }
+        }
+        guard fremdesNeues else { return }
+        isLoadingData = true
+        load()
+        isLoadingData = false
+        speichereNachfusion()
+        for key in synchronisierteSchluessel { merkeStand(key) }
+    }
+
     /// Nach dem Zusammenführen: Bestände mit lokalen Ergänzungen zurück
     /// in die Cloud schreiben — sonst kennt sie nur dieses Gerät.
     private func speichereNachfusion() {
@@ -558,6 +604,7 @@ final class AppStore: ObservableObject {
             try? data.write(to: u, options: .atomic)
         }
         geladeneSchluessel.insert(key)
+        merkeStand(key)
     }
 
     private func loadJSON<T: Decodable>(_ type: T.Type, key: String) -> T? {
@@ -574,7 +621,10 @@ final class AppStore: ObservableObject {
             guard let data = try? Data(contentsOf: u), !data.isEmpty else { return }
             result = try? JSONDecoder().decode(type, from: data)
         }
-        if result != nil { geladeneSchluessel.insert(key) }
+        if result != nil {
+            geladeneSchluessel.insert(key)
+            merkeStand(key)
+        }
         return result
     }
 
@@ -591,6 +641,7 @@ final class AppStore: ObservableObject {
         persistHomeFolderQuickViewMigrationIfNeeded()
         downloadAllCloudFiles()
         createDefaultListIfNeeded()
+        starteFrischeWaechter()
         startObservingCloudDownloads()
         updateCloudSyncState()
         beginCloudSyncMonitoringIfNeeded()
