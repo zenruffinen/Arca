@@ -166,6 +166,8 @@ final class AppStore: ObservableObject {
     @Published var zeigeNotfall: Bool = false
     /// Die Ideen-Pinnwand rechts eingeblendet?
     @Published var zeigeIdeenPinnwand: Bool = false
+    /// Pinnwand formatfüllend (Vollbild) statt rechts angedockt?
+    @Published var ideenPinnwandGross: Bool = false
     /// ⌘F: Suche auf dem Start fokussieren (Zähler als Signal)
     @Published var sucheFokusSignal: Int = 0
     /// Reihenfolge der Bereichs-Blasen auf dem Start (und der Seitenleiste) —

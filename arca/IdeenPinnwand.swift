@@ -14,6 +14,7 @@ import SwiftUI
 
 struct IdeenPinnwand: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.horizontalSizeClass) private var groessenKlasse
     @State private var bearbeite: NoteEntry? = nil
     @State private var zugID: UUID? = nil
     @State private var zugOffset: CGSize = .zero
@@ -121,6 +122,22 @@ struct IdeenPinnwand: View {
                     .background(ArcaWarm.terrakotta, in: Circle())
             }
             .buttonStyle(.plain)
+            if groessenKlasse == .regular {
+                Button {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        store.ideenPinnwandGross.toggle()
+                    }
+                } label: {
+                    Image(systemName: store.ideenPinnwandGross
+                          ? "arrow.down.right.and.arrow.up.left"
+                          : "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.05))
+                        .frame(width: 34, height: 34)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                     store.zeigeIdeenPinnwand = false

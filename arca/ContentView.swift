@@ -94,9 +94,10 @@ struct ContentView: View {
         .overlay {
             if store.zeigeIdeenPinnwand {
                 GeometryReader { geo in
-                    let breit = horizontalSizeClass == .regular
+                    // Vollbild (formatfüllend) oder rechts angedockt (60%)
+                    let vollbild = horizontalSizeClass != .regular || store.ideenPinnwandGross
                     HStack(spacing: 0) {
-                        if breit {
+                        if !vollbild {
                             Color.black.opacity(0.18)
                                 .ignoresSafeArea()
                                 .onTapGesture {
@@ -107,11 +108,12 @@ struct ContentView: View {
                         }
                         IdeenPinnwand()
                             .environmentObject(store)
-                            .frame(width: breit ? geo.size.width * 0.6 : geo.size.width)
-                            .clipShape(RoundedRectangle(cornerRadius: breit ? 20 : 0))
-                            .shadow(color: .black.opacity(0.2), radius: 16, x: -4, y: 0)
+                            .frame(width: vollbild ? geo.size.width : geo.size.width * 0.6)
+                            .shadow(color: .black.opacity(0.22), radius: 16, x: -4, y: 0)
+                            .ignoresSafeArea()
                     }
                 }
+                .ignoresSafeArea()
                 .transition(.move(edge: .trailing))
                 .zIndex(50)
             }
