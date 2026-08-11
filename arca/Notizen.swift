@@ -157,7 +157,7 @@ struct NotesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Image(systemName: "note.text")
+                    Image(systemName: "lightbulb.fill")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
@@ -222,7 +222,7 @@ struct NotesView: View {
     private var notesList: some View {
         List {
             if filteredNotes.isEmpty {
-                Text(store.notes.isEmpty ? "Noch keine Notizen." : "Keine Treffer.")
+                Text(store.notes.isEmpty ? "Noch keine Ideen." : "Keine Treffer.")
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -453,7 +453,7 @@ struct NoteDetailView: View {
                     .background(displayColor.bg.opacity(0.18))
                 }
             }
-            .navigationTitle(isEditing ? "Bearbeiten" : "Notiz")
+            .navigationTitle(isEditing ? "Bearbeiten" : "Idee")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -729,7 +729,7 @@ struct NewNoteSheet: View {
                 }
                 .padding(.top, 16)
             }
-            .navigationTitle("Neue Notiz")
+            .navigationTitle("Neue Idee")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {

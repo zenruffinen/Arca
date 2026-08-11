@@ -23,6 +23,8 @@ enum ArcaSection: String, CaseIterable, Identifiable {
     case settings = "Einstellungen"
 
     var id: String { rawValue }
+    /// Was der Nutzer sieht — intern bleibt „Notizen" die Identität.
+    var displayName: String { self == .notes ? "Ideen" : rawValue }
 }
 
 struct VaultEntry: Identifiable, Codable, Hashable {

@@ -40,7 +40,7 @@ struct HomeActivityItem: Identifiable {
             switch self {
             case .password: return "lock.fill"
             case .document: return "doc.fill"
-            case .note:     return "note.text"
+            case .note:     return "lightbulb.fill"
             case .task:     return "checklist"
             }
         }
@@ -48,7 +48,7 @@ struct HomeActivityItem: Identifiable {
             switch self {
             case .password: return "Passwörter"
             case .document: return "Dokumente"
-            case .note:     return "Notizen"
+            case .note:     return "Ideen"
             case .task:     return "Aufgaben"
             }
         }
@@ -1167,7 +1167,7 @@ struct HomeView: View {
                                                 }
                                                 if store.notes.first(where: { $0.id == item.id })?.isQuickIdea == true {
                                                     Button { macheZurFestenNotiz(item) } label: {
-                                                        Label("Feste Notiz", systemImage: "note.text")
+                                                        Label("Feste Idee", systemImage: "lightbulb.fill")
                                                     }
                                                 }
                                             } label: {
@@ -1515,8 +1515,8 @@ struct SearchResultsView: View {
 
                 if !matchingNotes.isEmpty {
                     SearchResultGroup(
-                        title: "Notizen",
-                        icon: "note.text",
+                        title: "Ideen",
+                        icon: "lightbulb.fill",
                         color: NoteColor.for_(4).accent
                     ) {
                         ForEach(matchingNotes) { note in
@@ -1625,7 +1625,7 @@ struct HomeFavoriteCard: View {
     private var icon: String {
         switch item.kind {
         case .document: return "ArcaDocument"
-        case .note:     return "ArcaNote"
+        case .note:     return "ArcaIdee"
         case .list:     return "ArcaChecklist"
         case .vault:    return "ArcaLock"
         }
@@ -1634,7 +1634,7 @@ struct HomeFavoriteCard: View {
     private var tint: Color {
         switch item.kind {
         case .document: return .orange
-        case .note:     return .purple
+        case .note:     return ArcaWarm.ideenGelb
         case .list:     return .green
         case .vault:    return .blue
         }
@@ -1816,7 +1816,7 @@ enum HomeStreamFilter: String, CaseIterable {
     var label: String {
         switch self {
         case .dokumente:   return "Dokumente"
-        case .notizen:     return "Notizen"
+        case .notizen:     return "Ideen"
         case .tasks:       return "Aufgaben"
         case .passwoerter: return "Passwörter"
         }
@@ -1832,7 +1832,7 @@ struct HomeStreamRow: View {
     private var icon: String {
         switch item.kind {
         case .document: return "ArcaDocument"
-        case .note:     return "ArcaNote"
+        case .note:     return "ArcaIdee"
         case .list:     return "ArcaChecklist"
         case .vault:    return "ArcaLock"
         }
@@ -1841,7 +1841,7 @@ struct HomeStreamRow: View {
     private var tint: Color {
         switch item.kind {
         case .document: return .orange
-        case .note:     return .purple
+        case .note:     return ArcaWarm.ideenGelb
         case .list:     return .green
         case .vault:    return .blue
         }
@@ -1916,8 +1916,8 @@ struct SpaceHubView: View {
             Bereich(id: "documents", section: .documents, title: "Dokumente",
                     subtitle: "Pass, Tickets, Verträge", icon: "doc.fill", tint: .orange,
                     count: store.documents.count),
-            Bereich(id: "notes", section: .notes, title: "Notizen",
-                    subtitle: "Ideen, Texte, Blitzideen", icon: "note.text", tint: .purple,
+            Bereich(id: "notes", section: .notes, title: "Ideen",
+                    subtitle: "Einfälle, Texte, Blitzideen", icon: "lightbulb.fill", tint: ArcaWarm.ideenGelb,
                     count: store.notes.count),
             Bereich(id: "lists", section: .lists, title: "Aufgaben",
                     subtitle: "Aufgaben und Checklisten", icon: "checklist", tint: .green,
@@ -2056,7 +2056,7 @@ struct HeaderStatPills: View {
             statItem(icon: "key.fill", value: vault, color: NoteColor.for_(2).accent)
             statItem(icon: "doc.fill", value: documents, color: NoteColor.for_(5).accent)
             statItem(icon: "checklist", value: tasks, color: NoteColor.for_(3).accent)
-            statItem(icon: "note.text", value: notes, color: NoteColor.for_(4).accent)
+            statItem(icon: "lightbulb.fill", value: notes, color: ArcaWarm.ideenGelb)
         }
     }
 

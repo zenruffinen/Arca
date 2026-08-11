@@ -65,6 +65,8 @@ enum ArcaWarm {
     })
     /// Der eine Akzent der App
     static let terrakotta = Color(red: 0.78, green: 0.40, blue: 0.25)
+    /// Das Ideen-Gelb — warme Glühlampe (Bernstein, gut lesbar auf Creme)
+    static let ideenGelb = Color(red: 0.86, green: 0.60, blue: 0.02)
     /// Haarlinie für Kartenränder
     static let haarlinie = Color.primary.opacity(0.07)
 }

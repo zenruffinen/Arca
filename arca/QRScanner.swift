@@ -448,7 +448,7 @@ struct QRResultView: View {
             actionButton("Im Browser öffnen", icon: "safari") {
                 UIApplication.shared.open(url)
             }
-            actionButton("Als Notiz speichern", icon: "note.text") {
+            actionButton("Als Idee speichern", icon: "lightbulb.fill") {
                 store.addNote(title: url.host ?? "Webseite", text: url.absoluteString)
                 flash("Notiz angelegt")
             }
@@ -473,7 +473,7 @@ struct QRResultView: View {
             actionButton("Anrufen", icon: "phone.fill") {
                 if let url = URL(string: "tel:\(number)") { UIApplication.shared.open(url) }
             }
-            actionButton("Als Notiz speichern", icon: "note.text") {
+            actionButton("Als Idee speichern", icon: "lightbulb.fill") {
                 store.addNote(title: "Telefonnummer", text: number)
                 flash("Notiz angelegt")
             }
@@ -500,7 +500,7 @@ struct QRResultView: View {
                     flash("Kontakt konnte nicht gelesen werden")
                 }
             }
-            actionButton("Als Notiz speichern", icon: "note.text") {
+            actionButton("Als Idee speichern", icon: "lightbulb.fill") {
                 store.addNote(title: "Kontakt: \(name ?? "Unbekannt")", text: raw)
                 flash("Notiz angelegt")
             }
@@ -509,7 +509,7 @@ struct QRResultView: View {
                 flash("Kontakt in Zwischenablage")
             }
         case .plainText(let text):
-            actionButton("Als Notiz speichern", icon: "note.text") {
+            actionButton("Als Idee speichern", icon: "lightbulb.fill") {
                 let title = text.prefix(40).trimmingCharacters(in: .whitespacesAndNewlines)
                 store.addNote(title: title.isEmpty ? "QR-Text" : String(title), text: text)
                 flash("Notiz angelegt")

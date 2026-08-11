@@ -130,11 +130,11 @@ struct ArcaPlusKnopf: View {
         case .documents: return "doc.fill"
         case .lists:     return "checkmark.square.fill"
         case .vault:     return "key.fill"
-        case .notes:     return "note.text"
+        case .notes:     return "lightbulb.fill"
         default:
             switch store.homeStreamFilter {
             case .dokumente:   return "doc.fill"
-            case .notizen:     return "note.text"
+            case .notizen:     return "lightbulb.fill"
             case .tasks:       return "checkmark.square.fill"
             case .passwoerter: return "key.fill"
             }
@@ -304,7 +304,7 @@ struct ArcaIPadSidebar: View {
             case .dokumente:
                 items.append(NavItem(section: .documents, icon: "ArcaDocument",  color: NoteColor.for_(5).accent))
             case .notizen:
-                items.append(NavItem(section: .notes,     icon: "ArcaNote", color: NoteColor.for_(4).accent))
+                items.append(NavItem(section: .notes,     icon: "ArcaIdee", color: ArcaWarm.ideenGelb))
             case .tasks:
                 items.append(NavItem(section: .lists,     icon: "ArcaChecklist", color: NoteColor.for_(3).accent))
             }
@@ -338,7 +338,7 @@ struct ArcaIPadSidebar: View {
                                 isSelected ? item.color : item.color.opacity(0.12),
                                 in: RoundedRectangle(cornerRadius: 8)
                             )
-                        Text(item.section.rawValue)
+                        Text(item.section.displayName)
                             .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(Color.primary)
                         Spacer()

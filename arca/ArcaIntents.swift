@@ -140,8 +140,8 @@ struct ArcaShortcuts: AppShortcutsProvider {
                 "Notizen in \(.applicationName) öffnen",
                 "\(.applicationName) Notizen zeigen"
             ],
-            shortTitle: "Notizen",
-            systemImageName: "note.text"
+            shortTitle: "Ideen",
+            systemImageName: "lightbulb.fill"
         )
         AppShortcut(
             intent: OpenTasksIntent(),
@@ -174,7 +174,7 @@ struct ArcaShortcuts: AppShortcutsProvider {
                 "\(.applicationName) ich habe eine Idee"
             ],
             shortTitle: "Kurznotiz",
-            systemImageName: "note.text.badge.plus"
+            systemImageName: "lightbulb.fill"
         )
     }
 }

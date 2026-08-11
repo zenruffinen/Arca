@@ -708,9 +708,9 @@ struct ArcaDeskCard: View {
         // Typ-Plakette: man erkennt die Briefmarke auf einen Blick
         .overlay(alignment: .topLeading) {
             if item.kind != .document {
-                Image(systemName: item.kind == .note ? "note.text" : "checkmark.square.fill")
+                Image(systemName: item.kind == .note ? "lightbulb.fill" : "checkmark.square.fill")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(item.kind == .note ? ArcaWarm.terrakotta : .green)
+                    .foregroundStyle(item.kind == .note ? ArcaWarm.ideenGelb : .green)
                     .frame(width: 20, height: 20)
                     .background(ArcaWarm.karte, in: Circle())
                     .overlay(Circle().strokeBorder(ArcaWarm.haarlinie, lineWidth: 1))
