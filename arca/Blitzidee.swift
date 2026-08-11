@@ -169,6 +169,13 @@ struct QuickCaptureSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
+                        // Abbrechen heißt verwerfen: Timer töten und Text
+                        // leeren, BEVOR der Aufnahme-Stopp den Ziel-
+                        // Automaten weckt — sonst speichert er posthum.
+                        zielTimer?.invalidate()
+                        zielTimer = nil
+                        wartetAufZiel = false
+                        transcribedText = ""
                         speech.stopRecording()
                         dismiss()
                     } label: {
@@ -180,10 +187,13 @@ struct QuickCaptureSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
                         zielTimer?.invalidate()
+                        zielTimer = nil
                         if wartetAufZiel {
                             fuehreAus(erkanntesZiel)
                         } else {
                             saveCurrentIfNeeded()
+                            transcribedText = ""
+                            wartetAufZiel = false
                             speech.stopRecording()
                             dismiss()
                         }
@@ -346,7 +356,7 @@ struct QuickCaptureSheet: View {
 
     private func saveCurrentIfNeeded() {
         let text = transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty, savedIdeas.last != text else { return }
         onSave(String(text.prefix(50)), text)
         savedIdeas.append(text)
         // Haptisches Feedback: kurze Erfolgs-Vibration
