@@ -86,8 +86,13 @@ struct IdeenPinnwand: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
-                // Kopfzeile: Titel · + Idee · Schließen
+                // Kopfzeile: Titel · + Idee · (Vollbild) · Schließen
                 kopf
+
+                // Am Handy: Schließen unten, gut mit dem Daumen erreichbar
+                if groessenKlasse != .regular {
+                    untenSchliessen
+                }
             }
         }
         .sheet(item: $bearbeite) { note in
@@ -138,21 +143,50 @@ struct IdeenPinnwand: View {
                 }
                 .buttonStyle(.plain)
             }
+            if groessenKlasse == .regular {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        store.zeigeIdeenPinnwand = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.05))
+                        .frame(width: 34, height: 34)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+    }
+
+    /// Am Handy sitzt der Schließen-Knopf unten — daumenfreundlich.
+    private var untenSchliessen: some View {
+        VStack {
+            Spacer()
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                     store.zeigeIdeenPinnwand = false
                 }
             } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.05))
-                    .frame(width: 34, height: 34)
-                    .background(.ultraThinMaterial, in: Circle())
+                HStack(spacing: 7) {
+                    Image(systemName: "xmark")
+                    Text("Schließen")
+                }
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.05))
+                .padding(.horizontal, 22)
+                .padding(.vertical, 13)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(.black.opacity(0.08), lineWidth: 1))
+                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
             }
             .buttonStyle(.plain)
+            .padding(.bottom, 30)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
+        .frame(maxWidth: .infinity)
     }
 
     private func eimer(in size: CGSize) -> some View {
