@@ -67,15 +67,44 @@ final class AppStore: ObservableObject {
     /// Unterdrückt didSet-Speichern während load()/Migration — verhindert Überschreiben
     /// von iCloud-Daten mit leeren Defaults, bevor Platzhalter-Dateien geladen sind.
     private var isLoadingData = false
+    /// Wächter gegen Stempel-Rekursion (didSet stempelt und weist neu zu)
+    private var stempeltGerade = false
+    /// Welche Bestände nach einer Fusion zurückgeschrieben werden müssen
+    private var nachfusionSpeichern: Set<String> = []
+
+    /// Grabsteine: IDs gelöschter Einträge samt Löschzeit — damit ein
+    /// Gerät mit altem Stand Gelöschtes nicht wieder anschleppt.
+    /// Synct mit; Pflege beim Laden (90 Tage Haltezeit).
+    @Published var grabsteine: [UUID: Date] = [:] {
+        didSet { guard !isLoadingData else { return }; saveJSON(grabsteine, key: "grabsteine") }
+    }
 
     @Published var vaultItems: [VaultEntry] = [] {
-        didSet { guard !isLoadingData else { return }; saveVault() }
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(vaultItems, oldValue) {
+                stempeltGerade = true; vaultItems = neu; stempeltGerade = false
+            }
+            saveVault()
+        }
     }
     @Published var documents: [DocumentEntry] = [] {
-        didSet { guard !isLoadingData else { return }; saveDocuments() }
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(documents, oldValue) {
+                stempeltGerade = true; documents = neu; stempeltGerade = false
+            }
+            saveDocuments()
+        }
     }
     @Published var notes: [NoteEntry] = [] {
-        didSet { guard !isLoadingData else { return }; saveNotes() }
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(notes, oldValue) {
+                stempeltGerade = true; notes = neu; stempeltGerade = false
+            }
+            saveNotes()
+        }
     }
     @Published var documentCategories: [String] = [] {
         didSet { guard !isLoadingData else { return }; saveDocumentCategories() }
@@ -85,14 +114,26 @@ final class AppStore: ObservableObject {
     }
     /// Der Schreibtisch (iPad/Mac): Karten links/rechts vom Space
     @Published var deskItems: [DeskItem] = [] {
-        didSet { guard !isLoadingData else { return }; saveJSON(deskItems, key: "deskItems") }
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(deskItems, oldValue) {
+                stempeltGerade = true; deskItems = neu; stempeltGerade = false
+            }
+            saveJSON(deskItems, key: "deskItems")
+        }
     }
     /// Titel und Farben der Schreibtisch-Flächen — überall gleich
     @Published var deskStil = DeskFlaechenStil() {
         didSet { guard !isLoadingData else { return }; saveJSON(deskStil, key: "deskStil") }
     }
     @Published var lists: [ListEntry] = [] {
-        didSet { guard !isLoadingData else { return }; saveLists() }
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(lists, oldValue) {
+                stempeltGerade = true; lists = neu; stempeltGerade = false
+            }
+            saveLists()
+        }
     }
     @Published var documentSubcategories: [String: [String]] = [:] {
         didSet { guard !isLoadingData else { return }; saveDocumentSubcategories() }
@@ -307,6 +348,7 @@ final class AppStore: ObservableObject {
             isLoadingData = true
             load()
             isLoadingData = false
+            speichereNachfusion()
             return
         }
         downloadAllCloudFiles()
@@ -417,6 +459,88 @@ final class AppStore: ObservableObject {
     /// (Ursache des Datenverlusts vom 08.08.2026).
     private var geladeneSchluessel: Set<String> = []
 
+    // MARK: - Sync-Härtung: Stempeln und Zusammenführen
+
+    /// Nach jeder Änderung: geänderte Einträge frisch stempeln und für
+    /// Entferntes Grabsteine setzen. Gibt das gestempelte Feld zurück,
+    /// wenn etwas zu stempeln war — sonst nil.
+    private func gepflegt<T: ZeitGestempelt & Identifiable & Equatable>(
+        _ neu: [T], _ alt: [T]) -> [T]? where T.ID == UUID {
+        var ergebnis = neu
+        var geaendert = false
+        let alteMap = Dictionary(alt.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let neueIDs = Set(neu.map(\.id))
+
+        for i in ergebnis.indices {
+            if let alter = alteMap[ergebnis[i].id],
+               ergebnis[i] != alter,
+               ergebnis[i].geaendertAm == alter.geaendertAm {
+                ergebnis[i].geaendertAm = Date()
+                geaendert = true
+            }
+        }
+        for alter in alt where !neueIDs.contains(alter.id) {
+            grabsteine[alter.id] = Date()
+        }
+        return geaendert ? ergebnis : nil
+    }
+
+    /// Zusammenführen statt Ersetzen: Eintrag für Eintrag, der jüngere
+    /// gewinnt; Grabsteine halten Gelöschtes fern; lokale Neue überleben.
+    /// Eine leere Wolke kann damit nie wieder ein volles Gerät leeren.
+    private func fusioniere<T: ZeitGestempelt & Identifiable & Equatable>(
+        _ lokal: [T], _ wolke: [T]) -> [T] where T.ID == UUID {
+        let lokalMap = Dictionary(lokal.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var gesehen = Set<UUID>()
+        var ergebnis: [T] = []
+        for w in wolke {
+            gesehen.insert(w.id)
+            if let grab = grabsteine[w.id], grab > w.geaendertAm { continue }
+            if let l = lokalMap[w.id], l.geaendertAm > w.geaendertAm {
+                ergebnis.append(l)
+            } else {
+                ergebnis.append(w)
+            }
+        }
+        var nurLokal: [T] = []
+        for l in lokal where !gesehen.contains(l.id) {
+            if let grab = grabsteine[l.id], grab > l.geaendertAm { continue }
+            nurLokal.append(l)
+        }
+        return nurLokal + ergebnis
+    }
+
+    /// Fusion + Merker fürs Rückschreiben, wenn die Wolke etwas lernen muss.
+    private func fusioniereUndMerke<T: ZeitGestempelt & Identifiable & Equatable>(
+        _ lokal: [T], _ wolke: [T], schluessel: String) -> [T] where T.ID == UUID {
+        let ergebnis = fusioniere(lokal, wolke)
+        if ergebnis != wolke { nachfusionSpeichern.insert(schluessel) }
+        return ergebnis
+    }
+
+    /// Kategorien (einfache Namen): Wolken-Reihenfolge + lokale Ergänzungen.
+    private func vereinigeKategorien(_ lokal: [String], _ wolke: [String]) -> [String] {
+        var ergebnis = wolke
+        for k in lokal where !ergebnis.contains(k) { ergebnis.append(k) }
+        if ergebnis != wolke { nachfusionSpeichern.insert("documentCategories") }
+        return ergebnis
+    }
+
+    /// Nach dem Zusammenführen: Bestände mit lokalen Ergänzungen zurück
+    /// in die Cloud schreiben — sonst kennt sie nur dieses Gerät.
+    private func speichereNachfusion() {
+        let faellig = nachfusionSpeichern
+        nachfusionSpeichern = []
+        if faellig.contains("vaultItems") { saveVault() }
+        if faellig.contains("documents") { saveDocuments() }
+        if faellig.contains("notes") { saveNotes() }
+        if faellig.contains("lists") { saveLists() }
+        if faellig.contains("deskItems") { saveJSON(deskItems, key: "deskItems") }
+        if faellig.contains("documentCategories") { saveDocumentCategories() }
+        if faellig.contains("categoryColors") { saveCategoryColors() }
+        if faellig.contains("documentSubcategories") { saveDocumentSubcategories() }
+    }
+
     private func saveJSON<T: Encodable>(_ value: T, key: String) {
         guard !isLoadingData else { return }
         let url = dataURL(key)
@@ -462,6 +586,7 @@ final class AppStore: ObservableObject {
         isLoadingData = true
         load()
         isLoadingData = false
+        speichereNachfusion()
         persistFreshInstallDefaults()
         persistHomeFolderQuickViewMigrationIfNeeded()
         downloadAllCloudFiles()
@@ -569,6 +694,7 @@ final class AppStore: ObservableObject {
         isLoadingData = true
         load()
         isLoadingData = false
+        speichereNachfusion()
         downloadAllCloudFiles()
         updateCloudSyncState()
         beginCloudSyncMonitoringIfNeeded()
@@ -1544,6 +1670,13 @@ final class AppStore: ObservableObject {
     // MARK: - Laden
 
     private func load() {
+        // Grabsteine zuerst: sie entscheiden, was tot bleibt
+        if let decoded = loadJSON([UUID: Date].self, key: "grabsteine") {
+            let vereint = grabsteine.merging(decoded) { max($0, $1) }
+            let limit = Date().addingTimeInterval(-90 * 86400)
+            grabsteine = vereint.filter { $0.value > limit }
+        }
+
         if var decoded = loadJSON([VaultEntry].self, key: "vaultItems") {
             for i in decoded.indices {
                 // Passwort: zuerst sync Keychain, Fallback auf nicht-sync (alte Geräte)
@@ -1552,25 +1685,25 @@ final class AppStore: ObservableObject {
                     ?? KeychainManager.shared.load(key: "vault_\(decoded[i].id)", synchronizable: false)
                     ?? ""
             }
-            vaultItems = decoded
+            vaultItems = fusioniereUndMerke(vaultItems, decoded, schluessel: "vaultItems")
         }
         if let decoded = loadJSON([DocumentEntry].self, key: "documents") {
-            documents = decoded
+            documents = fusioniereUndMerke(documents, decoded, schluessel: "documents")
         }
         if let decoded = loadJSON([NoteEntry].self, key: "notes") {
-            notes = decoded
+            notes = fusioniereUndMerke(notes, decoded, schluessel: "notes")
         }
         if let decoded = loadJSON([ListEntry].self, key: "lists") {
-            lists = decoded
+            lists = fusioniereUndMerke(lists, decoded, schluessel: "lists")
         }
         if let decoded = loadJSON([DeskItem].self, key: "deskItems") {
-            deskItems = decoded
+            deskItems = fusioniereUndMerke(deskItems, decoded, schluessel: "deskItems")
         }
         if let decoded = loadJSON(DeskFlaechenStil.self, key: "deskStil") {
             deskStil = decoded
         }
         if let decoded = loadJSON([String].self, key: "documentCategories") {
-            documentCategories = decoded
+            documentCategories = vereinigeKategorien(documentCategories, decoded)
         } else if documentCategories.isEmpty,
                   !hasPendingCloudDataDownloads(),
                   !hasAnyExistingDataStore() {
@@ -1578,10 +1711,14 @@ final class AppStore: ObservableObject {
             documentCategories = AppStore.defaultCategories
         }
         if let decoded = loadJSON([String: Int].self, key: "categoryColors") {
-            categoryColors = decoded
+            let vereint = categoryColors.merging(decoded) { _, wolke in wolke }
+            if vereint != decoded { nachfusionSpeichern.insert("categoryColors") }
+            categoryColors = vereint
         }
         if let decoded = loadJSON([String: [String]].self, key: "documentSubcategories") {
-            documentSubcategories = decoded
+            let vereint = documentSubcategories.merging(decoded) { _, wolke in wolke }
+            if vereint != decoded { nachfusionSpeichern.insert("documentSubcategories") }
+            documentSubcategories = vereint
         }
         if let decoded = loadJSON([String].self, key: "homeFolderQuickView") {
             homeFolderQuickView = decoded

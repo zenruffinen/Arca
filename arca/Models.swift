@@ -7,6 +7,12 @@
 
 import Foundation
 
+/// Wer einen Änderungs-Stempel trägt, kann zusammengeführt werden:
+/// beim Sync gewinnt Eintrag für Eintrag der jüngere Stand.
+protocol ZeitGestempelt {
+    var geaendertAm: Date { get set }
+}
+
 enum ArcaSection: String, CaseIterable, Identifiable {
     case home = "Start"
     case spaceHub = "Space"
@@ -31,6 +37,7 @@ struct VaultEntry: Identifiable, Codable, Hashable {
     var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
     var dateCreated: Date = Date()
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
+    var geaendertAm: Date = Date()
 
     init(id: UUID = UUID(),
          title: String,
@@ -65,8 +72,11 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         favoritePinned = try c.decodeIfPresent(Bool.self, forKey: .favoritePinned) ?? false
         dateCreated = try c.decodeIfPresent(Date.self,   forKey: .dateCreated) ?? Date()
         colorTag    = try c.decodeIfPresent(Int.self,    forKey: .colorTag)    ?? 0
+        geaendertAm = try c.decodeIfPresent(Date.self,   forKey: .geaendertAm) ?? dateCreated
     }
 }
+
+extension VaultEntry: ZeitGestempelt {}
 
 struct NoteEntry: Identifiable, Codable, Hashable {
     var id = UUID()
@@ -78,6 +88,7 @@ struct NoteEntry: Identifiable, Codable, Hashable {
     var dateCreated: Date = Date()
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
     var isQuickIdea: Bool = false  // Blitzidee via Action Button
+    var geaendertAm: Date = Date()
 
     init(id: UUID = UUID(),
          title: String,
@@ -109,8 +120,11 @@ struct NoteEntry: Identifiable, Codable, Hashable {
         dateCreated  = try c.decodeIfPresent(Date.self,   forKey: .dateCreated)  ?? Date()
         colorTag     = try c.decodeIfPresent(Int.self,    forKey: .colorTag)     ?? 0
         isQuickIdea  = try c.decodeIfPresent(Bool.self,   forKey: .isQuickIdea)  ?? false
+        geaendertAm  = try c.decodeIfPresent(Date.self,   forKey: .geaendertAm)  ?? dateCreated
     }
 }
+
+extension NoteEntry: ZeitGestempelt {}
 
 // Geteilte Notiz
 struct ArcaNote: Codable {
@@ -137,6 +151,7 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
     var isFavorite: Bool = false
     var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
     var ocrText: String = ""           // beim Scannen erkannter Text (für die Suche)
+    var geaendertAm: Date = Date()
 
     init(id: UUID = UUID(), title: String, type: DocumentType, filename: String, dateAdded: Date, category: String = "Unsortiert", subcategory: String = "", ocrText: String = "") {
         self.id = id; self.title = title; self.type = type; self.filename = filename
@@ -156,8 +171,11 @@ struct DocumentEntry: Identifiable, Codable, Hashable {
         isFavorite  = try c.decodeIfPresent(Bool.self,         forKey: .isFavorite)  ?? false
         favoritePinned = try c.decodeIfPresent(Bool.self,      forKey: .favoritePinned) ?? false
         ocrText     = try c.decodeIfPresent(String.self,       forKey: .ocrText)     ?? ""
+        geaendertAm = try c.decodeIfPresent(Date.self,         forKey: .geaendertAm) ?? dateAdded
     }
 }
+
+extension DocumentEntry: ZeitGestempelt {}
 
 // Geteilter Ordner (für Familien-Teilen)
 struct ArcaFolder: Codable {
@@ -182,6 +200,7 @@ struct ListEntry: Identifiable, Codable, Hashable {
     var favoritePinned: Bool = false   // „fest": ganz vorn in der Favoriten-Reihe
     var dateCreated: Date = Date()
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
+    var geaendertAm: Date = Date()
 
     init(id: UUID = UUID(),
          title: String,
@@ -207,8 +226,11 @@ struct ListEntry: Identifiable, Codable, Hashable {
         favoritePinned = try c.decodeIfPresent(Bool.self,          forKey: .favoritePinned) ?? false
         dateCreated = try c.decodeIfPresent(Date.self,             forKey: .dateCreated) ?? Date()
         colorTag    = try c.decodeIfPresent(Int.self,              forKey: .colorTag)    ?? 0
+        geaendertAm = try c.decodeIfPresent(Date.self,             forKey: .geaendertAm) ?? dateCreated
     }
 }
+
+extension ListEntry: ZeitGestempelt {}
 
 // Geteilte Aufgabenliste
 struct ArcaList: Codable {
@@ -253,6 +275,7 @@ struct DeskItem: Identifiable, Codable, Hashable {
     var posX: Double? = nil        // frei positioniert? (Canvas-Koordinaten)
     var posY: Double? = nil
     var colorTag: Int? = nil       // farbiger Rand (NoteColor-Palette)
+    var geaendertAm: Date = Date()
 
     var kind: FavoriteKind { FavoriteKind(rawValue: kindRaw) ?? .note }
 
@@ -271,8 +294,11 @@ struct DeskItem: Identifiable, Codable, Hashable {
         posX     = try c.decodeIfPresent(Double.self, forKey: .posX)
         posY     = try c.decodeIfPresent(Double.self, forKey: .posY)
         colorTag = try c.decodeIfPresent(Int.self,    forKey: .colorTag)
+        geaendertAm = try c.decodeIfPresent(Date.self, forKey: .geaendertAm) ?? .distantPast
     }
 }
+
+extension DeskItem: ZeitGestempelt {}
 
 struct FavoriteItem: Identifiable, Hashable {
     let id: UUID
