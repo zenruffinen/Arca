@@ -130,7 +130,7 @@ struct QuickCaptureSheet: View {
                 // Wohin damit? Drei Ziele, das erkannte ist vorgewählt
                 if wartetAufZiel && !transcribedText.isEmpty {
                     HStack(spacing: 8) {
-                        zielKnopf(.notiz,    titel: "Notiz",    symbol: "bolt.fill")
+                        zielKnopf(.notiz,    titel: "Idee",     symbol: "lightbulb.fill")
                         zielKnopf(.aufgabe,  titel: "Aufgabe",  symbol: "checkmark.square")
                         zielKnopf(.passwort, titel: "Passwort", symbol: "key.fill")
                     }
@@ -146,7 +146,7 @@ struct QuickCaptureSheet: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(ArcaWarm.terrakotta)
                         .padding(.top, 1)
-                    Text("Deine Blitzidee wird **unverändert in den Notizen gespeichert**. Beginnst du mit „Aufgabe“ oder „Passwort“, landet sie gleich am richtigen Ort.")
+                    Text("Deine Blitzidee wird **unverändert bei deinen Ideen gespeichert**. Beginnst du mit „Aufgabe“ oder „Passwort“, landet sie gleich am richtigen Ort.")
                         .font(.system(size: 13))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -258,7 +258,7 @@ struct QuickCaptureSheet: View {
 
     private var zielHinweis: String {
         switch erkanntesZiel {
-        case .notiz:    return "Wird gleich als Notiz gespeichert — oder wähle ein Ziel"
+        case .notiz:    return "Wird gleich als Idee gespeichert — oder wähle ein Ziel"
         case .aufgabe:  return "Klingt nach Aufgaben — wird gleich zur Liste"
         case .passwort: return "Klingt nach einem Passwort — Tipp öffnet den Tresor"
         }

@@ -2016,7 +2016,7 @@ final class AppStore: ObservableObject {
         }
         for n in notes where n.isFavorite {
             all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
-                                    subtitle: n.isQuickIdea ? "Blitzidee" : "Notiz",
+                                    subtitle: n.isQuickIdea ? "Blitzidee" : "Idee",
                                     pinned: n.favoritePinned, date: n.dateCreated))
         }
         for l in lists where l.isFavorite {

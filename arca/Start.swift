@@ -511,7 +511,7 @@ struct HomeView: View {
         case .notizen:
             for n in store.notes {
                 all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
-                                        subtitle: n.isQuickIdea ? "Blitzidee" : "Notiz",
+                                        subtitle: n.isQuickIdea ? "Blitzidee" : "Idee",
                                         pinned: false, date: n.dateCreated))
             }
         case .tasks:
