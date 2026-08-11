@@ -510,6 +510,29 @@ final class AppStore: ObservableObject {
         return nurLokal + ergebnis
     }
 
+    /// iCloud-Konflikte auflösen: Wenn zwei Geräte dieselbe Datei
+    /// gleichzeitig geändert haben (Funkloch!), legt iCloud Konflikt-
+    /// Fassungen an — und stoppt Uploads, bis sie aufgelöst sind.
+    /// Wir lesen ALLE Fassungen, fusionieren sie (der jüngere Eintrag
+    /// gewinnt) und erklären den Konflikt für erledigt.
+    private func loeseKonflikte<T: ZeitGestempelt & Identifiable & Equatable & Codable>(
+        _ aktuell: [T], key: String) -> [T] where T.ID == UUID {
+        let url = dataURL(key)
+        guard let konflikte = NSFileVersion.unresolvedConflictVersionsOfItem(at: url),
+              !konflikte.isEmpty else { return aktuell }
+        var ergebnis = aktuell
+        for fassung in konflikte {
+            if let data = try? Data(contentsOf: fassung.url),
+               let dekodiert = try? JSONDecoder().decode([T].self, from: data) {
+                ergebnis = fusioniere(ergebnis, dekodiert)
+            }
+            fassung.isResolved = true
+        }
+        try? NSFileVersion.removeOtherVersionsOfItem(at: url)
+        nachfusionSpeichern.insert(key)
+        return ergebnis
+    }
+
     /// Fusion + Merker fürs Rückschreiben, wenn die Wolke etwas lernen muss.
     private func fusioniereUndMerke<T: ZeitGestempelt & Identifiable & Equatable>(
         _ lokal: [T], _ wolke: [T], schluessel: String) -> [T] where T.ID == UUID {
@@ -1745,19 +1768,24 @@ final class AppStore: ObservableObject {
                     ?? KeychainManager.shared.load(key: "vault_\(decoded[i].id)", synchronizable: false)
                     ?? ""
             }
-            vaultItems = fusioniereUndMerke(vaultItems, decoded, schluessel: "vaultItems")
+            vaultItems = loeseKonflikte(
+                fusioniereUndMerke(vaultItems, decoded, schluessel: "vaultItems"), key: "vaultItems")
         }
         if let decoded = loadJSON([DocumentEntry].self, key: "documents") {
-            documents = fusioniereUndMerke(documents, decoded, schluessel: "documents")
+            documents = loeseKonflikte(
+                fusioniereUndMerke(documents, decoded, schluessel: "documents"), key: "documents")
         }
         if let decoded = loadJSON([NoteEntry].self, key: "notes") {
-            notes = fusioniereUndMerke(notes, decoded, schluessel: "notes")
+            notes = loeseKonflikte(
+                fusioniereUndMerke(notes, decoded, schluessel: "notes"), key: "notes")
         }
         if let decoded = loadJSON([ListEntry].self, key: "lists") {
-            lists = fusioniereUndMerke(lists, decoded, schluessel: "lists")
+            lists = loeseKonflikte(
+                fusioniereUndMerke(lists, decoded, schluessel: "lists"), key: "lists")
         }
         if let decoded = loadJSON([DeskItem].self, key: "deskItems") {
-            deskItems = fusioniereUndMerke(deskItems, decoded, schluessel: "deskItems")
+            deskItems = loeseKonflikte(
+                fusioniereUndMerke(deskItems, decoded, schluessel: "deskItems"), key: "deskItems")
         }
         if let decoded = loadJSON(DeskFlaechenStil.self, key: "deskStil") {
             deskStil = decoded
