@@ -1082,6 +1082,15 @@ final class AppStore: ObservableObject {
             "vaultItems", "documents", "notes", "lists",
             "documentCategories", "categoryColors", "documentSubcategories", "homeFolderQuickView"
         ])
+        // Wiederhergestelltes ist stärker als Grabsteine: frische Stempel
+        // (sonst „stürbe" es sofort wieder an jüngeren Grabsteinen) und
+        // die eigenen Grabsteine werden weggeräumt.
+        var backup = backup
+        let jetzt = Date()
+        for i in backup.notes.indices      { backup.notes[i].geaendertAm = jetzt;      grabsteine.removeValue(forKey: backup.notes[i].id) }
+        for i in backup.documents.indices  { backup.documents[i].geaendertAm = jetzt;  grabsteine.removeValue(forKey: backup.documents[i].id) }
+        for i in backup.lists.indices      { backup.lists[i].geaendertAm = jetzt;      grabsteine.removeValue(forKey: backup.lists[i].id) }
+        for i in backup.vaultItems.indices { backup.vaultItems[i].geaendertAm = jetzt; grabsteine.removeValue(forKey: backup.vaultItems[i].id) }
         if merge {
             let existingNoteIDs  = Set(notes.map(\.id))
             let existingDocIDs   = Set(documents.map(\.id))
