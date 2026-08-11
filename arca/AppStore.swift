@@ -485,6 +485,122 @@ final class AppStore: ObservableObject {
         return geaendert ? ergebnis : nil
     }
 
+    // MARK: - Selbstheilung gegen iCloud-Ordner-Gabelungen
+    //
+    // iCloud kopiert bei einem Ordner-Konflikt den GANZEN Ordner zu
+    // „arcadata 2" / „files 3" — die App öffnet aber stur „arcadata".
+    // Verschiedene Geräte landen so in verschiedenen Kopien (der Grund
+    // für die leeren Geräte am Morgen). Hier suchen wir solche
+    // Geschwister-Kopien, führen ihren Inhalt in den kanonischen Ordner
+    // zusammen (Fusion wie beim Sync) und räumen die Kopie weg.
+
+    /// Fand die letzte Prüfung eine Gabelung? Dann muss neu geladen werden.
+    private var gabelungGeheilt = false
+
+    func heileOrdnerGabelungen() {
+        guard let c = cloudContainer else { return }
+        let docs = c.appendingPathComponent("Documents")
+        guard let inhalt = try? FileManager.default.contentsOfDirectory(
+            at: docs, includingPropertiesForKeys: nil) else { return }
+
+        func gabelungenVon(_ basis: String) -> [URL] {
+            inhalt.filter { url in
+                let n = url.lastPathComponent
+                return n != basis
+                    && n.range(of: "^\(basis) \\d+$", options: .regularExpression) != nil
+            }
+        }
+
+        for fork in gabelungenVon("arcadata") {
+            schmelzeDatenGabelung(fork)
+            entferneOrdnerKoordiniert(fork)
+            gabelungGeheilt = true
+        }
+        for fork in gabelungenVon("files") {
+            let dateien = (try? FileManager.default.contentsOfDirectory(
+                at: fork, includingPropertiesForKeys: nil)) ?? []
+            for datei in dateien where !datei.lastPathComponent.hasPrefix(".") {
+                let ziel = filesDirectory.appendingPathComponent(datei.lastPathComponent)
+                if !FileManager.default.fileExists(atPath: ziel.path) {
+                    try? FileManager.default.copyItem(at: datei, to: ziel)
+                }
+            }
+            entferneOrdnerKoordiniert(fork)
+            gabelungGeheilt = true
+        }
+    }
+
+    private func schmelzeDatenGabelung(_ fork: URL) {
+        func lies<T: Decodable>(_ t: T.Type, _ key: String, in dir: URL) -> T? {
+            let u = dir.appendingPathComponent("\(key).json")
+            let ph = dir.appendingPathComponent(".\(key).json.icloud")
+            if FileManager.default.fileExists(atPath: ph.path) {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: u)
+            }
+            guard let d = try? Data(contentsOf: u), !d.isEmpty else { return nil }
+            return try? JSONDecoder().decode(t, from: d)
+        }
+        func schreib<T: Encodable>(_ v: T, _ key: String) {
+            let u = dataURL(key)
+            guard let d = try? JSONEncoder().encode(v) else { return }
+            let co = NSFileCoordinator(filePresenter: nil); var e: NSError?
+            co.coordinate(writingItemAt: u, options: .forReplacing, error: &e) {
+                try? d.write(to: $0, options: .atomic)
+            }
+        }
+
+        // Eintrags-Bestände: jüngerer gewinnt (dieselbe Fusion wie beim Sync)
+        if let f = lies([VaultEntry].self, "vaultItems", in: fork) {
+            schreib(fusioniere(lies([VaultEntry].self, "vaultItems", in: dataDirectory) ?? [], f), "vaultItems")
+        }
+        if let f = lies([DocumentEntry].self, "documents", in: fork) {
+            schreib(fusioniere(lies([DocumentEntry].self, "documents", in: dataDirectory) ?? [], f), "documents")
+        }
+        if let f = lies([NoteEntry].self, "notes", in: fork) {
+            schreib(fusioniere(lies([NoteEntry].self, "notes", in: dataDirectory) ?? [], f), "notes")
+        }
+        if let f = lies([ListEntry].self, "lists", in: fork) {
+            schreib(fusioniere(lies([ListEntry].self, "lists", in: dataDirectory) ?? [], f), "lists")
+        }
+        if let f = lies([DeskItem].self, "deskItems", in: fork) {
+            schreib(fusioniere(lies([DeskItem].self, "deskItems", in: dataDirectory) ?? [], f), "deskItems")
+        }
+        // Grabsteine vereinen (spätere Löschzeit gewinnt)
+        if let f = lies([UUID: Date].self, "grabsteine", in: fork) {
+            let k = lies([UUID: Date].self, "grabsteine", in: dataDirectory) ?? [:]
+            schreib(k.merging(f) { max($0, $1) }, "grabsteine")
+        }
+        // Kategorien / Schnellansicht: Reihenfolge + fehlende ergänzen
+        for key in ["documentCategories", "homeFolderQuickView"] {
+            if let f = lies([String].self, key, in: fork) {
+                var k = lies([String].self, key, in: dataDirectory) ?? []
+                for x in f where !k.contains(x) { k.append(x) }
+                schreib(k, key)
+            }
+        }
+        // Farben / Untergruppen: Schlüssel vereinen (Gabelung gewinnt Konflikt)
+        if let f = lies([String: Int].self, "categoryColors", in: fork) {
+            let k = lies([String: Int].self, "categoryColors", in: dataDirectory) ?? [:]
+            schreib(k.merging(f) { _, neu in neu }, "categoryColors")
+        }
+        if let f = lies([String: [String]].self, "documentSubcategories", in: fork) {
+            let k = lies([String: [String]].self, "documentSubcategories", in: dataDirectory) ?? [:]
+            schreib(k.merging(f) { _, neu in neu }, "documentSubcategories")
+        }
+        // Pult-Stil nur übernehmen, wenn kanonisch (noch) keiner da ist
+        if lies(DeskFlaechenStil.self, "deskStil", in: dataDirectory) == nil,
+           let f = lies(DeskFlaechenStil.self, "deskStil", in: fork) {
+            schreib(f, "deskStil")
+        }
+    }
+
+    private func entferneOrdnerKoordiniert(_ url: URL) {
+        let co = NSFileCoordinator(filePresenter: nil); var e: NSError?
+        co.coordinate(writingItemAt: url, options: .forDeleting, error: &e) { u in
+            try? FileManager.default.removeItem(at: u)
+        }
+    }
+
     /// Zusammenführen statt Ersetzen: Eintrag für Eintrag, der jüngere
     /// gewinnt; Grabsteine halten Gelöschtes fern; lokale Neue überleben.
     /// Eine leere Wolke kann damit nie wieder ein volles Gerät leeren.
@@ -580,7 +696,11 @@ final class AppStore: ObservableObject {
 
     private func pruefeAufFrisches() {
         downloadAllCloudFiles()
-        var fremdesNeues = false
+        // Ordner-Gabelung? Einschmelzen — das ändert die kanonischen
+        // Datei-Stände, was die Frische-Prüfung unten als „neu" erkennt.
+        gabelungGeheilt = false
+        heileOrdnerGabelungen()
+        var fremdesNeues = gabelungGeheilt
         for key in synchronisierteSchluessel {
             if dateiStand(key) != bekannteStaende[key] {
                 fremdesNeues = true
@@ -1753,6 +1873,9 @@ final class AppStore: ObservableObject {
     // MARK: - Laden
 
     private func load() {
+        // Selbstheilung: von iCloud abgespaltene Ordner-Kopien
+        // („arcadata 2" …) einschmelzen, BEVOR wir kanonisch lesen.
+        heileOrdnerGabelungen()
         // Grabsteine zuerst: sie entscheiden, was tot bleibt
         if let decoded = loadJSON([UUID: Date].self, key: "grabsteine") {
             let vereint = grabsteine.merging(decoded) { max($0, $1) }
