@@ -1,0 +1,63 @@
+{
+  "identifier" : "7C163A39-A4AC-4E6F-9FBC-86170F43E62D",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "1.00",
+      "familyShareable" : false,
+      "internalID" : "41103439-A323-49F9-A29E-3BFD45380B0E",
+      "localizations" : [
+        {
+          "description" : "Ein kleiner Dank für Arca",
+          "displayName" : "Espresso",
+          "locale" : "de_DE"
+        }
+      ],
+      "productID" : "trinkgeld.espresso",
+      "referenceName" : "Trinkgeld Espresso",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "3.00",
+      "familyShareable" : false,
+      "internalID" : "79EA3B7A-FB45-47EA-8C31-14CF8A53BC93",
+      "localizations" : [
+        {
+          "description" : "Kafi und Gipfeli für den Entwickler",
+          "displayName" : "Kafi & Gipfeli",
+          "locale" : "de_DE"
+        }
+      ],
+      "productID" : "trinkgeld.gipfeli",
+      "referenceName" : "Trinkgeld Kafi und Gipfeli",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "5.00",
+      "familyShareable" : false,
+      "internalID" : "DC1B1416-3471-4A6E-BF34-674CB3422F63",
+      "localizations" : [
+        {
+          "description" : "Eine grosszügige Unterstützung für Arca",
+          "displayName" : "Grosszügig",
+          "locale" : "de_DE"
+        }
+      ],
+      "productID" : "trinkgeld.gross",
+      "referenceName" : "Trinkgeld Grosszuegig",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

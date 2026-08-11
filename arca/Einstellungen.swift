@@ -608,6 +608,13 @@ struct SettingsView: View {
 
                 aboutSection
 
+                // ── Trinkgeld: Arca unterstützen ──
+                Section {
+                    TrinkgeldKarte()
+                } header: {
+                    Text("Arca unterstützen")
+                }
+
                 // ── Nutzer & Synchronisation ──
                 Section {
                     HStack {
