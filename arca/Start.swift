@@ -1272,6 +1272,9 @@ struct HomeView: View {
         .sheet(item: $quickAccessNote) { note in
             NoteDetailView(note: note)
                 .environmentObject(store)
+                .presentationDetents([.medium, .large])
+                .presentationCornerRadius(28)
+                .presentationBackground(.ultraThinMaterial)
         }
         .quickLookPreview($quickAccessPreviewURL)
         // Einmalige Namensfrage für die Begrüßung (iOS gibt den

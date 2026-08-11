@@ -184,7 +184,12 @@ struct NotesView: View {
                     showNewNote = true
                 }
             }
-            .sheet(item: $selectedNote) { note in NoteDetailView(note: note) }
+            .sheet(item: $selectedNote) { note in
+                NoteDetailView(note: note)
+                .presentationDetents([.medium, .large])
+                .presentationCornerRadius(28)
+                .presentationBackground(.ultraThinMaterial)
+            }
             .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
         }
     }

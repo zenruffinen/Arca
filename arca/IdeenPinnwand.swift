@@ -90,7 +90,11 @@ struct IdeenPinnwand: View {
             }
         }
         .sheet(item: $bearbeite) { note in
-            NoteDetailView(note: note).environmentObject(store)
+            NoteDetailView(note: note)
+                .environmentObject(store)
+                .presentationDetents([.medium, .large])
+                .presentationCornerRadius(28)
+                .presentationBackground(.ultraThinMaterial)
         }
     }
 
