@@ -462,29 +462,28 @@ struct ArcaKategorieKarte: View {
     var zuhause: Bool = false
 
     var body: some View {
-        VStack(spacing: 5) {
-            ArcaIcon(name: icon, groesse: 19)
+        VStack(spacing: 4) {
+            ArcaIcon(name: icon, groesse: 18)
                 .foregroundStyle(farben.accent)
-                .frame(width: 40, height: 40)
+                .frame(width: 38, height: 38)
                 .background(farben.bg, in: RoundedRectangle(cornerRadius: 11))
             Text(name)
                 .font(.system(size: 10.5, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
-                .minimumScaleFactor(0.85)
+                .minimumScaleFactor(0.8)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 1)
             Text("\(anzahl)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(farben.accent)
             Text(anzahl == 1 ? "Dokument" : "Dokumente")
                 .font(.system(size: 8))
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 9)
         .padding(.horizontal, 6)
-        .frame(width: 60, height: 150)
+        .frame(width: 60, height: 124)
         .glassEffect(.regular.tint(farben.bg.opacity(0.55)),
                      in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
@@ -515,7 +514,7 @@ struct ArcaKategorieHinzufuegenKarte: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .frame(width: 60, height: 150)
+        .frame(width: 60, height: 124)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
