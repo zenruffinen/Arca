@@ -126,6 +126,7 @@ struct ArcaTabBar: View {
             .padding(.horizontal, 11)
             .padding(.vertical, 8)
             .glassEffect(.regular, in: Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -151,7 +152,8 @@ struct ArcaTabBar: View {
             .overlay {
                 if aktiv { Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 1.5) }
             }
-            .accessibilityLabel(unter.isEmpty ? titel : titel)
+            .contentShape(Circle())
+            .accessibilityLabel(titel)
     }
 
     // MARK: Großer Plus mit Schlüssel-Badge
