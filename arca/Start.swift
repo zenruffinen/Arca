@@ -120,6 +120,9 @@ struct HomeView: View {
     @State private var gruppeZumUmbenennen: String? = nil
     @State private var gruppeUmbenennenText = ""
     @State private var gruppeZumLoeschen: String? = nil
+    /// Welche Gruppe gerade ein neues Symbol wählt (nil = Wähler zu)
+    private struct SymbolZiel: Identifiable { let id = UUID(); let name: String }
+    @State private var symbolZiel: SymbolZiel? = nil
     @State private var sortiereGruppen = false
 
     /// Was aufzuräumen ist: alles in „Unsortiert" PLUS Waisen,
@@ -221,7 +224,7 @@ struct HomeView: View {
                         Menu {
                             ForEach(store.documentCategories.filter { $0 != doc.category }, id: \.self) { ziel in
                                 Button { verschiebeDokument(doc, nach: ziel) } label: {
-                                    Label(ziel, image: categoryIcon(ziel))
+                                    Label(ziel, image: store.iconFor(ziel))
                                 }
                             }
                             Divider()
@@ -511,20 +514,13 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
                 }
 
-                // Kopf: DOKUMENTE (Neu-Anlegen über die +-Karte am Ende)
-                HStack {
-                    ArcaSectionTitle(title: "Dokumente", icon: "ArcaDocument")
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-
-                // Eine Reihe, läuft nach rechts durch
+                // Eine Reihe, läuft nach rechts durch (kein Titel — der Chip sagt schon „Dokumente")
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
                             ArcaKategorieKarte(
                                 name: gruppe.name,
-                                icon: categoryIcon(gruppe.name),
+                                icon: store.iconFor(gruppe.name),
                                 farben: categoryColor(gruppe.name, overrides: store.categoryColors),
                                 anzahl: gruppe.anzahl,
                                 zuhause: store.isInHomeFolderQuickView(gruppe.name))
@@ -536,6 +532,11 @@ struct HomeView: View {
                                 verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
                             }
                             .contextMenu {
+                                Button {
+                                    symbolZiel = SymbolZiel(name: gruppe.name)
+                                } label: {
+                                    Label("Symbol ändern", systemImage: "square.grid.2x2")
+                                }
                                 ArcaMenue.farbe(aktuell: store.categoryColors[gruppe.name]) { idx in
                                     store.categoryColors[gruppe.name] = idx
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -947,18 +948,6 @@ struct HomeView: View {
                         HStack {
                             ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
                             Spacer()
-                            if !store.favoriteItems.isEmpty {
-                                Button { showAlleFavoriten = true } label: {
-                                    HStack(spacing: 3) {
-                                        Text("Alle anzeigen")
-                                            .font(.system(size: 13, weight: .semibold))
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 10, weight: .bold))
-                                    }
-                                    .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                            }
                         }
                         .padding(.horizontal, 20)
                         if store.favoriteItems.isEmpty {
@@ -1200,6 +1189,22 @@ struct HomeView: View {
         }
         .fullScreenCover(isPresented: $showSpiderGame) {
             SpiderGameView()
+        }
+        .sheet(item: $symbolZiel) { ziel in
+            CategoryIconPickerSheet(
+                categoryName: ziel.name,
+                current: store.categoryIcons[ziel.name],
+                farbe: categoryColor(ziel.name, overrides: store.categoryColors)
+            ) { symbol in
+                if let symbol {
+                    store.categoryIcons[ziel.name] = symbol
+                } else {
+                    store.categoryIcons.removeValue(forKey: ziel.name)
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                symbolZiel = nil
+            }
+            .environmentObject(store)
         }
         .sheet(isPresented: $showAlleFavoriten) {
             NavigationStack {

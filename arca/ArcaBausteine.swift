@@ -186,6 +186,75 @@ struct CategoryColorPickerSheet: View {
     }
 }
 
+// MARK: - Icon-Wähler für Gruppen
+
+/// Alle Arca-Symbole, die als Gruppen-Icon zur Wahl stehen — thematisch sortiert.
+let arcaKategorieSymbole: [String] = [
+    "ArcaFolder", "ArcaArchive", "ArcaDocument", "ArcaCard", "ArcaInvoice",
+    "ArcaHome", "ArcaCar", "ArcaWallet", "ArcaChart", "ArcaShield",
+    "ArcaHealth", "ArcaPerson", "ArcaHeart", "ArcaPaw", "ArcaBook",
+    "ArcaGraduation", "ArcaBriefcase", "ArcaFood", "ArcaCart", "ArcaGift",
+    "ArcaDumbbell", "ArcaMusic", "ArcaCamera", "ArcaLeaf", "ArcaTravel",
+    "ArcaPlace", "ArcaGlobe", "ArcaCalendar", "ArcaClock", "ArcaMail",
+    "ArcaPhone", "ArcaCloud", "ArcaKey", "ArcaLock", "ArcaStar",
+    "ArcaFlag", "ArcaChecklist", "ArcaScan", "ArcaBolt", "ArcaIdee",
+]
+
+struct CategoryIconPickerSheet: View {
+    let categoryName: String
+    let current: String?          // nil = automatisch (nach Name)
+    let farbe: NoteColor
+    let onSelect: (String?) -> Void   // nil = zurück zur Automatik
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 5)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("Symbol für \(categoryName)")
+                .font(.headline)
+                .padding(.top, 20)
+                .padding(.bottom, 6)
+
+            Button {
+                onSelect(nil)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "wand.and.stars")
+                    Text("Automatisch nach Name")
+                }
+                .font(.subheadline.weight(current == nil ? .semibold : .regular))
+                .foregroundStyle(current == nil ? farbe.accent : .secondary)
+                .padding(.vertical, 7)
+                .padding(.horizontal, 14)
+                .background(current == nil ? farbe.bg.opacity(0.5) : Color(.secondarySystemFill),
+                            in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 14)
+
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(arcaKategorieSymbole, id: \.self) { sym in
+                        let sel = current == sym
+                        Button { onSelect(sym) } label: {
+                            ArcaIcon(name: sym, groesse: 23)
+                                .foregroundStyle(sel ? .white : farbe.accent)
+                                .frame(width: 52, height: 52)
+                                .background(sel ? farbe.accent : farbe.bg.opacity(0.45),
+                                            in: RoundedRectangle(cornerRadius: 13))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 28)
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
 // MARK: - Gruppen-Manager
 
 /// Wählt ein passendes Arca-Symbol zum Gruppennamen (Stichwort-Erkennung,
@@ -227,7 +296,7 @@ struct DocumentCategoryManagerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(categoryIcon(category))
+            Image(store.iconFor(category))
                 .foregroundStyle(categoryColor(category, overrides: store.categoryColors).accent)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {

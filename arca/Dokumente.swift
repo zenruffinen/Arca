@@ -493,7 +493,7 @@ struct DocumentsView: View {
                                 store.documents[idx].subcategory = ""
                             }
                         } label: {
-                            Label(targetCategory, image: categoryIcon(targetCategory))
+                            Label(targetCategory, image: store.iconFor(targetCategory))
                         }
                     } else {
                         Menu {
@@ -517,7 +517,7 @@ struct DocumentsView: View {
                                 }
                             }
                         } label: {
-                            Label(targetCategory, image: categoryIcon(targetCategory))
+                            Label(targetCategory, image: store.iconFor(targetCategory))
                         }
                     }
                 }
@@ -598,7 +598,7 @@ struct DocumentsView: View {
                                             .foregroundStyle(.secondary)
                                             .rotationEffect(.degrees(isCollapsed ? 0 : 90))
                                             .animation(.easeInOut(duration: 0.2), value: isCollapsed)
-                                        Image(categoryIcon(category))
+                                        Image(store.iconFor(category))
                                             .font(.system(size: 13, weight: .semibold))
                                             .foregroundStyle(catColor.accent)
                                             .frame(width: 28, height: 28)
@@ -1471,7 +1471,7 @@ struct DocumentSaveSheet: View {
                     Picker("Gruppe", selection: $category) {
                         ForEach(store.documentCategories, id: \.self) { cat in
                             HStack {
-                                Image(categoryIcon(cat))
+                                Image(store.iconFor(cat))
                                     .foregroundStyle(categoryColor(cat, overrides: store.categoryColors).accent)
                                 Text(cat)
                             }.tag(cat)
@@ -1586,7 +1586,7 @@ struct TextDocumentInputView: View {
                     Picker("Gruppe", selection: $category) {
                         ForEach(store.documentCategories, id: \.self) { cat in
                             HStack {
-                                Image(categoryIcon(cat))
+                                Image(store.iconFor(cat))
                                     .foregroundStyle(categoryColor(cat, overrides: store.categoryColors).accent)
                                 Text(cat)
                             }.tag(cat)

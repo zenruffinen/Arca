@@ -112,6 +112,14 @@ final class AppStore: ObservableObject {
     @Published var categoryColors: [String: Int] = [:] {
         didSet { guard !isLoadingData else { return }; saveCategoryColors() }
     }
+    /// Vom Nutzer gewähltes Symbol pro Gruppe (überstimmt die Auto-Erkennung).
+    @Published var categoryIcons: [String: String] = [:] {
+        didSet { guard !isLoadingData else { return }; saveCategoryIcons() }
+    }
+    /// Symbol einer Gruppe: Nutzerwahl vor Auto-Erkennung nach Stichwort.
+    func iconFor(_ category: String) -> String {
+        categoryIcons[category] ?? categoryIcon(category)
+    }
     /// Der Schreibtisch (iPad/Mac): Karten links/rechts vom Space
     @Published var deskItems: [DeskItem] = [] {
         didSet {
@@ -375,7 +383,7 @@ final class AppStore: ObservableObject {
     private func hasAnyExistingDataStore() -> Bool {
         let keys = [
             "vaultItems", "documents", "notes", "lists",
-            "documentCategories", "categoryColors", "documentSubcategories", "homeFolderQuickView"
+            "documentCategories", "categoryColors", "categoryIcons", "documentSubcategories", "homeFolderQuickView"
         ]
         for key in keys {
             let url = dataURL(key)
@@ -595,6 +603,10 @@ final class AppStore: ObservableObject {
             let k = lies([String: Int].self, "categoryColors", in: dataDirectory) ?? [:]
             schreib(k.merging(f) { _, neu in neu }, "categoryColors")
         }
+        if let f = lies([String: String].self, "categoryIcons", in: fork) {
+            let k = lies([String: String].self, "categoryIcons", in: dataDirectory) ?? [:]
+            schreib(k.merging(f) { _, neu in neu }, "categoryIcons")
+        }
         if let f = lies([String: [String]].self, "documentSubcategories", in: fork) {
             let k = lies([String: [String]].self, "documentSubcategories", in: dataDirectory) ?? [:]
             schreib(k.merging(f) { _, neu in neu }, "documentSubcategories")
@@ -684,7 +696,7 @@ final class AppStore: ObservableObject {
     private var bekannteStaende: [String: Date] = [:]
     private let synchronisierteSchluessel = [
         "vaultItems", "documents", "notes", "lists", "deskItems", "deskStil",
-        "documentCategories", "categoryColors", "documentSubcategories",
+        "documentCategories", "categoryColors", "categoryIcons", "documentSubcategories",
         "grabsteine", "homeFolderQuickView", "pinnwandLayout"
     ]
 
@@ -739,6 +751,7 @@ final class AppStore: ObservableObject {
         if faellig.contains("deskItems") { saveJSON(deskItems, key: "deskItems") }
         if faellig.contains("documentCategories") { saveDocumentCategories() }
         if faellig.contains("categoryColors") { saveCategoryColors() }
+        if faellig.contains("categoryIcons") { saveCategoryIcons() }
         if faellig.contains("documentSubcategories") { saveDocumentSubcategories() }
         if faellig.contains("pinnwandLayout") { saveJSON(pinnwandLayout, key: "pinnwandLayout") }
     }
@@ -875,6 +888,7 @@ final class AppStore: ObservableObject {
         migrate(udKey: "vaultItems",            fileKey: "vaultItems")
         migrate(udKey: "documentCategories",    fileKey: "documentCategories")
         migrate(udKey: "categoryColors",        fileKey: "categoryColors")
+        migrate(udKey: "categoryIcons",         fileKey: "categoryIcons")
         migrate(udKey: "documentSubcategories", fileKey: "documentSubcategories")
 
         // Dokument-Dateien in neues Verzeichnis kopieren (nur wenn Ziel != Quelle)
@@ -1236,7 +1250,7 @@ final class AppStore: ObservableObject {
         // Schutzmauer (geladeneSchluessel) ihre eigenen Schreibzugriffe blocken.
         geladeneSchluessel.formUnion([
             "vaultItems", "documents", "notes", "lists",
-            "documentCategories", "categoryColors", "documentSubcategories", "homeFolderQuickView"
+            "documentCategories", "categoryColors", "categoryIcons", "documentSubcategories", "homeFolderQuickView"
         ])
         // Wiederhergestelltes ist stärker als Grabsteine: frische Stempel
         // (sonst „stürbe" es sofort wieder an jüngeren Grabsteinen) und
@@ -1701,6 +1715,10 @@ final class AppStore: ObservableObject {
             categoryColors[trimmed] = farbe
             categoryColors.removeValue(forKey: old)
         }
+        if let sym = categoryIcons[old] {
+            categoryIcons[trimmed] = sym
+            categoryIcons.removeValue(forKey: old)
+        }
     }
 
     func deleteCategory(_ name: String) {
@@ -1717,6 +1735,7 @@ final class AppStore: ObservableObject {
         documentSubcategories.removeValue(forKey: name)
         homeFolderQuickView.removeAll { $0 == name }
         categoryColors.removeValue(forKey: name)
+        categoryIcons.removeValue(forKey: name)
     }
 
     func addSubcategory(to category: String, name: String) {
@@ -1821,6 +1840,10 @@ final class AppStore: ObservableObject {
 
     private func saveCategoryColors() {
         saveJSON(categoryColors, key: "categoryColors")
+    }
+
+    private func saveCategoryIcons() {
+        saveJSON(categoryIcons, key: "categoryIcons")
     }
 
     private func saveLists() {
@@ -1938,6 +1961,11 @@ final class AppStore: ObservableObject {
             let vereint = categoryColors.merging(decoded) { _, wolke in wolke }
             if vereint != decoded { nachfusionSpeichern.insert("categoryColors") }
             categoryColors = vereint
+        }
+        if let decoded = loadJSON([String: String].self, key: "categoryIcons") {
+            let vereint = categoryIcons.merging(decoded) { _, wolke in wolke }
+            if vereint != decoded { nachfusionSpeichern.insert("categoryIcons") }
+            categoryIcons = vereint
         }
         if let decoded = loadJSON([String: [String]].self, key: "documentSubcategories") {
             let vereint = documentSubcategories.merging(decoded) { _, wolke in wolke }

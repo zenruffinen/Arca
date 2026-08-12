@@ -38,14 +38,7 @@ struct ArcaTabBar: View {
 
     var body: some View {
         HStack(spacing: 11) {
-            // Der Eingangskorb erscheint nur, wenn wirklich etwas unsortiert ist
-            if unsortiertAnzahl > 0 {
-                unsortiertKorb
-            }
-
-            Spacer(minLength: 2)
-
-            // Space · Home
+            // Links: Space + Einstellungen
             barKreis(icon: "ArcaHome", titel: "Space", unter: "Home", aktiv: spaceActive) {
                 if selected == .home {
                     store.homeSprungNachOben += 1
@@ -76,12 +69,15 @@ struct ArcaTabBar: View {
             }
             .buttonStyle(.plain)
 
-            // Trennlinie
-            Rectangle()
-                .fill(Color.primary.opacity(0.12))
-                .frame(width: 1, height: 28)
+            Spacer(minLength: 4)
 
-            // Mikrofon · Aufnahme
+            // Mitte: Der Besen fordert zum Aufräumen auf — nur wenn etwas unsortiert ist
+            if unsortiertAnzahl > 0 {
+                besenKreis
+                Spacer(minLength: 4)
+            }
+
+            // Rechts: Mikrofon + Plus
             barKreis(icon: "ArcaMic", titel: "Mikrofon", unter: "Aufnahme",
                      aktiv: false, iconFarbe: ArcaWarm.terrakotta) {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -95,43 +91,31 @@ struct ArcaTabBar: View {
         .padding(.bottom, 34)
     }
 
-    // MARK: Eingangskorb links
+    // MARK: Besen — fordert zum Aufräumen auf (nur bei Unsortiertem)
 
-    private var unsortiertKorb: some View {
+    private var besenKreis: some View {
         Button {
-            guard unsortiertAnzahl > 0 else { return }
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             store.zeigeAufraeumen = true
         } label: {
-            HStack(spacing: 7) {
-                ArcaIcon(name: "ArcaArchive", groesse: 19)
-                    .foregroundStyle(ArcaWarm.terrakotta)
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 5) {
-                        Text("Unsortiert")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.primary)
-                        if unsortiertAnzahl > 0 {
-                            Text("\(unsortiertAnzahl)")
-                                .font(.system(size: 9.5, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(minWidth: 15, minHeight: 15)
-                                .padding(.horizontal, 2)
-                                .background(ArcaWarm.terrakotta, in: Capsule())
-                        }
-                    }
-                    Text("Alles hier landet zuerst")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+            ArcaIcon(name: "ArcaBroom", groesse: 24)
+                .foregroundStyle(ArcaWarm.terrakotta)
+                .frame(width: 56, height: 56)
+                .glassEffect(.regular.tint(ArcaWarm.terrakotta.opacity(0.18)), in: Circle())
+                .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.5))
+                .overlay(alignment: .topTrailing) {
+                    Text("\(unsortiertAnzahl)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 17, minHeight: 17)
+                        .padding(.horizontal, 2)
+                        .background(ArcaWarm.terrakotta, in: Capsule())
+                        .offset(x: 5, y: -3)
                 }
-            }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 8)
-            .glassEffect(.regular, in: Capsule())
-            .contentShape(Capsule())
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Aufräumen — \(unsortiertAnzahl) unsortiert")
     }
 
     // MARK: Kreis-Knopf (nur Icon, schwebend — ohne Label)

@@ -256,7 +256,7 @@ struct AufraeumModus: View {
                                 sortiere(doc, nach: gruppe)
                             } label: {
                                 HStack(spacing: 6) {
-                                    Image(categoryIcon(gruppe))
+                                    Image(store.iconFor(gruppe))
                                         .font(.system(size: 12, weight: .semibold))
                                     Text(gruppe)
                                         .font(.system(size: 13, weight: .semibold))
