@@ -459,7 +459,6 @@ struct ArcaKategorieKarte: View {
     let icon: String
     let farben: NoteColor
     let anzahl: Int
-    var zuhause: Bool = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -485,14 +484,6 @@ struct ArcaKategorieKarte: View {
                      in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(farben.accent.opacity(0.14), lineWidth: 1))
-        .overlay(alignment: .topTrailing) {
-            if zuhause {
-                Image(systemName: "house.fill")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(farben.accent.opacity(0.85))
-                    .padding(6)
-            }
-        }
     }
 }
 

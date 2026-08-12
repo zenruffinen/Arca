@@ -522,8 +522,7 @@ struct HomeView: View {
                                 name: gruppe.name,
                                 icon: store.iconFor(gruppe.name),
                                 farben: categoryColor(gruppe.name, overrides: store.categoryColors),
-                                anzahl: gruppe.anzahl,
-                                zuhause: store.isInHomeFolderQuickView(gruppe.name))
+                                anzahl: gruppe.anzahl)
                             .id(gruppe.name)
                             .contentShape(RoundedRectangle(cornerRadius: 15))
                             .onTapGesture { openDocuments(category: gruppe.name) }
@@ -950,6 +949,13 @@ struct HomeView: View {
                             Spacer()
                         }
                         .padding(.horizontal, 20)
+                        if !store.favoriteItems.isEmpty {
+                            Text("angepinnt für den schnellen Zugriff")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.top, -4)
+                        }
                         if store.favoriteItems.isEmpty {
                             // Leerzustand: zeigen, dass es die Reihe gibt — und wie man sie füllt
                             HStack(spacing: 10) {
