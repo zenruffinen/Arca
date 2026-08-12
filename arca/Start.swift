@@ -469,6 +469,117 @@ struct HomeView: View {
 
     /// Favorit antippen: Dokument → Vorschau, Notiz → Blatt,
     /// Liste/Passwort → in die jeweilige Sektion (Tresor bleibt verschlossen).
+    @ViewBuilder
+    private var dokumentKarussell: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if dokumentGruppen.isEmpty {
+                Text("Noch keine Dokumente — oben rechts wartet das Dokument-Plus.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+            } else {
+                if unsortierteAnzahl > 0 {
+                    Button {
+                        zeigeAufraeumen = true
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Aufräumen")
+                                .font(.system(size: 13, weight: .bold))
+                            Text("\(unsortierteAnzahl)")
+                                .font(.system(size: 11, weight: .bold))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Color.white.opacity(0.25), in: Capsule())
+                            Spacer()
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.85, green: 0.62, blue: 0.30), ArcaWarm.terrakotta],
+                                startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                }
+
+                // Kopf: DOKUMENTE + Neue Gruppe
+                HStack {
+                    ArcaSectionTitle(title: "Dokumente", icon: "ArcaDocument")
+                    Spacer()
+                    Button {
+                        docFuerNeueGruppe = nil
+                        neueGruppeName = ""
+                        showNeueGruppe = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Neue Gruppe")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20)
+
+                // Das Karussell
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(dokumentGruppen, id: \.name) { gruppe in
+                            ArcaKategorieKarte(
+                                name: gruppe.name,
+                                icon: gruppe.name == "Unsortiert" ? "tray.fill" : categoryIcon(gruppe.name),
+                                farben: categoryColor(gruppe.name, overrides: store.categoryColors),
+                                anzahl: gruppe.anzahl,
+                                zuhause: store.isInHomeFolderQuickView(gruppe.name))
+                            .contentShape(RoundedRectangle(cornerRadius: 16))
+                            .onTapGesture { openDocuments(category: gruppe.name) }
+                            .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
+                            .dropDestination(for: String.self) { eingeworfen, _ in
+                                verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
+                            }
+                            .contextMenu {
+                                ArcaMenue.farbe(aktuell: store.categoryColors[gruppe.name]) { idx in
+                                    store.categoryColors[gruppe.name] = idx
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                }
+                                if gruppe.name != "Unsortiert" {
+                                    ArcaMenue.umbenennen {
+                                        gruppeUmbenennenText = gruppe.name
+                                        gruppeZumUmbenennen = gruppe.name
+                                    }
+                                    ArcaMenue.loeschen("Gruppe löschen") {
+                                        gruppeZumLoeschen = gruppe.name
+                                    }
+                                }
+                            }
+                        }
+                        Button {
+                            docFuerNeueGruppe = nil
+                            neueGruppeName = ""
+                            showNeueGruppe = true
+                        } label: {
+                            ArcaKategorieHinzufuegenKarte()
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
     private func favSymbol(_ kind: FavoriteKind) -> String {
         switch kind {
         case .document: return "ArcaDocument"
@@ -948,201 +1059,7 @@ struct HomeView: View {
                         }
 
                         if streamFilter == .dokumente {
-                            // Dokumente als Gruppen — Einzeldateien wohnen darin
-                            VStack(spacing: 8) {
-                                if dokumentGruppen.isEmpty {
-                                    Text("Noch keine Dokumente — oben rechts wartet das Dokument-Plus.")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(.secondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.vertical, 8)
-                                } else {
-                                    // Aufräumen: eigene Zeile, sonst quetscht es in der
-                                    // schmalen Spalte — darunter Neue Gruppe · Sortieren
-                                    if unsortierteAnzahl > 0 {
-                                        Button {
-                                            zeigeAufraeumen = true
-                                        } label: {
-                                            HStack(spacing: 7) {
-                                                Image(systemName: "sparkles")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                Text("Aufräumen")
-                                                    .font(.system(size: 13, weight: .bold))
-                                                Text("\(unsortierteAnzahl)")
-                                                    .font(.system(size: 11, weight: .bold))
-                                                    .padding(.horizontal, 7)
-                                                    .padding(.vertical, 2)
-                                                    .background(Color.white.opacity(0.25), in: Capsule())
-                                            }
-                                            .foregroundStyle(.white)
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, 10)
-                                            .background(
-                                                LinearGradient(
-                                                    colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
-                                                             ArcaWarm.terrakotta],
-                                                    startPoint: .topLeading, endPoint: .bottomTrailing),
-                                                in: RoundedRectangle(cornerRadius: 12))
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-
-                                    HStack(spacing: 8) {
-                                        Button {
-                                            docFuerNeueGruppe = nil
-                                            neueGruppeName = ""
-                                            showNeueGruppe = true
-                                        } label: {
-                                            HStack(spacing: 8) {
-                                                Image(systemName: "folder.badge.plus")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                Text("Neue Gruppe")
-                                                    .font(.system(size: 13, weight: .semibold))
-                                            }
-                                            .foregroundStyle(ArcaWarm.terrakotta)
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, 10)
-                                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
-                                        }
-                                        .buttonStyle(.plain)
-
-                                        Button {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                sortiereGruppen.toggle()
-                                            }
-                                        } label: {
-                                            HStack(spacing: 6) {
-                                                Image(systemName: sortiereGruppen ? "checkmark" : "arrow.up.arrow.down")
-                                                    .font(.system(size: 13, weight: .semibold))
-                                                Text(sortiereGruppen ? "Fertig" : "Sortieren")
-                                                    .font(.system(size: 13, weight: .semibold))
-                                            }
-                                            .foregroundStyle(sortiereGruppen ? .white : ArcaWarm.terrakotta)
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 10)
-                                            .background {
-                                                if sortiereGruppen {
-                                                    Capsule().fill(ArcaWarm.terrakotta)
-                                                }
-                                            }
-                                            .glassEffect(.regular, in: Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-
-                                    if sortiereGruppen {
-                                        // Sortier-Modus: echte Ziehgriffe (List + onMove) —
-                                        // funktioniert per Klick-und-Ziehen auf allen Geräten
-                                        let sortierbar = dokumentGruppen.map(\.name).filter { $0 != "Unsortiert" }
-                                        List {
-                                            ForEach(sortierbar, id: \.self) { name in
-                                                HStack(spacing: 10) {
-                                                    Image(systemName: name == "Unsortiert" ? "tray.fill" : categoryIcon(name))
-                                                        .font(.system(size: 13, weight: .semibold))
-                                                        .foregroundStyle(categoryColor(name, overrides: store.categoryColors).accent)
-                                                    Text(name)
-                                                        .font(.system(size: 14, weight: .medium))
-                                                }
-                                                .listRowBackground(categoryColor(name, overrides: store.categoryColors).bg.opacity(0.5))
-                                            }
-                                            .onMove { von, nach in
-                                                var rest = sortierbar
-                                                rest.move(fromOffsets: von, toOffset: nach)
-                                                let hatUnsortiert = store.documentCategories.contains("Unsortiert")
-                                                store.documentCategories = (hatUnsortiert ? ["Unsortiert"] : []) + rest
-                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                            }
-                                        }
-                                        .listStyle(.insetGrouped)
-                                        .scrollContentBackground(.hidden)
-                                        .scrollDisabled(true)
-                                        .frame(height: CGFloat(sortierbar.count) * 52 + 40)
-                                        .environment(\.editMode, .constant(.active))
-                                        .padding(.horizontal, -20)
-                                    } else {
-                                    ForEach(dokumentGruppen, id: \.name) { gruppe in
-                                        let farben = categoryColor(gruppe.name, overrides: store.categoryColors)
-                                        let istZiehZiel = ziehZielGruppe == gruppe.name
-                                        VStack(spacing: 6) {
-                                            ArcaFolderQuickCard(
-                                                name: gruppe.name,
-                                                icon: gruppe.name == "Unsortiert" ? "tray.fill" : categoryIcon(gruppe.name),
-                                                tint: farben.accent,
-                                                bg: farben.bg,
-                                                count: gruppe.anzahl,
-                                                action: {
-                                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                                        if expandedFolders.contains(gruppe.name) {
-                                                            expandedFolders.remove(gruppe.name)
-                                                        } else {
-                                                            expandedFolders.insert(gruppe.name)
-                                                        }
-                                                    }
-                                                },
-                                                isExpanded: expandedFolders.contains(gruppe.name),
-                                                onOpen: { openDocuments(category: gruppe.name) }
-                                            )
-                                            .contentShape(Rectangle())
-                                            // Ziehen: Gruppe umsortieren („Unsortiert" bleibt fest) —
-                                            // und Dokumente lassen sich auf Gruppen fallen lassen
-                                            .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
-                                            .dropDestination(for: String.self) { eingeworfen, _ in
-                                                ziehZielGruppe = nil
-                                                return verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
-                                            } isTargeted: { drueber in
-                                                // Die Ordner gehen auseinander: über dem Ziel
-                                                // öffnet sich eine Lücke mit Einfügelinie
-                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                                    if drueber {
-                                                        ziehZielGruppe = gruppe.name
-                                                    } else if ziehZielGruppe == gruppe.name {
-                                                        ziehZielGruppe = nil
-                                                    }
-                                                }
-                                            }
-                                            .padding(.top, istZiehZiel ? 22 : 0)
-                                            .overlay(alignment: .top) {
-                                                if istZiehZiel {
-                                                    HStack(spacing: 6) {
-                                                        Circle()
-                                                            .fill(ArcaWarm.terrakotta)
-                                                            .frame(width: 7, height: 7)
-                                                        Capsule()
-                                                            .fill(ArcaWarm.terrakotta)
-                                                            .frame(height: 3)
-                                                    }
-                                                    .padding(.horizontal, 4)
-                                                    .offset(y: 8)
-                                                    .transition(.opacity.combined(with: .scale(scale: 0.6)))
-                                                }
-                                            }
-                                            // Gedrückt halten: Farbe, Reihenfolge, Name, Löschen —
-                                            // alles synct über iCloud auf alle Geräte
-                                            .contextMenu {
-                                                ArcaMenue.farbe(aktuell: store.categoryColors[gruppe.name]) { idx in
-                                                    store.categoryColors[gruppe.name] = idx
-                                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                                }
-                                                if gruppe.name != "Unsortiert" {
-                                                    ArcaMenue.umbenennen {
-                                                        gruppeUmbenennenText = gruppe.name
-                                                        gruppeZumUmbenennen = gruppe.name
-                                                    }
-                                                    ArcaMenue.loeschen("Gruppe löschen") {
-                                                        gruppeZumLoeschen = gruppe.name
-                                                    }
-                                                }
-                                            }
-                                            if expandedFolders.contains(gruppe.name) {
-                                                folderDocumentRows(gruppe.name)
-                                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                                            }
-                                        }
-                                    }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 20)
+                            dokumentKarussell
                         } else if streamItems.isEmpty {
                             Text("Noch nichts hier — wirf Arca eine Blitzidee zu.")
                                 .font(.system(size: 13))

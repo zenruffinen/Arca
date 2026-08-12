@@ -449,3 +449,71 @@ struct ArcaCollapsibleSectionHeader: View {
         .buttonStyle(.plain)
     }
 }
+
+// MARK: - Kategorie-Karte (Studie: Dokument-Karussell)
+
+/// Eine schöne Kategorie-Karte fürs Dokument-Karussell auf dem Start:
+/// Icon in farbigem Quadrat, Name, Anzahl, „Dokumente".
+struct ArcaKategorieKarte: View {
+    let name: String
+    let icon: String
+    let farben: NoteColor
+    let anzahl: Int
+    var zuhause: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                ArcaIcon(name: icon, groesse: 22)
+                    .foregroundStyle(farben.accent)
+                    .frame(width: 46, height: 46)
+                    .background(farben.bg, in: RoundedRectangle(cornerRadius: 13))
+                Spacer(minLength: 0)
+                if zuhause {
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(farben.accent.opacity(0.8))
+                }
+            }
+            Spacer(minLength: 0)
+            Text(name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("\(anzahl)")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(farben.accent)
+            Text(anzahl == 1 ? "Dokument" : "Dokumente")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(width: 130, height: 172, alignment: .leading)
+        .background(farben.bg.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .strokeBorder(farben.accent.opacity(0.18), lineWidth: 1))
+    }
+}
+
+/// Die „+ Kategorie hinzufügen"-Karte am Ende des Karussells.
+struct ArcaKategorieHinzufuegenKarte: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(ArcaWarm.terrakotta)
+                .frame(width: 46, height: 46)
+                .background(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45),
+                                                  style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            Text("Kategorie\nhinzufügen")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(width: 130, height: 172)
+        .background(Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+    }
+}
