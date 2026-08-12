@@ -560,9 +560,9 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 20)
                     .scrollTargetLayout()
                 }
+                .contentMargins(.horizontal, 20, for: .scrollContent)
                 .scrollPosition(id: $sichtbareDokKarte, anchor: .leading)
 
                 // Seiten-Punkte
@@ -580,17 +580,15 @@ struct HomeView: View {
                     .padding(.top, 6)
 
                     // Dreh-Regler in der Farbe der aktiven Gruppe + „virtual crown"-Gag
-                    let aktiveGruppe = sichtbareDokKarte ?? dokumentGruppen.first?.name ?? "Unsortiert"
+                    let namen = dokumentGruppen.map { $0.name }
+                    let curIndex = sichtbareDokKarte.flatMap { namen.firstIndex(of: $0) } ?? 0
+                    let aktiveGruppe = namen.indices.contains(curIndex) ? namen[curIndex] : "Unsortiert"
                     let radFarbe = categoryColor(aktiveGruppe, overrides: store.categoryColors).accent
                     VStack(spacing: 3) {
-                        ArcaDrehregler(breite: 210, hoehe: 38, tint: radFarbe) { dir in
-                            let namen = dokumentGruppen.map { $0.name }
-                            guard !namen.isEmpty else { return }
-                            let cur = sichtbareDokKarte.flatMap { namen.firstIndex(of: $0) } ?? 0
-                            let neu = min(max(cur + dir, 0), namen.count - 1)
-                            if neu != cur {
-                                withAnimation(.easeOut(duration: 0.25)) { sichtbareDokKarte = namen[neu] }
-                            }
+                        ArcaDrehregler(breite: 210, hoehe: 38, tint: radFarbe,
+                                       position: curIndex, anzahl: namen.count) { idx in
+                            guard namen.indices.contains(idx) else { return }
+                            withAnimation(.easeOut(duration: 0.25)) { sichtbareDokKarte = namen[idx] }
                         }
                         HStack(spacing: 4) {
                             Text("virtual crown")

@@ -520,14 +520,16 @@ struct ArcaDrehregler: View {
     var breite: CGFloat = 210
     var hoehe: CGFloat = 38
     var tint: Color = ArcaWarm.terrakotta
-    let onNotch: (Int) -> Void
+    var position: Int              // aktueller Index (von außen, z. B. durch Wischen)
+    var anzahl: Int                // Gesamtzahl der Gruppen
+    let onIndex: (Int) -> Void     // Ziel-Index beim Drehen
 
-    @State private var phase: CGFloat = 0        // Rotationsphase (Bogenmaß)
-    @State private var totalDx: CGFloat = 0      // aufsummierter Zug
-    @State private var dragStart: CGFloat = 0
-    @State private var lastNotch: Int = 0
+    @State private var radPos: CGFloat = 0     // kontinuierliche Rad-Position (float)
+    @State private var startPos: CGFloat = 0   // radPos bei Drag-Beginn
+    @State private var letzteGanz: Int = 0
+    @State private var ziehtGerade = false
     @State private var motor = DrehHaptik()
-    private let notchPixel: CGFloat = 30         // Zug pro Rastung
+    private let notchPixel: CGFloat = 34        // Zug pro Rastung
 
     private var kantenBlende: LinearGradient {
         LinearGradient(stops: [
@@ -539,6 +541,7 @@ struct ArcaDrehregler: View {
     }
 
     var body: some View {
+        let phase = radPos * 0.5                 // Rotation folgt der (geclampten) Position
         let ribs = 46
         Canvas { ctx, size in
             let w = size.width, h = size.height
@@ -582,20 +585,38 @@ struct ArcaDrehregler: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { v in
-                    let cur = dragStart + v.translation.width
-                    totalDx = cur
-                    phase = cur * 0.045
-                    let notch = Int((cur / notchPixel).rounded(.towardZero))
-                    if notch != lastNotch {
-                        let dir = notch > lastNotch ? 1 : -1
-                        lastNotch = notch
+                    if !ziehtGerade {
+                        ziehtGerade = true
+                        startPos = CGFloat(position)
+                        letzteGanz = position
+                    }
+                    let ziel = startPos + v.translation.width / notchPixel
+                    // HARTER ANSCHLAG: nichts jenseits von 0 … anzahl-1
+                    radPos = min(max(ziel, 0), CGFloat(max(anzahl - 1, 0)))
+                    let ganz = Int(radPos.rounded())
+                    if ganz != letzteGanz {
+                        letzteGanz = ganz
                         motor.tick(intensitaet: 0.85)
-                        onNotch(dir)
+                        onIndex(ganz)
                     }
                 }
-                .onEnded { _ in dragStart = totalDx }
+                .onEnded { _ in
+                    ziehtGerade = false
+                    let ganz = Int(radPos.rounded())
+                    withAnimation(.easeOut(duration: 0.15)) { radPos = CGFloat(ganz) }
+                }
         )
-        .onAppear { motor.vorbereiten() }
+        .onAppear {
+            motor.vorbereiten()
+            radPos = CGFloat(position)
+            letzteGanz = position
+        }
+        .onChange(of: position) { _, neu in
+            // Wischen von außen: Rad nachziehen, solange nicht selbst gedreht wird
+            guard !ziehtGerade else { return }
+            letzteGanz = neu
+            withAnimation(.easeOut(duration: 0.2)) { radPos = CGFloat(neu) }
+        }
         .accessibilityLabel("Gruppen durchblättern")
     }
 }
