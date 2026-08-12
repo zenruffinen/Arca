@@ -188,15 +188,32 @@ struct CategoryColorPickerSheet: View {
 
 // MARK: - Gruppen-Manager
 
+/// Wählt ein passendes Arca-Symbol zum Gruppennamen (Stichwort-Erkennung,
+/// damit auch selbst angelegte Gruppen ein sprechendes Icon bekommen).
+/// Gibt IMMER einen Arca-Asset-Namen zurück — nie ein bares SF-Symbol.
 func categoryIcon(_ name: String) -> String {
-    switch name {
-    case "Reise":      return "airplane"
-    case "Papiere":    return "doc.plaintext"
-    case "Rechnungen": return "eurosign.circle"
-    case "Verträge":   return "signature"
-    case "Gesundheit": return "heart.text.square"
-    case "Unsortiert":    return "tray.fill"
-    default:           return "folder"
+    let n = name.lowercased()
+    func hat(_ teile: String...) -> Bool { teile.contains { n.contains($0) } }
+    switch true {
+    case hat("gesund", "arzt", "medizin", "health", "apotheke", "zahn", "impf"):        return "ArcaHealth"
+    case hat("auto", "fahrzeug", "kfz", "wagen", "car", "motorrad", "velo", "bike"):     return "ArcaCar"
+    case hat("finanz", "geld", "bank", "konto", "budget", "steuer", "lohn", "gehalt"):   return "ArcaWallet"
+    case hat("versicher", "police", "garantie", "schutz", "schaden"):                    return "ArcaShield"
+    case hat("rechnung", "beleg", "quittung", "invoice", "kassenbon"):                   return "ArcaInvoice"
+    case hat("reise", "urlaub", "ferien", "travel", "flug", "hotel"):                    return "ArcaTravel"
+    case hat("haus", "wohn", "miete", "immobil", "home", "garten", "strom"):             return "ArcaHome"
+    case hat("passwort", "zugang", "schlüssel", "schluessel", "key", "login", "tresor", "safe"): return "ArcaKey"
+    case hat("vertrag", "verträge", "vertraege", "abo"):                                 return "ArcaDocument"
+    case hat("papier", "dokument", "urkunde", "zeugnis", "pass", "ausweis"):             return "ArcaCard"
+    case hat("person", "privat", "persönl", "persoenl", "familie", "kontakt", "kind"):   return "ArcaPerson"
+    case hat("termin", "kalender", "datum", "frist"):                                    return "ArcaCalendar"
+    case hat("ort", "adresse", "place", "standort"):                                     return "ArcaPlace"
+    case hat("foto", "bild", "scan", "gescannt"):                                        return "ArcaScan"
+    case hat("aufgabe", "todo", "liste", "erledig", "check"):                            return "ArcaChecklist"
+    case hat("favorit", "wichtig", "stern", "star"):                                     return "ArcaStar"
+    case hat("sicher", "lock", "gesperrt", "geheim"):                                    return "ArcaLock"
+    case hat("sonstig", "divers", "misc", "allgemein", "varia", "unsortiert", "eingang", "inbox"): return "ArcaArchive"
+    default:                                                                             return "ArcaFolder"
     }
 }
 
@@ -210,7 +227,7 @@ struct DocumentCategoryManagerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: categoryIcon(category))
+            Image(categoryIcon(category))
                 .foregroundStyle(categoryColor(category, overrides: store.categoryColors).accent)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {

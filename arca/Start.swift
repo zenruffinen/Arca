@@ -121,7 +121,6 @@ struct HomeView: View {
     @State private var gruppeUmbenennenText = ""
     @State private var gruppeZumLoeschen: String? = nil
     @State private var sortiereGruppen = false
-    @State private var zeigeAufraeumen = false
 
     /// Was aufzuräumen ist: alles in „Unsortiert" PLUS Waisen,
     /// deren Gruppe es nicht mehr gibt — wie der Unsortiert-Balken zählt.
@@ -222,7 +221,7 @@ struct HomeView: View {
                         Menu {
                             ForEach(store.documentCategories.filter { $0 != doc.category }, id: \.self) { ziel in
                                 Button { verschiebeDokument(doc, nach: ziel) } label: {
-                                    Label(ziel, systemImage: categoryIcon(ziel))
+                                    Label(ziel, image: categoryIcon(ziel))
                                 }
                             }
                             Divider()
@@ -483,7 +482,7 @@ struct HomeView: View {
             } else {
                 if unsortierteAnzahl > 0 {
                     Button {
-                        zeigeAufraeumen = true
+                        store.zeigeAufraeumen = true
                     } label: {
                         HStack(spacing: 7) {
                             Image(systemName: "sparkles")
@@ -525,7 +524,7 @@ struct HomeView: View {
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
                             ArcaKategorieKarte(
                                 name: gruppe.name,
-                                icon: gruppe.name == "Unsortiert" ? "tray.fill" : categoryIcon(gruppe.name),
+                                icon: categoryIcon(gruppe.name),
                                 farben: categoryColor(gruppe.name, overrides: store.categoryColors),
                                 anzahl: gruppe.anzahl,
                                 zuhause: store.isInHomeFolderQuickView(gruppe.name))
@@ -1195,10 +1194,6 @@ struct HomeView: View {
                     .onChange(of: geo.size.width) { _, neu in seitenBreite = neu }
             }
         )
-        .fullScreenCover(isPresented: $zeigeAufraeumen) {
-            AufraeumModus()
-                .environmentObject(store)
-        }
         .sheet(isPresented: $showQRScanner) {
             QRScannerSheet()
                 .environmentObject(store)

@@ -166,6 +166,8 @@ final class AppStore: ObservableObject {
     @Published var pendingSettingsAktion: String? = nil
     /// Notfall-Bereich anzeigen (aus dem Mehr-Menü der Leiste)
     @Published var zeigeNotfall: Bool = false
+    /// Aufräumen/Sortieren-Fenster anzeigen (aus dem Unsortiert-Korb der Leiste)
+    @Published var zeigeAufraeumen: Bool = false
     /// Die Ideen-Pinnwand rechts eingeblendet?
     @Published var zeigeIdeenPinnwand: Bool = false
     /// Pinnwand formatfüllend (Vollbild) statt rechts angedockt?

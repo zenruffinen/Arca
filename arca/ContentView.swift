@@ -261,6 +261,10 @@ struct ContentView: View {
                     }
                 }
         )
+        .fullScreenCover(isPresented: $store.zeigeAufraeumen) {
+            AufraeumModus()
+                .environmentObject(store)
+        }
     }
 
     // MARK: - iPad Layout

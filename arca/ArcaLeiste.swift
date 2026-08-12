@@ -38,7 +38,10 @@ struct ArcaTabBar: View {
 
     var body: some View {
         HStack(spacing: 11) {
-            unsortiertKorb
+            // Der Eingangskorb erscheint nur, wenn wirklich etwas unsortiert ist
+            if unsortiertAnzahl > 0 {
+                unsortiertKorb
+            }
 
             Spacer(minLength: 2)
 
@@ -96,9 +99,9 @@ struct ArcaTabBar: View {
 
     private var unsortiertKorb: some View {
         Button {
-            store.fokusKategorie = "Unsortiert"
-            store.pendingScrollCategory = "Unsortiert"
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .documents }
+            guard unsortiertAnzahl > 0 else { return }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            store.zeigeAufraeumen = true
         } label: {
             HStack(spacing: 7) {
                 ArcaIcon(name: "ArcaArchive", groesse: 19)
