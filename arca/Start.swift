@@ -994,7 +994,7 @@ struct HomeView: View {
                             Text("angepinnt für den schnellen Zugriff")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
-                                .padding(.horizontal, 20)
+                                .padding(.leading, 32)
                                 .padding(.top, -4)
                         }
                     }
