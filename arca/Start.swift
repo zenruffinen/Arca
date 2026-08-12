@@ -13,6 +13,12 @@ import UniformTypeIdentifiers
 import QuickLook
 import EventKit
 
+/// Momentaufnahme der horizontalen Scroll-Position (für den Dreh-Regler).
+struct ScrollInfo: Equatable {
+    var x: CGFloat
+    var weite: CGFloat   // maximaler Scroll-Weg (Inhalt − Fenster)
+}
+
 // MARK: - Home
 
 // Tile-Definition für die 4 Hauptkacheln
@@ -97,6 +103,9 @@ struct HomeView: View {
     @State private var showQRScanner = false
     @State private var showAlleFavoriten = false
     @State private var sichtbareDokKarte: String? = nil
+    @State private var dokScrollPos = ScrollPosition()
+    @State private var dokFrac: Double = 0
+    @State private var dokMaxX: CGFloat = 1
     @State private var showSpiderGame = false
     @State private var logoTapCount = 0
     @State private var quickAccessPreviewURL: URL? = nil
@@ -515,8 +524,6 @@ struct HomeView: View {
                 }
 
                 // Eine Reihe, läuft nach rechts durch (kein Titel — der Chip sagt schon „Dokumente")
-                ScrollViewReader { proxy in
-                VStack(alignment: .leading, spacing: 12) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
@@ -565,34 +572,35 @@ struct HomeView: View {
                     .scrollTargetLayout()
                 }
                 .contentMargins(.horizontal, 20, for: .scrollContent)
-                .scrollPosition(id: $sichtbareDokKarte, anchor: .leading)
+                .scrollPosition($dokScrollPos)
+                .onScrollGeometryChange(for: ScrollInfo.self) { geo in
+                    ScrollInfo(x: geo.contentOffset.x,
+                               weite: max(1, geo.contentSize.width - geo.containerSize.width))
+                } action: { _, info in
+                    dokMaxX = info.weite
+                    dokFrac = min(max(Double(info.x / info.weite), 0), 1)
+                }
 
-                // Seiten-Punkte
+                // Seiten-Punkte + Dreh-Regler (beide aus der echten Scroll-Fraktion)
                 if dokumentGruppen.count > 1 {
+                    let namen = dokumentGruppen.map { $0.name }
+                    let idx = min(max(Int((dokFrac * Double(namen.count - 1)).rounded()), 0), namen.count - 1)
+                    let radFarbe = categoryColor(namen[idx], overrides: store.categoryColors).accent
+
                     HStack(spacing: 6) {
-                        ForEach(dokumentGruppen, id: \.name) { g in
+                        ForEach(Array(namen.enumerated()), id: \.offset) { i, _ in
                             Circle()
-                                .fill((sichtbareDokKarte ?? dokumentGruppen.first?.name) == g.name
-                                      ? ArcaWarm.terrakotta.opacity(0.85)
-                                      : Color.secondary.opacity(0.25))
+                                .fill(i == idx ? ArcaWarm.terrakotta.opacity(0.85) : Color.secondary.opacity(0.25))
                                 .frame(width: 6, height: 6)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 6)
 
-                    // Dreh-Regler in der Farbe der aktiven Gruppe + „virtual crown"-Gag
-                    let namen = dokumentGruppen.map { $0.name }
-                    let curIndex = sichtbareDokKarte.flatMap { namen.firstIndex(of: $0) } ?? 0
-                    let aktiveGruppe = namen.indices.contains(curIndex) ? namen[curIndex] : "Unsortiert"
-                    let radFarbe = categoryColor(aktiveGruppe, overrides: store.categoryColors).accent
                     VStack(spacing: 3) {
                         ArcaDrehregler(breite: 210, hoehe: 38, tint: radFarbe,
-                                       position: curIndex, anzahl: namen.count) { idx in
-                            guard namen.indices.contains(idx) else { return }
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                proxy.scrollTo(namen[idx], anchor: .leading)
-                            }
+                                       fraction: dokFrac, anzahl: namen.count) { neueFrac in
+                            dokScrollPos.scrollTo(x: CGFloat(neueFrac) * dokMaxX)
                         }
                         HStack(spacing: 4) {
                             Text("virtual crown")
@@ -605,8 +613,6 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
-                }
-                }
                 }
             }
         }

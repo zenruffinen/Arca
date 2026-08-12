@@ -520,16 +520,15 @@ struct ArcaDrehregler: View {
     var breite: CGFloat = 210
     var hoehe: CGFloat = 38
     var tint: Color = ArcaWarm.terrakotta
-    var position: Int              // aktueller Index (von außen, z. B. durch Wischen)
-    var anzahl: Int                // Gesamtzahl der Gruppen
-    let onIndex: (Int) -> Void     // Ziel-Index beim Drehen
+    var fraction: Double            // 0…1 echte Scroll-Position (treibt die Rotation)
+    var anzahl: Int
+    let onFraction: (Double) -> Void
 
-    @State private var radPos: CGFloat = 0     // kontinuierliche Rad-Position (float)
-    @State private var startPos: CGFloat = 0   // radPos bei Drag-Beginn
-    @State private var letzteGanz: Int = 0
-    @State private var ziehtGerade = false
+    @State private var lokal: Double? = nil     // Fraktion während des Ziehens
+    @State private var startFrac: Double = 0
+    @State private var letzterIdx: Int = 0
     @State private var motor = DrehHaptik()
-    private let notchPixel: CGFloat = 34        // Zug pro Rastung
+    private let scrubProNotch: CGFloat = 34     // Finger-Pixel pro Karte
 
     private var kantenBlende: LinearGradient {
         LinearGradient(stops: [
@@ -540,8 +539,14 @@ struct ArcaDrehregler: View {
         ], startPoint: .leading, endPoint: .trailing)
     }
 
+    private func idxVon(_ f: Double) -> Int {
+        Int((f * Double(max(anzahl - 1, 0))).rounded())
+    }
+
     var body: some View {
-        let phase = radPos * 0.5                 // Rotation folgt der (geclampten) Position
+        let frac = lokal ?? fraction
+        // Rotation ∝ Kartenindex: pro Karte eine halbe Umdrehungs-Einheit
+        let phase = CGFloat(frac) * CGFloat(max(anzahl - 1, 1)) * 0.5
         let ribs = 46
         Canvas { ctx, size in
             let w = size.width, h = size.height
@@ -585,38 +590,25 @@ struct ArcaDrehregler: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { v in
-                    if !ziehtGerade {
-                        ziehtGerade = true
-                        startPos = CGFloat(position)
-                        letzteGanz = position
+                    if lokal == nil {
+                        lokal = fraction
+                        startFrac = fraction
+                        letzterIdx = idxVon(fraction)
                     }
-                    let ziel = startPos + v.translation.width / notchPixel
-                    // HARTER ANSCHLAG: nichts jenseits von 0 … anzahl-1
-                    radPos = min(max(ziel, 0), CGFloat(max(anzahl - 1, 0)))
-                    let ganz = Int(radPos.rounded())
-                    if ganz != letzteGanz {
-                        letzteGanz = ganz
+                    let spanne = CGFloat(max(anzahl - 1, 1)) * scrubProNotch
+                    // 0…1 geklemmt = harter Anschlag links UND rechts
+                    let nf = min(max(startFrac + Double(v.translation.width / spanne), 0), 1)
+                    lokal = nf
+                    onFraction(nf)
+                    let idx = idxVon(nf)
+                    if idx != letzterIdx {           // an den Enden fest → kein Tick mehr
+                        letzterIdx = idx
                         motor.tick(intensitaet: 0.85)
-                        onIndex(ganz)
                     }
                 }
-                .onEnded { _ in
-                    ziehtGerade = false
-                    let ganz = Int(radPos.rounded())
-                    withAnimation(.easeOut(duration: 0.15)) { radPos = CGFloat(ganz) }
-                }
+                .onEnded { _ in lokal = nil }
         )
-        .onAppear {
-            motor.vorbereiten()
-            radPos = CGFloat(position)
-            letzteGanz = position
-        }
-        .onChange(of: position) { _, neu in
-            // Wischen von außen: Rad nachziehen, solange nicht selbst gedreht wird
-            guard !ziehtGerade else { return }
-            letzteGanz = neu
-            withAnimation(.easeOut(duration: 0.2)) { radPos = CGFloat(neu) }
-        }
+        .onAppear { motor.vorbereiten() }
         .accessibilityLabel("Gruppen durchblättern")
     }
 }
