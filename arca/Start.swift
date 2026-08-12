@@ -515,6 +515,8 @@ struct HomeView: View {
                 }
 
                 // Eine Reihe, läuft nach rechts durch (kein Titel — der Chip sagt schon „Dokumente")
+                ScrollViewReader { proxy in
+                VStack(alignment: .leading, spacing: 12) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
@@ -588,7 +590,9 @@ struct HomeView: View {
                         ArcaDrehregler(breite: 210, hoehe: 38, tint: radFarbe,
                                        position: curIndex, anzahl: namen.count) { idx in
                             guard namen.indices.contains(idx) else { return }
-                            withAnimation(.easeOut(duration: 0.25)) { sichtbareDokKarte = namen[idx] }
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo(namen[idx], anchor: .leading)
+                            }
                         }
                         HStack(spacing: 4) {
                             Text("virtual crown")
@@ -601,6 +605,8 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
+                }
+                }
                 }
             }
         }
