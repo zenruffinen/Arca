@@ -949,13 +949,6 @@ struct HomeView: View {
                             Spacer()
                         }
                         .padding(.horizontal, 20)
-                        if !store.favoriteItems.isEmpty {
-                            Text("angepinnt für den schnellen Zugriff")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 20)
-                                .padding(.top, -4)
-                        }
                         if store.favoriteItems.isEmpty {
                             // Leerzustand: zeigen, dass es die Reihe gibt — und wie man sie füllt
                             HStack(spacing: 10) {
@@ -998,6 +991,11 @@ struct HomeView: View {
                                 .padding(.top, 10)
                                 .padding(.bottom, 10)
                             }
+                            Text("angepinnt für den schnellen Zugriff")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
+                                .padding(.top, -4)
                         }
                     }
                     .transition(.scale.combined(with: .opacity))
