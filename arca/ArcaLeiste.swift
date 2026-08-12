@@ -28,87 +28,193 @@ struct ArcaTabBar: View {
         [.home, .spaceHub, .vault, .documents, .notes, .lists].contains(selected)
     }
 
+    /// „Unsortiert" zählt eigene Dateien PLUS Waisen (wie der Aufräum-Balken).
+    private var unsortiertAnzahl: Int {
+        let bekannte = Set(store.documentCategories)
+        return store.documents.filter {
+            $0.category == "Unsortiert" || !bekannte.contains($0.category)
+        }.count
+    }
+
     var body: some View {
-        // Schwebende Glas-Pille links, Blitzidee-Plus rechts (Craft-Stil)
-        HStack(spacing: 12) {
-            HStack(spacing: 2) {
-                pillButton(icon: "ArcaHome", active: spaceActive, label: "Space") {
-                    // Schon auf dem Start? Dann nach oben springen.
-                    if selected == .home {
-                        store.homeSprungNachOben += 1
-                    } else {
-                        selected = .home
-                    }
+        HStack(spacing: 6) {
+            unsortiertKorb
+
+            Spacer(minLength: 2)
+
+            // Space · Home
+            barKreis(icon: "ArcaHome", titel: "Space", unter: "Home", aktiv: spaceActive) {
+                if selected == .home {
+                    store.homeSprungNachOben += 1
+                } else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .home }
                 }
-                // Das Zahnrad klappt ein Menü auf (Craft-Stil):
-                // Sichern · Wiederherstellen · Einstellungen
-                Menu {
-                    Button {
-                        store.zeigeNotfall = true
-                    } label: {
-                        Label("Notfall", systemImage: "cross.case.fill")
-                    }
-                    Divider()
-                    Button {
-                        store.pendingSettingsAktion = "export"
-                        selected = .settings
-                    } label: {
-                        Label("Daten sichern", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        store.pendingSettingsAktion = "import"
-                        selected = .settings
-                    } label: {
-                        Label("Daten wiederherstellen", systemImage: "square.and.arrow.down")
-                    }
-                    Divider()
-                    Button {
-                        selected = .settings
-                    } label: {
-                        Label("Einstellungen", systemImage: "gearshape")
-                    }
-                } label: {
-                    ArcaIcon(name: "ArcaSettings", groesse: 20)
-                        .foregroundStyle(selected == .settings ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
-                        .symbolRenderingMode(.hierarchical)
-                        .frame(width: 54, height: 44)
-                        .contentShape(Rectangle())
-                        .background(
-                            selected == .settings ? Color.primary.opacity(0.06) : Color.clear,
-                            in: Capsule()
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Mehr")
             }
-            .padding(5)
-            .glassEffect(.regular, in: Capsule())
 
-            Spacer(minLength: 0)
+            // Einstellungen · Settings (Menü: Notfall · Sichern · Wiederherstellen)
+            Menu {
+                Button { store.zeigeNotfall = true } label: {
+                    Label("Notfall", systemImage: "cross.case.fill")
+                }
+                Divider()
+                Button {
+                    store.pendingSettingsAktion = "export"; selected = .settings
+                } label: { Label("Daten sichern", systemImage: "square.and.arrow.up") }
+                Button {
+                    store.pendingSettingsAktion = "import"; selected = .settings
+                } label: { Label("Daten wiederherstellen", systemImage: "square.and.arrow.down") }
+                Divider()
+                Button { selected = .settings } label: {
+                    Label("Einstellungen", systemImage: "gearshape")
+                }
+            } label: {
+                kreisInhalt(icon: "ArcaSettings", titel: "Einstellungen", unter: "Settings",
+                            aktiv: selected == .settings)
+            }
+            .buttonStyle(.plain)
 
-            ArcaPlusKnopf(selected: $selected)
+            // Trennlinie
+            Rectangle()
+                .fill(Color.primary.opacity(0.12))
+                .frame(width: 1, height: 28)
+
+            // Mikrofon · Aufnahme
+            barKreis(icon: "mic.fill", titel: "Mikrofon", unter: "Aufnahme",
+                     aktiv: false, iconFarbe: ArcaWarm.terrakotta) {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                store.quickCaptureAutoRecord = true
+                store.pendingQuickCapture = true
+            }
+
+            plusGross
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 10)
         .padding(.bottom, 34)
     }
 
-    private func pillButton(icon: String, active: Bool, label: String,
-                            action: @escaping () -> Void) -> some View {
+    // MARK: Eingangskorb links
+
+    private var unsortiertKorb: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { action() }
+            store.fokusKategorie = "Unsortiert"
+            store.pendingScrollCategory = "Unsortiert"
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .documents }
         } label: {
-            ArcaIcon(name: icon.hasPrefix("Arca") ? icon : (active ? icon + ".fill" : icon), groesse: 20)
-                .foregroundStyle(active ? ArcaWarm.terrakotta : Color.primary.opacity(0.65))
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 54, height: 44)
-                .contentShape(Rectangle())
-                .background(
-                    active ? Color.primary.opacity(0.06) : Color.clear,
-                    in: Capsule()
-                )
+            HStack(spacing: 7) {
+                ArcaIcon(name: "ArcaArchive", groesse: 19)
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 5) {
+                        Text("Unsortiert")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        if unsortiertAnzahl > 0 {
+                            Text("\(unsortiertAnzahl)")
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(minWidth: 15, minHeight: 15)
+                                .padding(.horizontal, 2)
+                                .background(ArcaWarm.terrakotta, in: Capsule())
+                        }
+                    }
+                    Text("Alles hier landet zuerst")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .glassEffect(.regular, in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+    }
+
+    // MARK: Kreis-Knopf mit Zweizeilen-Label
+
+    private func barKreis(icon: String, titel: String, unter: String, aktiv: Bool,
+                          iconFarbe: Color? = nil,
+                          action: @escaping () -> Void) -> some View {
+        Button { action() } label: {
+            kreisInhalt(icon: icon, titel: titel, unter: unter, aktiv: aktiv, iconFarbe: iconFarbe)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func kreisInhalt(icon: String, titel: String, unter: String, aktiv: Bool,
+                             iconFarbe: Color? = nil) -> some View {
+        VStack(spacing: 3) {
+            ArcaIcon(name: icon, groesse: 18)
+                .foregroundStyle(iconFarbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.7)))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 40, height: 40)
+                .glassEffect(.regular, in: Circle())
+                .overlay {
+                    if aktiv { Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 1.5) }
+                }
+            VStack(spacing: -1) {
+                Text(titel).font(.system(size: 8.5, weight: .semibold)).foregroundStyle(.primary)
+                Text(unter).font(.system(size: 7.5)).foregroundStyle(.secondary)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        }
+        .frame(width: 52)
+    }
+
+    // MARK: Großer Plus mit Schlüssel-Badge
+
+    private var plusGross: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            legeKontextbezogenAn()
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 54, height: 54)
+                .background(ArcaWarm.terrakotta, in: Circle())
+                .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 7, x: 0, y: 3)
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) {
+            ZStack {
+                Circle().fill(ArcaWarm.karte)
+                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.2))
+                ArcaIcon(name: "ArcaKey", groesse: 11)
+                    .foregroundStyle(ArcaWarm.terrakotta)
+            }
+            .frame(width: 23, height: 23)
+            .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
+            .offset(x: 7, y: -7)
+            .allowsHitTesting(false)
+        }
+        .accessibilityLabel("Neu anlegen")
+    }
+
+    /// Was der Plus anlegt, hängt vom Ort ab (wie bisher im ArcaPlusKnopf).
+    private func legeKontextbezogenAn() {
+        switch selected {
+        case .home, .spaceHub:
+            switch store.homeStreamFilter {
+            case .dokumente:
+                store.pendingNewEntry = .documents
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .documents }
+            case .notizen:
+                store.pendingQuickCapture = true
+            case .tasks:
+                store.pendingNewEntry = .lists
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .lists }
+            case .passwoerter:
+                store.pendingNewEntry = .vault
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .vault }
+            }
+        case .documents: store.pendingNewEntry = .documents
+        case .lists:     store.pendingNewEntry = .lists
+        case .vault:     store.pendingNewEntry = .vault
+        case .notes:     store.pendingQuickCapture = true
+        case .settings:  store.pendingQuickCapture = true
+        }
     }
 }
 
