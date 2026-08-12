@@ -131,7 +131,7 @@ struct ArcaShortcuts: AppShortcutsProvider {
                 "Passwörter in \(.applicationName) öffnen",
                 "\(.applicationName) Tresor öffnen"
             ],
-            shortTitle: "Passwörter",
+            shortTitle: "Tresor",
             systemImageName: "key.fill"
         )
         AppShortcut(

@@ -95,6 +95,7 @@ struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @Binding var selectedSection: ArcaSection
     @State private var showQRScanner = false
+    @State private var showAlleFavoriten = false
     @State private var showSpiderGame = false
     @State private var logoTapCount = 0
     @State private var quickAccessPreviewURL: URL? = nil
@@ -468,6 +469,23 @@ struct HomeView: View {
 
     /// Favorit antippen: Dokument → Vorschau, Notiz → Blatt,
     /// Liste/Passwort → in die jeweilige Sektion (Tresor bleibt verschlossen).
+    private func favSymbol(_ kind: FavoriteKind) -> String {
+        switch kind {
+        case .document: return "ArcaDocument"
+        case .note:     return "ArcaIdee"
+        case .list:     return "ArcaChecklist"
+        case .vault:    return "ArcaKey"
+        }
+    }
+    private func favFarbe(_ kind: FavoriteKind) -> Color {
+        switch kind {
+        case .document: return .orange
+        case .note:     return ArcaWarm.ideenGelb
+        case .list:     return .green
+        case .vault:    return .blue
+        }
+    }
+
     private func openFavorite(_ fav: FavoriteItem) {
         switch fav.kind {
         case .document:
@@ -811,8 +829,23 @@ struct HomeView: View {
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     VStack(alignment: .leading, spacing: 10) {
-                        ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
-                            .padding(.horizontal, 20)
+                        HStack {
+                            ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
+                            Spacer()
+                            if !store.favoriteItems.isEmpty {
+                                Button { showAlleFavoriten = true } label: {
+                                    HStack(spacing: 3) {
+                                        Text("Alle anzeigen")
+                                            .font(.system(size: 13, weight: .semibold))
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 10, weight: .bold))
+                                    }
+                                    .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 20)
                         if store.favoriteItems.isEmpty {
                             // Leerzustand: zeigen, dass es die Reihe gibt — und wie man sie füllt
                             HStack(spacing: 10) {
@@ -1251,6 +1284,45 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showSpiderGame) {
             SpiderGameView()
         }
+        .sheet(isPresented: $showAlleFavoriten) {
+            NavigationStack {
+                List {
+                    ForEach(store.favoriteItems) { fav in
+                        Button {
+                            showAlleFavoriten = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { openFavorite(fav) }
+                        } label: {
+                            HStack(spacing: 12) {
+                                ArcaIcon(name: favSymbol(fav.kind), groesse: 17)
+                                    .foregroundStyle(favFarbe(fav.kind))
+                                    .frame(width: 34, height: 34)
+                                    .background(favFarbe(fav.kind).opacity(0.12),
+                                                in: RoundedRectangle(cornerRadius: 9))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(fav.title)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Text(fav.subtitle)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Favoriten")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fertig") { showAlleFavoriten = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
         .sheet(item: $quickAccessNote) { note in
             NoteDetailView(note: note)
                 .environmentObject(store)
@@ -1493,7 +1565,7 @@ struct SearchResultsView: View {
 
                 if !matchingPasswords.isEmpty {
                     SearchResultGroup(
-                        title: "Passwörter",
+                        title: "Tresor",
                         icon: "key.fill",
                         color: NoteColor.for_(2).accent
                     ) {
@@ -1830,7 +1902,7 @@ enum HomeStreamFilter: String, CaseIterable {
         case .dokumente:   return "Dokumente"
         case .notizen:     return "Ideen"
         case .tasks:       return "Aufgaben"
-        case .passwoerter: return "Passwörter"
+        case .passwoerter: return "Tresor"
         }
     }
 }
