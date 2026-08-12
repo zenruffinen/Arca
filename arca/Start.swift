@@ -1010,22 +1010,28 @@ struct HomeView: View {
                                 // halten und an die Wunschposition ziehen
                                 ForEach(store.bereichsOrdnung, id: \.self) { filter in
                                     Group {
-                                        // Liquid-Glass-Blasen (iOS 27): gewählt = dunkel gefüllt,
-                                        // die übrigen schweben als Glas über dem Warmweiß
+                                        // Schicke Liquid-Glass-Blasen (iOS 26/27): gewählt = in ihrer
+                                        // Bereichsfarbe getöntes Glas, die übrigen als klares Glas
+                                        let blasenFarbe: Color = switch filter {
+                                        case .dokumente:   NoteColor.for_(5).accent
+                                        case .notizen:     ArcaWarm.ideenGelb
+                                        case .tasks:       NoteColor.for_(3).accent
+                                        case .passwoerter: NoteColor.for_(2).accent
+                                        }
                                         if streamFilter == filter {
                                             Text(filter.label)
                                                 .font(.system(size: 13, weight: .semibold))
-                                                .foregroundStyle(Color(.systemBackground))
-                                                .padding(.horizontal, 13)
-                                                .padding(.vertical, 7)
-                                                .background(Capsule().fill(Color.primary))
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 15)
+                                                .padding(.vertical, 8)
+                                                .glassEffect(.regular.tint(blasenFarbe).interactive(), in: Capsule())
                                         } else {
                                             Text(filter.label)
-                                                .font(.system(size: 13))
-                                                .foregroundStyle(.primary)
-                                                .padding(.horizontal, 13)
-                                                .padding(.vertical, 7)
-                                                .glassEffect(.regular, in: Capsule())
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundStyle(.primary.opacity(0.7))
+                                                .padding(.horizontal, 15)
+                                                .padding(.vertical, 8)
+                                                .glassEffect(.regular.interactive(), in: Capsule())
                                         }
                                     }
                                     .contentShape(Rectangle())
