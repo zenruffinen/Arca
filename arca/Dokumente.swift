@@ -556,6 +556,22 @@ struct DocumentsView: View {
     private var documentsList: some View {
         ScrollViewReader { proxy in
         List {
+            if store.fokusKategorie != nil {
+                Button {
+                    withAnimation { store.fokusKategorie = nil }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("Alle Kategorien")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
             let grouped = Dictionary(grouping: filteredDocuments, by: \.category)
             if grouped.isEmpty {
                 Text(store.documents.isEmpty ? "Noch keine Dokumente vorhanden." : "Keine Treffer.")
@@ -563,7 +579,7 @@ struct DocumentsView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
-                ForEach(store.documentCategories, id: \.self) { category in
+                ForEach(store.documentCategories.filter { store.fokusKategorie == nil || $0 == store.fokusKategorie }, id: \.self) { category in
                     let docs = grouped[category] ?? []
                     if !docs.isEmpty {
                         let isCollapsed = collapsedCategories.contains(category)

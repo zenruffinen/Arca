@@ -73,7 +73,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: selectedSection) { _, section in
-            if section != .documents { store.pendingScrollCategory = nil }
+            if section != .documents { store.pendingScrollCategory = nil; store.fokusKategorie = nil }
         }
         .sheet(isPresented: $store.pendingQuickCapture, onDismiss: {
             store.quickCaptureAutoRecord = false

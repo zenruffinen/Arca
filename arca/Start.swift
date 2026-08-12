@@ -622,6 +622,7 @@ struct HomeView: View {
     }
 
     private func openDocuments(category: String) {
+        store.fokusKategorie = category
         store.pendingScrollCategory = category
         selectedSection = .documents
     }

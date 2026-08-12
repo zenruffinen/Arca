@@ -450,10 +450,10 @@ struct ArcaCollapsibleSectionHeader: View {
     }
 }
 
-// MARK: - Kategorie-Karte (Studie: Dokument-Raster)
+// MARK: - Kategorie-Karte (Studie: längliche Glas-Karten, 3 pro Zeile)
 
-/// Eine kompakte Kategorie-Karte fürs Dokument-Raster (3 pro Zeile):
-/// Icon im Farbquadrat, Name, Anzahl.
+/// Längliche Kategorie-Karte: Icon oben, Name klein darunter, Anzahl —
+/// im Liquid-Glass-Look, farblich getönt.
 struct ArcaKategorieKarte: View {
     let name: String
     let icon: String
@@ -462,61 +462,61 @@ struct ArcaKategorieKarte: View {
     var zuhause: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 0) {
-                ArcaIcon(name: icon, groesse: 18)
-                    .foregroundStyle(farben.accent)
-                    .frame(width: 38, height: 38)
-                    .background(farben.bg, in: RoundedRectangle(cornerRadius: 11))
-                Spacer(minLength: 0)
-                if zuhause {
-                    Image(systemName: "house.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(farben.accent.opacity(0.8))
-                }
-            }
-            Spacer(minLength: 2)
+        VStack(spacing: 6) {
+            ArcaIcon(name: icon, groesse: 22)
+                .foregroundStyle(farben.accent)
+                .frame(width: 46, height: 46)
+                .background(farben.bg, in: RoundedRectangle(cornerRadius: 13))
             Text(name)
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 4) {
-                Text("\(anzahl)")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(farben.accent)
-                Text(anzahl == 1 ? "Dokument" : "Dokumente")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            Text("\(anzahl)")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(farben.accent)
+            Text(anzahl == 1 ? "Dokument" : "Dokumente")
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 150)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 6)
+        .glassEffect(.regular.tint(farben.accent.opacity(0.10)),
+                     in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .strokeBorder(farben.accent.opacity(0.15), lineWidth: 1))
+        .overlay(alignment: .topTrailing) {
+            if zuhause {
+                Image(systemName: "house.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(farben.accent.opacity(0.8))
+                    .padding(9)
             }
         }
-        .padding(11)
-        .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
-        .background(farben.bg.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14)
-            .strokeBorder(farben.accent.opacity(0.18), lineWidth: 1))
     }
 }
 
-/// Die „+ Kategorie hinzufügen"-Karte am Ende des Rasters.
+/// Die „+ Kategorie hinzufügen"-Karte — gleiche Höhe, Glas.
 struct ArcaKategorieHinzufuegenKarte: View {
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 8) {
             Image(systemName: "plus")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(ArcaWarm.terrakotta)
-                .frame(width: 38, height: 38)
+                .frame(width: 46, height: 46)
                 .background(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45),
                                                   style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
             Text("Kategorie\nhinzufügen")
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity, minHeight: 116)
-        .background(Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14)
+        .frame(maxWidth: .infinity, minHeight: 150)
+        .padding(.vertical, 12)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
             .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
     }
 }

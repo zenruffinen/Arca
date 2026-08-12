@@ -150,6 +150,8 @@ final class AppStore: ObservableObject {
     @Published var pendingSharedURL: URL? = nil
     @Published var pendingBackupURL: URL? = nil
     @Published var pendingScrollCategory: String? = nil
+    /// Nur diese eine Kategorie in der Dokumente-Ansicht zeigen (Reingehen)
+    @Published var fokusKategorie: String? = nil
     @Published var pendingSection: ArcaSection? = nil
     @Published var pendingQuickCapture: Bool = false
     /// Blitzidee per „halten": Diktat startet sofort, ohne extra Tipp aufs Mikro
