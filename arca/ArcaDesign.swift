@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import AudioToolbox
 
 // MARK: - Design Tokens
 
@@ -506,5 +507,89 @@ struct ArcaKategorieHinzufuegenKarte: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+    }
+}
+
+// MARK: - Dreh-Regler (Jog-Wheel) zum Durchblättern
+
+/// Ein horizontales Riffel-Rad im Glas-Look: mit dem Finger drehen blättert
+/// durch die Gruppen — die Riffeln rotieren wie ein Zylinder, jede Rastung
+/// gibt einen Haptik-Tick + „grrr"-Klick. `onNotch(+1/-1)` pro Rastung.
+struct ArcaDrehregler: View {
+    var breite: CGFloat = 210
+    var hoehe: CGFloat = 38
+    var tint: Color = ArcaWarm.terrakotta
+    var stumm: Bool = false
+    let onNotch: (Int) -> Void
+
+    @State private var phase: CGFloat = 0        // Rotationsphase (Bogenmaß)
+    @State private var totalDx: CGFloat = 0      // aufsummierter Zug
+    @State private var dragStart: CGFloat = 0
+    @State private var lastNotch: Int = 0
+    private let notchPixel: CGFloat = 30         // Zug pro Rastung
+    private let haptik = UIImpactFeedbackGenerator(style: .rigid)
+
+    private var kantenBlende: LinearGradient {
+        LinearGradient(stops: [
+            .init(color: .clear, location: 0.0),
+            .init(color: .black, location: 0.14),
+            .init(color: .black, location: 0.86),
+            .init(color: .clear, location: 1.0)
+        ], startPoint: .leading, endPoint: .trailing)
+    }
+
+    var body: some View {
+        let ribs = 46
+        Canvas { ctx, size in
+            let w = size.width, h = size.height
+            let cx = w / 2
+            let R = w / 2
+            let step = (Double.pi * 2) / Double(ribs)
+            for i in 0..<ribs {
+                let a = Double(phase) + Double(i) * step
+                let c = cos(a)                    // >0 = Vorderseite
+                if c <= 0.06 { continue }
+                let s = sin(a)
+                let x = cx + CGFloat(s) * R * 0.94
+                let ribW = CGFloat(0.6 + 2.6 * c)
+                let rect = CGRect(x: x - ribW / 2, y: h * 0.20, width: ribW, height: h * 0.60)
+                // Schatten links = Relief
+                let sr = CGRect(x: x - ribW / 2 - 1.0, y: h * 0.20, width: 1.0, height: h * 0.60)
+                ctx.fill(Path(roundedRect: sr, cornerRadius: 0.5),
+                         with: .color(.black.opacity(0.14 * c)))
+                ctx.fill(Path(roundedRect: rect, cornerRadius: ribW / 2),
+                         with: .color(.white.opacity(0.12 + 0.5 * c)))
+            }
+        }
+        .frame(width: breite, height: hoehe)
+        .mask(kantenBlende)
+        .background(
+            Capsule().fill(
+                LinearGradient(colors: [.black.opacity(0.16), .clear, .clear, .black.opacity(0.16)],
+                               startPoint: .leading, endPoint: .trailing))
+        )
+        .glassEffect(.regular.tint(tint.opacity(0.12)), in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+        .overlay(Capsule().strokeBorder(tint.opacity(0.22), lineWidth: 1))
+        .contentShape(Capsule())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { v in
+                    let cur = dragStart + v.translation.width
+                    totalDx = cur
+                    phase = cur * 0.045
+                    let notch = Int((cur / notchPixel).rounded(.towardZero))
+                    if notch != lastNotch {
+                        let dir = notch > lastNotch ? 1 : -1
+                        lastNotch = notch
+                        haptik.impactOccurred(intensity: 0.75)
+                        if !stumm { AudioServicesPlaySystemSound(1104) }
+                        onNotch(dir)
+                    }
+                }
+                .onEnded { _ in dragStart = totalDx }
+        )
+        .onAppear { haptik.prepare() }
+        .accessibilityLabel("Gruppen durchblättern")
     }
 }

@@ -578,6 +578,19 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 6)
+
+                    // Dreh-Regler: mit dem Finger drehen blättert durch die Gruppen
+                    ArcaDrehregler(breite: 210, hoehe: 38, tint: ArcaWarm.terrakotta) { dir in
+                        let namen = dokumentGruppen.map { $0.name }
+                        guard !namen.isEmpty else { return }
+                        let cur = sichtbareDokKarte.flatMap { namen.firstIndex(of: $0) } ?? 0
+                        let neu = min(max(cur + dir, 0), namen.count - 1)
+                        if neu != cur {
+                            withAnimation(.easeOut(duration: 0.25)) { sichtbareDokKarte = namen[neu] }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
                 }
             }
         }
