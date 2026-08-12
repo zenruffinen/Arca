@@ -532,9 +532,9 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 20)
 
-                // Das Karussell
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                // Das Raster: 3 Karten pro Zeile
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
+                          spacing: 10) {
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
                             ArcaKategorieKarte(
                                 name: gruppe.name,
@@ -573,9 +573,8 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 2)
-                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 2)
             }
         }
     }
