@@ -450,10 +450,10 @@ struct ArcaCollapsibleSectionHeader: View {
     }
 }
 
-// MARK: - Kategorie-Karte (Studie: längliche Glas-Karten, 3 pro Zeile)
+// MARK: - Kategorie-Karte (Mockup: schmale Glas-Karten, eine Reihe)
 
-/// Längliche Kategorie-Karte: Icon oben, Name klein darunter, Anzahl —
-/// im Liquid-Glass-Look, farblich getönt.
+/// Schmale, hohe Kategorie-Karte (~60×150) für die durchlaufende Reihe:
+/// Icon oben, Name klein darunter, Anzahl. Liquid-Glass, farblich getönt.
 struct ArcaKategorieKarte: View {
     let name: String
     let icon: String
@@ -462,61 +462,62 @@ struct ArcaKategorieKarte: View {
     var zuhause: Bool = false
 
     var body: some View {
-        VStack(spacing: 6) {
-            ArcaIcon(name: icon, groesse: 22)
+        VStack(spacing: 5) {
+            ArcaIcon(name: icon, groesse: 19)
                 .foregroundStyle(farben.accent)
-                .frame(width: 46, height: 46)
-                .background(farben.bg, in: RoundedRectangle(cornerRadius: 13))
+                .frame(width: 40, height: 40)
+                .background(farben.bg, in: RoundedRectangle(cornerRadius: 11))
             Text(name)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 10.5, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.85)
                 .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 1)
             Text("\(anzahl)")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(farben.accent)
             Text(anzahl == 1 ? "Dokument" : "Dokumente")
-                .font(.system(size: 9))
+                .font(.system(size: 8))
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 150)
         .padding(.vertical, 12)
         .padding(.horizontal, 6)
-        .glassEffect(.regular.tint(farben.accent.opacity(0.10)),
-                     in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16)
-            .strokeBorder(farben.accent.opacity(0.15), lineWidth: 1))
+        .frame(width: 60, height: 150)
+        .glassEffect(.regular.tint(farben.bg.opacity(0.55)),
+                     in: RoundedRectangle(cornerRadius: 15))
+        .overlay(RoundedRectangle(cornerRadius: 15)
+            .strokeBorder(farben.accent.opacity(0.14), lineWidth: 1))
         .overlay(alignment: .topTrailing) {
             if zuhause {
                 Image(systemName: "house.fill")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(farben.accent.opacity(0.8))
-                    .padding(9)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(farben.accent.opacity(0.85))
+                    .padding(6)
             }
         }
     }
 }
 
-/// Die „+ Kategorie hinzufügen"-Karte — gleiche Höhe, Glas.
+/// „+ Kategorie hinzufügen" — gleiche schmale Form, Glas.
 struct ArcaKategorieHinzufuegenKarte: View {
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 7) {
             Image(systemName: "plus")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(ArcaWarm.terrakotta)
-                .frame(width: 46, height: 46)
+                .frame(width: 40, height: 40)
                 .background(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45),
                                                   style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
             Text("Kategorie\nhinzufügen")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 9.5, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity, minHeight: 150)
-        .padding(.vertical, 12)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16)
+        .frame(width: 60, height: 150)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 15))
+        .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
     }
 }

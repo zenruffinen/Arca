@@ -96,6 +96,7 @@ struct HomeView: View {
     @Binding var selectedSection: ArcaSection
     @State private var showQRScanner = false
     @State private var showAlleFavoriten = false
+    @State private var sichtbareDokKarte: String? = nil
     @State private var showSpiderGame = false
     @State private var logoTapCount = 0
     @State private var quickAccessPreviewURL: URL? = nil
@@ -532,9 +533,9 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 20)
 
-                // Das Raster: 3 Karten pro Zeile
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
-                          spacing: 10) {
+                // Eine Reihe, läuft nach rechts durch
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
                             ArcaKategorieKarte(
                                 name: gruppe.name,
@@ -542,7 +543,8 @@ struct HomeView: View {
                                 farben: categoryColor(gruppe.name, overrides: store.categoryColors),
                                 anzahl: gruppe.anzahl,
                                 zuhause: store.isInHomeFolderQuickView(gruppe.name))
-                            .contentShape(RoundedRectangle(cornerRadius: 16))
+                            .id(gruppe.name)
+                            .contentShape(RoundedRectangle(cornerRadius: 15))
                             .onTapGesture { openDocuments(category: gruppe.name) }
                             .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
                             .dropDestination(for: String.self) { eingeworfen, _ in
@@ -573,8 +575,25 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 2)
+                    .padding(.horizontal, 20)
+                    .scrollTargetLayout()
+                }
+                .scrollPosition(id: $sichtbareDokKarte, anchor: .leading)
+
+                // Seiten-Punkte
+                if dokumentGruppen.count > 1 {
+                    HStack(spacing: 6) {
+                        ForEach(dokumentGruppen, id: \.name) { g in
+                            Circle()
+                                .fill((sichtbareDokKarte ?? dokumentGruppen.first?.name) == g.name
+                                      ? ArcaWarm.terrakotta.opacity(0.85)
+                                      : Color.secondary.opacity(0.25))
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 6)
+                }
             }
         }
     }
