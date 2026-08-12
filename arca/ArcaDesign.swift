@@ -477,13 +477,10 @@ struct ArcaKategorieKarte: View {
             Text("\(anzahl)")
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(farben.accent)
-            Text(anzahl == 1 ? "Dokument" : "Dokumente")
-                .font(.system(size: 8))
-                .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, 10)
         .padding(.horizontal, 6)
-        .frame(width: 60, height: 124)
+        .frame(width: 60, height: 112)
         .glassEffect(.regular.tint(farben.bg.opacity(0.55)),
                      in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
@@ -514,7 +511,7 @@ struct ArcaKategorieHinzufuegenKarte: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .frame(width: 60, height: 124)
+        .frame(width: 60, height: 112)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))

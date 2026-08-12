@@ -37,7 +37,7 @@ struct ArcaTabBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 11) {
             unsortiertKorb
 
             Spacer(minLength: 2)
@@ -79,7 +79,7 @@ struct ArcaTabBar: View {
                 .frame(width: 1, height: 28)
 
             // Mikrofon · Aufnahme
-            barKreis(icon: "mic.fill", titel: "Mikrofon", unter: "Aufnahme",
+            barKreis(icon: "ArcaMic", titel: "Mikrofon", unter: "Aufnahme",
                      aktiv: false, iconFarbe: ArcaWarm.terrakotta) {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 store.quickCaptureAutoRecord = true
@@ -130,7 +130,7 @@ struct ArcaTabBar: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Kreis-Knopf mit Zweizeilen-Label
+    // MARK: Kreis-Knopf (nur Icon, schwebend — ohne Label)
 
     private func barKreis(icon: String, titel: String, unter: String, aktiv: Bool,
                           iconFarbe: Color? = nil,
@@ -143,23 +143,15 @@ struct ArcaTabBar: View {
 
     private func kreisInhalt(icon: String, titel: String, unter: String, aktiv: Bool,
                              iconFarbe: Color? = nil) -> some View {
-        VStack(spacing: 3) {
-            ArcaIcon(name: icon, groesse: 18)
-                .foregroundStyle(iconFarbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.7)))
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 40, height: 40)
-                .glassEffect(.regular, in: Circle())
-                .overlay {
-                    if aktiv { Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 1.5) }
-                }
-            VStack(spacing: -1) {
-                Text(titel).font(.system(size: 8.5, weight: .semibold)).foregroundStyle(.primary)
-                Text(unter).font(.system(size: 7.5)).foregroundStyle(.secondary)
+        ArcaIcon(name: icon, groesse: 21)
+            .foregroundStyle(iconFarbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.72)))
+            .symbolRenderingMode(.hierarchical)
+            .frame(width: 48, height: 48)
+            .glassEffect(.regular, in: Circle())
+            .overlay {
+                if aktiv { Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 1.5) }
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-        }
-        .frame(width: 52)
+            .accessibilityLabel(unter.isEmpty ? titel : titel)
     }
 
     // MARK: Großer Plus mit Schlüssel-Badge

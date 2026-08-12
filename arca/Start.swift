@@ -512,24 +512,10 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
                 }
 
-                // Kopf: DOKUMENTE + Neue Gruppe
+                // Kopf: DOKUMENTE (Neu-Anlegen über die +-Karte am Ende)
                 HStack {
                     ArcaSectionTitle(title: "Dokumente", icon: "ArcaDocument")
                     Spacer()
-                    Button {
-                        docFuerNeueGruppe = nil
-                        neueGruppeName = ""
-                        showNeueGruppe = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "folder.badge.plus")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("Neue Gruppe")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundStyle(ArcaWarm.terrakotta)
-                    }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
 
