@@ -7,7 +7,8 @@
 //
 
 import SwiftUI
-import AudioToolbox
+import AVFoundation
+import CoreHaptics
 
 // MARK: - Design Tokens
 
@@ -519,15 +520,14 @@ struct ArcaDrehregler: View {
     var breite: CGFloat = 210
     var hoehe: CGFloat = 38
     var tint: Color = ArcaWarm.terrakotta
-    var stumm: Bool = false
     let onNotch: (Int) -> Void
 
     @State private var phase: CGFloat = 0        // Rotationsphase (Bogenmaß)
     @State private var totalDx: CGFloat = 0      // aufsummierter Zug
     @State private var dragStart: CGFloat = 0
     @State private var lastNotch: Int = 0
+    @State private var motor = DrehHaptik()
     private let notchPixel: CGFloat = 30         // Zug pro Rastung
-    private let haptik = UIImpactFeedbackGenerator(style: .rigid)
 
     private var kantenBlende: LinearGradient {
         LinearGradient(stops: [
@@ -557,21 +557,28 @@ struct ArcaDrehregler: View {
                 let sr = CGRect(x: x - ribW / 2 - 1.0, y: h * 0.20, width: 1.0, height: h * 0.60)
                 ctx.fill(Path(roundedRect: sr, cornerRadius: 0.5),
                          with: .color(.black.opacity(0.14 * c)))
+                // Farbkern in der Gruppenfarbe
                 ctx.fill(Path(roundedRect: rect, cornerRadius: ribW / 2),
-                         with: .color(.white.opacity(0.12 + 0.5 * c)))
+                         with: .color(tint.opacity(0.22 + 0.42 * c)))
+                // Glanzkante hell und schmaler → Metall-Riffel-Look
+                let hlW = max(0.6, ribW * 0.55)
+                let hl = CGRect(x: x - hlW / 2, y: h * 0.20, width: hlW, height: h * 0.60)
+                ctx.fill(Path(roundedRect: hl, cornerRadius: hlW / 2),
+                         with: .color(.white.opacity(0.12 + 0.42 * c)))
             }
         }
         .frame(width: breite, height: hoehe)
         .mask(kantenBlende)
         .background(
             Capsule().fill(
-                LinearGradient(colors: [.black.opacity(0.16), .clear, .clear, .black.opacity(0.16)],
+                LinearGradient(colors: [.black.opacity(0.18), .clear, .clear, .black.opacity(0.18)],
                                startPoint: .leading, endPoint: .trailing))
         )
-        .glassEffect(.regular.tint(tint.opacity(0.12)), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 1))
-        .overlay(Capsule().strokeBorder(tint.opacity(0.22), lineWidth: 1))
+        .glassEffect(.regular.tint(tint.opacity(0.22)), in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 1))
+        .overlay(Capsule().strokeBorder(tint.opacity(0.5), lineWidth: 1))
         .contentShape(Capsule())
+        .animation(.easeInOut(duration: 0.25), value: tint)
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { v in
@@ -582,14 +589,101 @@ struct ArcaDrehregler: View {
                     if notch != lastNotch {
                         let dir = notch > lastNotch ? 1 : -1
                         lastNotch = notch
-                        haptik.impactOccurred(intensity: 0.75)
-                        if !stumm { AudioServicesPlaySystemSound(1104) }
+                        motor.tick(intensitaet: 0.85)
                         onNotch(dir)
                     }
                 }
                 .onEnded { _ in dragStart = totalDx }
         )
-        .onAppear { haptik.prepare() }
+        .onAppear { motor.vorbereiten() }
         .accessibilityLabel("Gruppen durchblättern")
+    }
+}
+
+// MARK: - Dreh-Motor: Core-Haptics-Ratsch + synthetisierter Holz-Klick
+
+/// Erzeugt pro Rastung einen scharfen Haptik-Transienten (Apple-Watch-Krone-
+/// Gefühl, schnell gedreht = „grrr") plus einen kurzen, selbst berechneten
+/// Holz-Klick — ganz ohne mitgelieferte Ton-Datei.
+final class DrehHaptik {
+    private var engine: CHHapticEngine?
+    private let audio = AVAudioEngine()
+    private let spieler = AVAudioPlayerNode()
+    private var klick: AVAudioPCMBuffer?
+    private var bereit = false
+
+    func vorbereiten() {
+        guard !bereit else { return }
+        bereit = true
+        if CHHapticEngine.capabilitiesForHardware().supportsHaptics {
+            engine = try? CHHapticEngine()
+            engine?.isAutoShutdownEnabled = true
+            engine?.resetHandler = { [weak self] in try? self?.engine?.start() }
+            try? engine?.start()
+        }
+        tonAufbauen()
+    }
+
+    private func tonAufbauen() {
+        let sr = 44_100.0, dauer = 0.013
+        let n = AVAudioFrameCount(sr * dauer)
+        guard let fmt = AVAudioFormat(standardFormatWithSampleRate: sr, channels: 1),
+              let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: n) else { return }
+        buf.frameLength = n
+        let p = buf.floatChannelData![0]
+        var tief: Float = 0
+        for i in 0..<Int(n) {
+            let t = Double(i) / sr
+            let huell = Float(exp(-t / 0.0022))            // schnelles Abklingen
+            let rausch = Float.random(in: -1...1)
+            tief = tief * 0.55 + rausch * 0.45             // Tiefpass → hölzern
+            let ton = Float(sin(2 * Double.pi * 1650 * t)) // leichter Klang
+            p[i] = (tief * 0.75 + ton * 0.25) * huell * 0.45
+        }
+        klick = buf
+        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+        try? AVAudioSession.sharedInstance().setActive(true)
+        audio.attach(spieler)
+        audio.connect(spieler, to: audio.mainMixerNode, format: fmt)
+        try? audio.start()
+        spieler.play()
+    }
+
+    func tick(intensitaet: Float) {
+        if let engine {
+            let ev = CHHapticEvent(eventType: .hapticTransient, parameters: [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: intensitaet),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.85)
+            ], relativeTime: 0)
+            if let pat = try? CHHapticPattern(events: [ev], parameters: []),
+               let pl = try? engine.makePlayer(with: pat) {
+                try? pl.start(atTime: CHHapticTimeImmediate)
+            }
+        }
+        if let klick {
+            spieler.scheduleBuffer(klick, at: nil, options: .interrupts, completionHandler: nil)
+        }
+    }
+}
+
+// MARK: - Kleines Arca-Smiley (der Bogen = das Lächeln)
+
+/// Ein winziges Gesicht: zwei Punkte + ein Arca-Bogen als Lächeln.
+struct ArcaSmiley: View {
+    var farbe: Color = .secondary
+    var body: some View {
+        Canvas { ctx, size in
+            let w = size.width, h = size.height
+            let r = max(0.8, w * 0.085)
+            for ex in [w * 0.34, w * 0.66] {
+                ctx.fill(Path(ellipseIn: CGRect(x: ex - r, y: h * 0.34 - r, width: 2 * r, height: 2 * r)),
+                         with: .color(farbe))
+            }
+            var laecheln = Path()
+            laecheln.addArc(center: CGPoint(x: w * 0.5, y: h * 0.36), radius: w * 0.26,
+                            startAngle: .degrees(25), endAngle: .degrees(155), clockwise: false)
+            ctx.stroke(laecheln, with: .color(farbe),
+                       style: StrokeStyle(lineWidth: max(1, w * 0.09), lineCap: .round))
+        }
     }
 }
