@@ -40,7 +40,12 @@ struct ArcaTabBar: View {
         HStack(spacing: 11) {
             // Links: Space + Einstellungen
             barKreis(icon: "ArcaHome", titel: "Space", unter: "Home", aktiv: spaceActive) {
+                // Von jeder Position zuverlässig zurück nach Hause:
+                store.fokusKategorie = nil
+                store.zeigeIdeenPinnwand = false
                 if selected == .home {
+                    // Schon zuhause: auf den Start-Zustand zurück (Dokumente) + nach oben
+                    store.homeStreamFilter = .dokumente
                     store.homeSprungNachOben += 1
                 } else {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .home }
@@ -162,15 +167,36 @@ struct ArcaTabBar: View {
             ZStack {
                 Circle().fill(ArcaWarm.karte)
                     .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.2))
-                ArcaIcon(name: "ArcaKey", groesse: 11)
+                ArcaIcon(name: kontextIcon, groesse: 11)
                     .foregroundStyle(ArcaWarm.terrakotta)
+                    .transition(.opacity)
+                    .id(kontextIcon)
             }
             .frame(width: 23, height: 23)
             .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
             .offset(x: 7, y: -7)
             .allowsHitTesting(false)
+            .animation(.easeInOut(duration: 0.2), value: kontextIcon)
         }
         .accessibilityLabel("Neu anlegen")
+    }
+
+    /// Die Plakette am Plus zeigt, was gerade angelegt würde — sie wandert
+    /// mit den Chips (Dokumente/Ideen/Aufgaben/Tresor) und den Bereichen mit.
+    private var kontextIcon: String {
+        switch selected {
+        case .documents: return "ArcaDocument"
+        case .lists:     return "ArcaChecklist"
+        case .vault:     return "ArcaKey"
+        case .notes:     return "ArcaIdee"
+        default:
+            switch store.homeStreamFilter {
+            case .dokumente:   return "ArcaDocument"
+            case .notizen:     return "ArcaIdee"
+            case .tasks:       return "ArcaChecklist"
+            case .passwoerter: return "ArcaKey"
+            }
+        }
     }
 
     /// Was der Plus anlegt, hängt vom Ort ab (wie bisher im ArcaPlusKnopf).
