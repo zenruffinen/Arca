@@ -603,7 +603,7 @@ struct HomeView: View {
                             dokScrollPos.scrollTo(x: CGFloat(neueFrac) * dokMaxX)
                         }
                         HStack(spacing: 4) {
-                            Text("virtual crown")
+                            Text("Arca virtual crown")
                                 .font(.system(size: 9, weight: .medium, design: .rounded))
                                 .italic()
                                 .foregroundStyle(.secondary)
