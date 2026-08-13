@@ -277,11 +277,15 @@ struct VaultView: View {
                             .listRowBackground(Color(.secondarySystemBackground))
                         }
                     } header: {
-                        HStack(spacing: 6) {
-                            ArcaIcon(name: "ArcaBankkarten", groesse: 15)
+                        HStack(spacing: 8) {
+                            ArcaIcon(name: "ArcaBankkarten", groesse: 18)
                             Text("Bankkarten")
+                                .font(.system(size: 16, weight: .semibold))
                         }
+                        .foregroundStyle(.primary)
+                        .textCase(nil)
                     }
+                    .headerProminence(.increased)
                 }
 
                 // Passwörter
@@ -293,11 +297,15 @@ struct VaultView: View {
                             store.vaultItems.removeAll { item in toDelete.contains { $0.id == item.id } }
                         }
                 } header: {
-                    HStack(spacing: 6) {
-                        ArcaIcon(name: "ArcaPasswoerter", groesse: 15)
+                    HStack(spacing: 8) {
+                        ArcaIcon(name: "ArcaPasswoerter", groesse: 18)
                         Text("Passwörter")
+                            .font(.system(size: 16, weight: .semibold))
                     }
+                    .foregroundStyle(.primary)
+                    .textCase(nil)
                 }
+                .headerProminence(.increased)
             }
         }
         .listStyle(.insetGrouped)
