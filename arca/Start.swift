@@ -483,7 +483,7 @@ struct HomeView: View {
     /// Liste/Passwort → in die jeweilige Sektion (Tresor bleibt verschlossen).
     @ViewBuilder
     private var dokumentKarussell: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
             if dokumentGruppen.isEmpty {
                 Text("Noch keine Dokumente — oben rechts wartet das Dokument-Plus.")
                     .font(.system(size: 13))
@@ -595,7 +595,7 @@ struct HomeView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 6)
+                    .padding(.top, 0)
 
                     VStack(spacing: 3) {
                         ArcaDrehregler(breite: 210, hoehe: 38, tint: radFarbe,
@@ -612,7 +612,7 @@ struct HomeView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
+                    .padding(.top, -6)
                 }
             }
         }
