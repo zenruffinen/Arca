@@ -9,8 +9,12 @@
 import SwiftUI
 import AVFoundation
 import CoreHaptics
+import ARCAKit   // Leitlinie: gemeinsame Maße & Glas-Helfer kommen aus ARCAKit
 
 // MARK: - Design Tokens
+//
+// Element-Maße (Balkenhöhen, Kachelgrößen, Einrückungen) leben in
+// ARCAKit → ARCASpacing. Hier stehen nur app-spezifische Tokens.
 
 enum ArcaDesign {
     static let cornerRadius: CGFloat = 20
@@ -100,46 +104,10 @@ struct ArcaQuickAction: Identifiable {
 }
 
 // MARK: - Glass Helpers
-
-extension View {
-    /// Ein Glas-Layer pro Element — keine Verschachtelung (iOS 26 Rendering).
-    @ViewBuilder
-    func arcaGlass(
-        tint: Color? = nil,
-        interactive: Bool = false,
-        in shape: some Shape = RoundedRectangle(cornerRadius: ArcaDesign.cornerRadius, style: .continuous)
-    ) -> some View {
-        let glass: Glass = {
-            var base = Glass.regular
-            if let tint { base = base.tint(tint) }
-            if interactive { base = base.interactive() }
-            return base
-        }()
-        self.glassEffect(glass, in: shape)
-    }
-
-    @ViewBuilder
-    func arcaGlassCapsule(tint: Color? = nil, interactive: Bool = false) -> some View {
-        arcaGlass(tint: tint, interactive: interactive, in: Capsule())
-    }
-
-    /// Solide Kartenfläche — zuverlässig lesbar, Glas-Optik nur dezent am Rand.
-    func arcaCardBackground(tint: Color = .blue, cornerRadius: CGFloat = ArcaDesign.cornerRadius) -> some View {
-        background {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(tint.opacity(0.08))
-                }
-        }
-    }
-
-    func arcaIconTile(tint: Color, size: CGFloat = ArcaDesign.iconTileSize) -> some View {
-        frame(width: size, height: size)
-            .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
+//
+// arcaGlass / arcaGlassCapsule / arcaCardBackground / arcaIconTile
+// leben jetzt in ARCAKit (ARCAGlassStyle.swift) und kommen über
+// `import ARCAKit`. Keine App-Kopien mehr — sonst kollidiert es.
 
 // MARK: - Home Header
 
@@ -531,7 +499,7 @@ struct ArcaKategorieKarte: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 6)
-        .frame(width: 60, height: 94)
+        .frame(width: ARCASpacing.categoryTileWidth, height: ARCASpacing.categoryTileHeight)
         .glassEffect(.regular.tint(farben.bg.opacity(0.55)),
                      in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
@@ -554,7 +522,7 @@ struct ArcaKategorieHinzufuegenKarte: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .frame(width: 60, height: 94)
+        .frame(width: ARCASpacing.categoryTileWidth, height: ARCASpacing.categoryTileHeight)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))

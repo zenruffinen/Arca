@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		90EC922B50484CB6A3EA38EC /* ArcaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AD5F7C8FA8634A95B4CE7263 /* ArcaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		ACA0C1DE00000000000000A1 /* ARCAKit in Frameworks */ = {isa = PBXBuildFile; productRef = ACA0C1DE00000000000000A2 /* ARCAKit */; };
+		ACA0C1DE00000000000000B1 /* ARCAKit in Frameworks */ = {isa = PBXBuildFile; productRef = ACA0C1DE00000000000000A2 /* ARCAKit */; };
 		B2C3D4E5F6A7488990ABCDE2 /* ArcaTicketsWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7488990ABCDE1 /* ArcaTicketsWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BA9694F72F8D782200FEB0F9 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */; };
 /* End PBXBuildFile section */
@@ -162,6 +163,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BA9694F72F8D782200FEB0F9 /* SwiftAnthropic in Frameworks */,
+				ACA0C1DE00000000000000B1 /* ARCAKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -302,6 +304,7 @@
 			name = Arca;
 			packageProductDependencies = (
 				BA9694F62F8D782200FEB0F9 /* SwiftAnthropic */,
+				ACA0C1DE00000000000000A2 /* ARCAKit */,
 			);
 			productName = Arca;
 			productReference = BA7C670A2F8CEAE0001B326B /* Arca.app */;
@@ -855,8 +858,8 @@
 		BA7C672C2F8CEAE1001B326B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = ArcaGold;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Arca.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -886,8 +889,8 @@
 		BA7C672D2F8CEAE1001B326B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = ArcaGold;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Arca.entitlements;
 				CODE_SIGN_STYLE = Automatic;

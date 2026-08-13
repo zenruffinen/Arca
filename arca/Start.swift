@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 import QuickLook
 import EventKit
 import LocalAuthentication
+import ARCAKit
 
 /// Momentaufnahme der horizontalen Scroll-Position (für den Dreh-Regler).
 struct ScrollInfo: Equatable {
@@ -577,23 +578,6 @@ struct HomeView: View {
                             ArcaKategorieHinzufuegenKarte()
                         }
                         .buttonStyle(.plain)
-
-                        // Top-Secret-Ordner — nur mit Face ID, reine Aufbewahrung
-                        Button {
-                            mitGesichtskontrolle("Top Secret öffnen") {
-                                openDocuments(category: "Top Secret")
-                            }
-                        } label: {
-                            ArcaKategorieKarte(name: "Top Secret", icon: "ArcaLock",
-                                               farben: NoteColor.for_(2), anzahl: topSecretAnzahl)
-                                .overlay(alignment: .topTrailing) {
-                                    Image(systemName: "lock.fill")
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(NoteColor.for_(2).accent)
-                                        .padding(6)
-                                }
-                        }
-                        .buttonStyle(.plain)
                     }
                     .scrollTargetLayout()
                 }
@@ -745,6 +729,8 @@ struct HomeView: View {
     private var kartenHell: Color   { Color(red: 0.74, green: 0.83, blue: 0.93) }
     private var passDunkel: Color   { Color(red: 0.04, green: 0.13, blue: 0.12) }
     private var passHell: Color     { Color(red: 0.55, green: 0.88, blue: 0.82) }
+    private var topSecretDunkel: Color { Color(red: 0.10, green: 0.07, blue: 0.14) }
+    private var topSecretHell: Color   { Color(red: 0.80, green: 0.74, blue: 0.92) }
 
     /// Face ID / Gerätecode, dann `dann()` (zum Aufklappen einer geschützten Gruppe).
     private func mitGesichtskontrolle(_ grund: String, _ dann: @escaping () -> Void) {
@@ -787,24 +773,24 @@ struct HomeView: View {
             .overlay(Capsule().strokeBorder(hell.opacity(0.2), lineWidth: 0.5))
         }
         .padding(.horizontal, 14)
-        .frame(height: 42)
+        .frame(height: ARCASpacing.drawerBarHeight)
         .frame(maxWidth: .infinity)
         // Echtes Liquid Glass, dunkel getönt → durchscheinend, interaktiv, spiegelnd
-        .glassEffect(.regular.tint(dunkel.opacity(0.52)).interactive(), in: RoundedRectangle(cornerRadius: 16))
+        .glassEffect(.regular.tint(dunkel.opacity(0.52)).interactive(), in: RoundedRectangle(cornerRadius: ARCASpacing.drawerBarCornerRadius))
         .overlay(
             // diagonaler Glanz-Streifen (Reflex) wie auf echtem Glas
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: ARCASpacing.drawerBarCornerRadius)
                 .fill(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.05), .clear],
                                      startPoint: .topLeading, endPoint: .center))
                 .allowsHitTesting(false)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16).strokeBorder(
+            RoundedRectangle(cornerRadius: ARCASpacing.drawerBarCornerRadius).strokeBorder(
                 LinearGradient(colors: [.white.opacity(0.55), hell.opacity(0.3), .white.opacity(0.15)],
                                startPoint: .topLeading, endPoint: .bottomTrailing),
                 lineWidth: 1)
         )
-        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .contentShape(RoundedRectangle(cornerRadius: ARCASpacing.drawerBarCornerRadius))
     }
 
     private var tresorGruppiert: some View {
@@ -824,7 +810,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             if homeBankkartenAuf {
-                VStack(spacing: 6) {
+                VStack(spacing: ARCASpacing.drawerRowSpacing) {
                     if tresorKartenItems.isEmpty {
                         Text("Noch keine Karte — über ＋ eine Kreditkarte anlegen.")
                             .font(.system(size: 13))
@@ -835,7 +821,7 @@ struct HomeView: View {
                         ForEach(tresorKartenItems) { streamZeile($0) }
                     }
                 }
-                .padding(.leading, 14)
+                .padding(.leading, ARCASpacing.drawerIndent)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
             // Passwörter — Face ID, einklappbar
@@ -853,12 +839,23 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             if homePasswoerterAuf {
-                VStack(spacing: 6) {
+                VStack(spacing: ARCASpacing.drawerRowSpacing) {
                     ForEach(tresorPasswortItems) { streamZeile($0) }
                 }
-                .padding(.leading, 14)
+                .padding(.leading, ARCASpacing.drawerIndent)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            // Top Secret — Face ID, öffnet den reinen Aufbewahrungs-Ordner
+            Button {
+                mitGesichtskontrolle("Top Secret öffnen") {
+                    openDocuments(category: "Top Secret")
+                }
+            } label: {
+                gruppenBalken(icon: "ArcaLock", titel: "Top Secret",
+                              dunkel: topSecretDunkel, hell: topSecretHell,
+                              anzahl: topSecretAnzahl, auf: false, gesperrt: true)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
     }
