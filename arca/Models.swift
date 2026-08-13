@@ -33,6 +33,9 @@ enum ArcaSection: String, CaseIterable, Identifiable {
     }
 }
 
+/// Art eines Tresor-Eintrags: klassisches Passwort oder Kreditkarte.
+enum VaultArt: String, Codable { case passwort, karte }
+
 struct VaultEntry: Identifiable, Codable, Hashable {
     var id: UUID
     var title: String
@@ -47,6 +50,14 @@ struct VaultEntry: Identifiable, Codable, Hashable {
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
     var geaendertAm: Date = Date()
 
+    // Kreditkarte (nur befüllt, wenn art == .karte)
+    var art: VaultArt = .passwort
+    var kartennummer: String = ""
+    var karteninhaber: String = ""
+    var ablauf: String = ""        // MM/JJ
+    var pruefnummer: String = ""   // CVV / CVC
+    var pin: String = ""
+
     init(id: UUID = UUID(),
          title: String,
          username: String,
@@ -55,7 +66,13 @@ struct VaultEntry: Identifiable, Codable, Hashable {
          sperrHotline: String = "",
          isFavorite: Bool = false,
          dateCreated: Date = Date(),
-         colorTag: Int = 0) {
+         colorTag: Int = 0,
+         art: VaultArt = .passwort,
+         kartennummer: String = "",
+         karteninhaber: String = "",
+         ablauf: String = "",
+         pruefnummer: String = "",
+         pin: String = "") {
         self.id = id
         self.title = title
         self.username = username
@@ -65,6 +82,12 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         self.isFavorite = isFavorite
         self.dateCreated = dateCreated
         self.colorTag = colorTag
+        self.art = art
+        self.kartennummer = kartennummer
+        self.karteninhaber = karteninhaber
+        self.ablauf = ablauf
+        self.pruefnummer = pruefnummer
+        self.pin = pin
     }
 
     // Custom Decoder: alte Einträge ohne colorTag bleiben kompatibel
@@ -81,6 +104,12 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         dateCreated = try c.decodeIfPresent(Date.self,   forKey: .dateCreated) ?? Date()
         colorTag    = try c.decodeIfPresent(Int.self,    forKey: .colorTag)    ?? 0
         geaendertAm = try c.decodeIfPresent(Date.self,   forKey: .geaendertAm) ?? dateCreated
+        art          = try c.decodeIfPresent(VaultArt.self, forKey: .art)          ?? .passwort
+        kartennummer = try c.decodeIfPresent(String.self,  forKey: .kartennummer)  ?? ""
+        karteninhaber = try c.decodeIfPresent(String.self, forKey: .karteninhaber) ?? ""
+        ablauf       = try c.decodeIfPresent(String.self,  forKey: .ablauf)        ?? ""
+        pruefnummer  = try c.decodeIfPresent(String.self,  forKey: .pruefnummer)   ?? ""
+        pin          = try c.decodeIfPresent(String.self,  forKey: .pin)           ?? ""
     }
 }
 

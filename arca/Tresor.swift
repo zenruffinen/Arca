@@ -150,10 +150,8 @@ struct VaultView: View {
 
     @ViewBuilder
     private var vaultNewEntrySheet: some View {
-        NewVaultEntrySheet(startTitel: store.vaultVorbefuellung ?? "") { title, username, password, url, hotline, color in
-            store.addVaultEntry(title: title, username: username,
-                               password: password, url: url,
-                               sperrHotline: hotline, colorTag: color)
+        NewVaultEntrySheet(startTitel: store.vaultVorbefuellung ?? "") { entry in
+            store.addVaultEntry(entry)
             // Blitzidee → Passwort: die Quell-Notiz ist jetzt einsortiert
             if let notizID = store.notizNachTresorUmwandlung {
                 store.notes.removeAll { $0.id == notizID }
@@ -295,31 +293,129 @@ struct VaultView: View {
 
 // MARK: - New Vault Entry Sheet
 
-struct NewVaultEntrySheet: View {
-    let onSave: (String, String, String, String, String, Int) -> Void
+// MARK: - Kreditkarten-Optik
 
-    init(startTitel: String = "", onSave: @escaping (String, String, String, String, String, Int) -> Void) {
+struct ArcaKreditkarte: View {
+    var nummer: String
+    var inhaber: String
+    var ablauf: String
+    var farbe: NoteColor
+    var maskiert: Bool = false
+
+    private var netzwerk: String {
+        let d = nummer.filter(\.isNumber)
+        if d.hasPrefix("4") { return "VISA" }
+        if let z = Int(d.prefix(2)), (51...55).contains(z) || (22...27).contains(z) { return "Mastercard" }
+        if d.hasPrefix("34") || d.hasPrefix("37") { return "AMEX" }
+        return "Karte"
+    }
+
+    private var nummerAnzeige: String {
+        var stellen = Array(nummer.filter(\.isNumber))
+        if maskiert && stellen.count > 4 {
+            stellen = Array(repeating: "•", count: stellen.count - 4) + Array(stellen.suffix(4))
+        }
+        while stellen.count < 16 { stellen.append("•") }
+        return stride(from: 0, to: stellen.count, by: 4)
+            .map { String(stellen[$0..<min($0 + 4, stellen.count)]) }
+            .joined(separator: "  ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                // Chip
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.72)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 40, height: 30)
+                    .overlay(
+                        VStack(spacing: 4) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                Rectangle().fill(.black.opacity(0.12)).frame(height: 0.8)
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                    )
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(0.5), lineWidth: 0.5))
+                Spacer()
+                Text(netzwerk)
+                    .font(.system(size: 16, weight: .heavy, design: .rounded)).italic()
+                    .foregroundStyle(.white)
+            }
+            Spacer(minLength: 16)
+            Text(nummerAnzeige)
+                .font(.system(size: 19, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 16)
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("KARTENINHABER")
+                        .font(.system(size: 7, weight: .semibold)).kerning(0.5)
+                        .foregroundStyle(.white.opacity(0.65))
+                    Text(inhaber.isEmpty ? "—" : inhaber.uppercased())
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white).lineLimit(1)
+                }
+                Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("GÜLTIG")
+                        .font(.system(size: 7, weight: .semibold)).kerning(0.5)
+                        .foregroundStyle(.white.opacity(0.65))
+                    Text(ablauf.isEmpty ? "MM/JJ" : ablauf)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity)
+        .frame(height: 200)
+        .background {
+            ZStack {
+                LinearGradient(colors: [farbe.accent, farbe.accent.opacity(0.65), Color.black.opacity(0.4)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                Circle().fill(.white.opacity(0.10)).frame(width: 230).blur(radius: 34).offset(x: 100, y: -80)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+        }
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.18), lineWidth: 1))
+        .shadow(color: farbe.accent.opacity(0.35), radius: 12, x: 0, y: 6)
+    }
+}
+
+struct NewVaultEntrySheet: View {
+    let onSave: (VaultEntry) -> Void
+
+    init(startTitel: String = "", onSave: @escaping (VaultEntry) -> Void) {
         self.onSave = onSave
         _title = State(initialValue: startTitel)
     }
 
     @Environment(\.dismiss) var dismiss
+    @State private var art: VaultArt = .passwort
     @State private var title = ""
     @State private var sperrHotline = ""
     @State private var username = ""
     @State private var password = ""
     @State private var url = ""
+    // Kreditkarte
+    @State private var kartennummer = ""
+    @State private var karteninhaber = ""
+    @State private var ablauf = ""
+    @State private var pruefnummer = ""
+    @State private var pin = ""
     @State private var selectedColor = 2
     @State private var showPassword = false
     @State private var showGenerator = false
     @FocusState private var focusedField: VaultField?
 
-    enum VaultField { case title, username, password, url }
+    enum VaultField { case title, username, password, url, nummer, inhaber, ablauf, cvv, pin }
 
-    private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    // Speichern ist immer erlaubt — auch unvollständig (Hans' Wunsch)
+    private var canSave: Bool { true }
     private var color: NoteColor { NoteColor.for_(selectedColor) }
 
     var body: some View {
@@ -327,7 +423,21 @@ struct NewVaultEntrySheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
 
-                    // Kategorie / Vorlage
+                    // Art: Passwort oder Kreditkarte
+                    Picker("Art", selection: $art) {
+                        Text("Passwort").tag(VaultArt.passwort)
+                        Text("Kreditkarte").tag(VaultArt.karte)
+                    }
+                    .pickerStyle(.segmented)
+
+                    // Live-Vorschau der Karte
+                    if art == .karte {
+                        ArcaKreditkarte(nummer: kartennummer, inhaber: karteninhaber,
+                                        ablauf: ablauf, farbe: color)
+                    }
+
+                    // Kategorie / Vorlage (nur bei Passwörtern)
+                    if art == .passwort {
                     VStack(alignment: .leading, spacing: 10) {
                         HomeSectionLabel("Kategorie")
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -361,15 +471,19 @@ struct NewVaultEntrySheet: View {
                             .padding(.vertical, 2)
                         }
                     }
+                    }
 
                     // Felder
                     VStack(spacing: 12) {
-                        // Titel
-                        VaultFieldRow(label: "Titel", placeholder: "z. B. Gmail, Netflix…") {
-                            TextField("z. B. Gmail, Netflix…", text: $title)
+                        // Titel / Bezeichnung
+                        VaultFieldRow(label: art == .karte ? "Bezeichnung (z. B. Bank)" : "Titel",
+                                      placeholder: "") {
+                            TextField(art == .karte ? "z. B. Neon Mastercard" : "z. B. Gmail, Netflix…", text: $title)
                                 .focused($focusedField, equals: .title)
                                 .autocorrectionDisabled()
                         }
+
+                        if art == .passwort {
 
                         // Benutzername
                         VaultFieldRow(label: "Benutzername / E-Mail", placeholder: "") {
@@ -430,8 +544,41 @@ struct NewVaultEntrySheet: View {
                                 .keyboardType(.URL)
                         }
 
-                        // Sperr-Hotline (Notfall-Bereich)
-                        VaultFieldRow(label: "Sperr-Hotline (optional, für Karten)", placeholder: "") {
+                        }   // Ende: nur bei Passwörtern
+
+                        if art == .karte {
+                            VaultFieldRow(label: "Karteninhaber", placeholder: "") {
+                                TextField("Name auf der Karte", text: $karteninhaber)
+                                    .focused($focusedField, equals: .inhaber)
+                                    .textInputAutocapitalization(.words)
+                            }
+                            VaultFieldRow(label: "Kartennummer", placeholder: "") {
+                                TextField("1234 5678 9012 3456", text: $kartennummer)
+                                    .focused($focusedField, equals: .nummer)
+                                    .keyboardType(.numberPad)
+                                    .font(.system(.body, design: .monospaced))
+                            }
+                            HStack(spacing: 12) {
+                                VaultFieldRow(label: "Gültig (MM/JJ)", placeholder: "") {
+                                    TextField("MM/JJ", text: $ablauf)
+                                        .focused($focusedField, equals: .ablauf)
+                                        .keyboardType(.numbersAndPunctuation)
+                                }
+                                VaultFieldRow(label: "CVV", placeholder: "") {
+                                    SecureField("•••", text: $pruefnummer)
+                                        .focused($focusedField, equals: .cvv)
+                                        .keyboardType(.numberPad)
+                                }
+                            }
+                            VaultFieldRow(label: "PIN (optional)", placeholder: "") {
+                                SecureField("••••", text: $pin)
+                                    .focused($focusedField, equals: .pin)
+                                    .keyboardType(.numberPad)
+                            }
+                        }
+
+                        // Sperr-Hotline (Notfall-Bereich, v. a. für Karten)
+                        VaultFieldRow(label: "Sperr-Hotline (optional)", placeholder: "") {
                             TextField("z.B. +41 44 123 45 67", text: $sperrHotline)
                                 .keyboardType(.phonePad)
                         }
@@ -469,7 +616,7 @@ struct NewVaultEntrySheet: View {
                 .padding(.bottom, 40)
                 .animation(.easeInOut(duration: 0.2), value: password.isEmpty)
             }
-            .navigationTitle("Neues Passwort")
+            .navigationTitle(art == .karte ? "Neue Kreditkarte" : "Neues Passwort")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -477,12 +624,22 @@ struct NewVaultEntrySheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
-                        onSave(title.trimmingCharacters(in: .whitespacesAndNewlines),
-                               username.trimmingCharacters(in: .whitespacesAndNewlines),
-                               password.trimmingCharacters(in: .whitespacesAndNewlines),
-                               url.trimmingCharacters(in: .whitespacesAndNewlines),
-                               sperrHotline.trimmingCharacters(in: .whitespacesAndNewlines),
-                               selectedColor)
+                        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let titel = t.isEmpty ? (art == .karte ? "Kreditkarte" : "Eintrag") : t
+                        let entry = VaultEntry(
+                            title: titel,
+                            username: username.trimmingCharacters(in: .whitespacesAndNewlines),
+                            password: password.trimmingCharacters(in: .whitespacesAndNewlines),
+                            url: url.trimmingCharacters(in: .whitespacesAndNewlines),
+                            sperrHotline: sperrHotline.trimmingCharacters(in: .whitespacesAndNewlines),
+                            colorTag: selectedColor,
+                            art: art,
+                            kartennummer: kartennummer.filter { $0.isNumber },
+                            karteninhaber: karteninhaber.trimmingCharacters(in: .whitespacesAndNewlines),
+                            ablauf: ablauf.trimmingCharacters(in: .whitespacesAndNewlines),
+                            pruefnummer: pruefnummer.trimmingCharacters(in: .whitespacesAndNewlines),
+                            pin: pin.trimmingCharacters(in: .whitespacesAndNewlines))
+                        onSave(entry)
                     } label: {
                         Text("Sichern")
                             .fontWeight(.semibold)
@@ -532,10 +689,16 @@ struct VaultRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Farbpunkt
-            Circle()
-                .fill(color.accent)
-                .frame(width: 8, height: 8)
+            // Karte: Kreditkarten-Icon, sonst Farbpunkt
+            if item.art == .karte {
+                Image(systemName: "creditcard.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(color.accent)
+            } else {
+                Circle()
+                    .fill(color.accent)
+                    .frame(width: 8, height: 8)
+            }
 
             // Nur Titel
             Text(item.title)
@@ -552,9 +715,9 @@ struct VaultRow: View {
 
             Spacer()
 
-            // Kopier-Icon — dezent, kein Label
+            // Kopier-Icon — dezent, kein Label (Karte: Nummer, sonst Passwort)
             Button {
-                UIPasteboard.general.string = item.password
+                UIPasteboard.general.string = item.art == .karte ? item.kartennummer : item.password
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 withAnimation(.spring(response: 0.3)) { copiedItemID = item.id }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -594,15 +757,128 @@ struct VaultDetailView: View {
     @State private var editColor = 0
     @State private var showPassword = false
     @State private var showGenerator = false
+    // Kreditkarte
+    @State private var editKartennummer = ""
+    @State private var editKarteninhaber = ""
+    @State private var editAblauf = ""
+    @State private var editPruefnummer = ""
+    @State private var editPin = ""
+    @State private var showSecret = false
 
     private var displayColor: NoteColor {
         NoteColor.for_(isEditing ? editColor : item.colorTag)
     }
 
+    // MARK: Karten-Detail (Anzeige + Bearbeiten)
+    @ViewBuilder private var kartenDetail: some View {
+        if isEditing {
+            Section {
+                ArcaKreditkarte(nummer: editKartennummer, inhaber: editKarteninhaber,
+                                ablauf: editAblauf, farbe: NoteColor.for_(editColor))
+                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                    .listRowBackground(Color.clear)
+            }
+            Section("Bezeichnung") {
+                TextField("z. B. Neon Mastercard", text: $editTitle)
+            }
+            Section("Karteninhaber") {
+                TextField("Name auf der Karte", text: $editKarteninhaber)
+                    .textInputAutocapitalization(.words)
+            }
+            Section("Kartennummer") {
+                TextField("1234 5678 9012 3456", text: $editKartennummer)
+                    .keyboardType(.numberPad)
+                    .font(.system(.body, design: .monospaced))
+            }
+            Section("Gültig / CVV") {
+                HStack {
+                    TextField("MM/JJ", text: $editAblauf)
+                        .keyboardType(.numbersAndPunctuation)
+                    Divider()
+                    SecureField("CVV", text: $editPruefnummer)
+                        .keyboardType(.numberPad)
+                }
+            }
+            Section("PIN (optional)") {
+                SecureField("••••", text: $editPin)
+                    .keyboardType(.numberPad)
+            }
+            Section {
+                TextField("z.B. +41 44 123 45 67", text: $editSperrHotline)
+                    .keyboardType(.phonePad)
+            } header: {
+                Text("Sperr-Hotline (optional)")
+            } footer: {
+                Text("Erscheint mit Anruf-Knopf im Notfall-Bereich (Mehr → Notfall).")
+            }
+        } else {
+            Section {
+                ArcaKreditkarte(nummer: item.kartennummer, inhaber: item.karteninhaber,
+                                ablauf: item.ablauf, farbe: displayColor, maskiert: !showSecret)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                    .listRowBackground(Color.clear)
+            }
+            Section {
+                Toggle(isOn: $showSecret) {
+                    Label(showSecret ? "Nummer & Codes verbergen" : "Nummer & Codes zeigen",
+                          systemImage: showSecret ? "eye.slash" : "eye")
+                }
+            }
+            if !item.kartennummer.isEmpty {
+                Section("Kartennummer") {
+                    HStack {
+                        Text(showSecret
+                             ? item.kartennummer
+                             : "•••• " + String(item.kartennummer.suffix(4)))
+                            .font(.system(.body, design: .monospaced))
+                        Spacer()
+                        Button {
+                            UIPasteboard.general.string = item.kartennummer
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        } label: {
+                            Image(systemName: "doc.on.doc").foregroundStyle(.blue)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
+            if !item.ablauf.isEmpty {
+                Section("Gültig bis") { Text(item.ablauf).font(.system(.body, design: .monospaced)) }
+            }
+            if !item.pruefnummer.isEmpty {
+                Section("CVV") { Text(showSecret ? item.pruefnummer : "•••").font(.system(.body, design: .monospaced)) }
+            }
+            if !item.pin.isEmpty {
+                Section("PIN") { Text(showSecret ? item.pin : "••••").font(.system(.body, design: .monospaced)) }
+            }
+            if !item.sperrHotline.isEmpty {
+                Section("Sperr-Hotline") {
+                    HStack {
+                        Text(item.sperrHotline).font(.system(.body, design: .rounded))
+                        Spacer()
+                        Button {
+                            let nummer = item.sperrHotline.filter { "0123456789+".contains($0) }
+                            if let url = URL(string: "tel:\(nummer)") { UIApplication.shared.open(url) }
+                        } label: {
+                            Image(systemName: "phone.arrow.up.right").foregroundStyle(.red)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
+            Section("Erstellt am") {
+                Text(item.dateCreated.formatted(date: .abbreviated, time: .shortened))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                if isEditing {
+                if item.art == .karte {
+                    kartenDetail
+                } else if isEditing {
                     Section("Titel") {
                         TextField("Titel", text: $editTitle)
                     }
@@ -759,16 +1035,23 @@ struct VaultDetailView: View {
                     if isEditing {
                         Button("Speichern") {
                             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            let t = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                             var updated = VaultEntry(
                                 id: item.id,
-                                title: editTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                                title: t.isEmpty ? (item.art == .karte ? "Kreditkarte" : "Eintrag") : t,
                                 username: editUsername.trimmingCharacters(in: .whitespacesAndNewlines),
                                 password: editPassword.trimmingCharacters(in: .whitespacesAndNewlines),
                                 url: editURL.trimmingCharacters(in: .whitespacesAndNewlines),
                                 sperrHotline: editSperrHotline.trimmingCharacters(in: .whitespacesAndNewlines),
                                 isFavorite: item.isFavorite,
                                 dateCreated: item.dateCreated,
-                                colorTag: editColor
+                                colorTag: editColor,
+                                art: item.art,
+                                kartennummer: editKartennummer.filter { $0.isNumber },
+                                karteninhaber: editKarteninhaber.trimmingCharacters(in: .whitespacesAndNewlines),
+                                ablauf: editAblauf.trimmingCharacters(in: .whitespacesAndNewlines),
+                                pruefnummer: editPruefnummer.trimmingCharacters(in: .whitespacesAndNewlines),
+                                pin: editPin.trimmingCharacters(in: .whitespacesAndNewlines)
                             )
                             // Die „fest"-Nadel überlebt das Bearbeiten
                             updated.favoritePinned = item.favoritePinned
@@ -777,8 +1060,9 @@ struct VaultDetailView: View {
                             showPassword = false
                             dismiss()
                         }
-                        .disabled(editTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                  editPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        // Speichern immer erlaubt — auch unvollständig (nur leerer Passwort-Titel wird geblockt)
+                        .disabled(item.art == .passwort &&
+                                  editTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     } else {
                         Button("Bearbeiten") {
                             editTitle = item.title
@@ -787,6 +1071,11 @@ struct VaultDetailView: View {
                             editURL = item.url
                             editSperrHotline = item.sperrHotline
                             editColor = item.colorTag
+                            editKartennummer = item.kartennummer
+                            editKarteninhaber = item.karteninhaber
+                            editAblauf = item.ablauf
+                            editPruefnummer = item.pruefnummer
+                            editPin = item.pin
                             showPassword = false
                             isEditing = true
                         }

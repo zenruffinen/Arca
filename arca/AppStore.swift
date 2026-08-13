@@ -2205,4 +2205,10 @@ final class AppStore: ObservableObject {
                                      password: cleanPassword, url: cleanURL,
                                      sperrHotline: cleanHotline, colorTag: colorTag))
     }
+
+    /// Fügt einen fertig zusammengestellten Eintrag hinzu — auch unvollständig
+    /// (für Kreditkarten: Hans darf speichern, bevor alle Felder gefüllt sind).
+    func addVaultEntry(_ entry: VaultEntry) {
+        vaultItems.append(entry)
+    }
 }
