@@ -12,6 +12,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import VisionKit
 import Vision
+import LocalAuthentication
 
 // MARK: - Vault
 
@@ -42,8 +43,80 @@ struct VaultView: View {
     @State private var renamingItem: VaultEntry? = nil
     @State private var showSecurityAlert = false
     @State private var renameItemText = ""
+    @State private var bankkartenEntsperrt = false
     @AppStorage("vaultSortOption") private var sortOption: String = "newest"
     @AppStorage("vaultFilterColor") private var filterColor: Int = -1
+
+    private var passwoerter: [VaultEntry] { filteredItems.filter { $0.art != .karte } }
+    private var bankkarten: [VaultEntry]  { filteredItems.filter { $0.art == .karte } }
+
+    /// Bankkarten-Gruppe per Face ID (oder Gerätecode) öffnen.
+    private func entsperreBankkarten() {
+        let ctx = LAContext()
+        var err: NSError?
+        if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
+            ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Bankkarten anzeigen") { ok, _ in
+                if ok { DispatchQueue.main.async { withAnimation(.easeInOut) { bankkartenEntsperrt = true } } }
+            }
+        } else {
+            bankkartenEntsperrt = true   // kein Biometrie/Code eingerichtet → nicht aussperren
+        }
+    }
+
+    @ViewBuilder private func vaultZeile(_ item: VaultEntry) -> some View {
+        VaultRow(item: item, copiedItemID: $copiedItemID)
+            .contentShape(Rectangle())
+            .onTapGesture { selectedItem = item }
+            .listRowBackground(Color(.secondarySystemBackground))
+            .listRowSeparator(.visible)
+            .listRowSeparatorTint(Color.primary.opacity(0.06))
+            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
+            .contextMenu {
+                if item.art != .karte {
+                    ArcaMenue.favorit(ist: item.isFavorite) {
+                        if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
+                            store.vaultItems[idx].isFavorite.toggle()
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                    }
+                    Divider()
+                }
+                ArcaMenue.umbenennen {
+                    renameItemText = item.title
+                    renamingItem = item
+                }
+                ArcaMenue.farbe(aktuell: item.colorTag) { idx in
+                    if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
+                        store.vaultItems[i].colorTag = idx
+                    }
+                }
+                ArcaMenue.loeschen {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    store.vaultItems.removeAll { $0.id == item.id }
+                }
+            }
+            .swipeActions(edge: .leading) {
+                if item.art != .karte {
+                    Button {
+                        if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
+                            store.vaultItems[idx].isFavorite.toggle()
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                    } label: {
+                        Label(item.isFavorite ? "Aus Favoriten" : "Favorit",
+                              systemImage: item.isFavorite ? "star.slash" : "star.fill")
+                    }
+                    .tint(.orange)
+                }
+                Button {
+                    renameItemText = item.title
+                    renamingItem = item
+                } label: {
+                    Label("Umbenennen", systemImage: "pencil")
+                }
+                .tint(.blue)
+            }
+    }
 
     private var filteredItems: [VaultEntry] {
         var items = searchText.isEmpty ? store.vaultItems : store.vaultItems.filter {
@@ -176,60 +249,54 @@ struct VaultView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
-                ForEach(filteredItems) { item in
-                    VaultRow(item: item, copiedItemID: $copiedItemID)
-                        .contentShape(Rectangle())
-                        .onTapGesture { selectedItem = item }
-                        .listRowBackground(Color(.secondarySystemBackground))
-                        .listRowSeparator(.visible)
-                        .listRowSeparatorTint(Color.primary.opacity(0.06))
-                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
-                        .contextMenu {
-                            ArcaMenue.favorit(ist: item.isFavorite) {
-                                if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
-                                    store.vaultItems[idx].isFavorite.toggle()
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                // Bankkarten — als Gruppe, nur mit Face ID sichtbar
+                if !bankkarten.isEmpty {
+                    Section {
+                        if bankkartenEntsperrt {
+                            ForEach(bankkarten) { item in vaultZeile(item) }
+                        } else {
+                            Button { entsperreBankkarten() } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "faceid")
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(.blue)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("Mit Face ID öffnen")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(.primary)
+                                        Text("\(bankkarten.count) Karte\(bankkarten.count == 1 ? "" : "n") geschützt")
+                                            .font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "lock.fill").foregroundStyle(.secondary)
                                 }
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
                             }
-                            Divider()
-                            ArcaMenue.umbenennen {
-                                renameItemText = item.title
-                                renamingItem = item
-                            }
-                            ArcaMenue.farbe(aktuell: item.colorTag) { idx in
-                                if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
-                                    store.vaultItems[i].colorTag = idx
-                                }
-                            }
-                            ArcaMenue.loeschen {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                store.vaultItems.removeAll { $0.id == item.id }
-                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color(.secondarySystemBackground))
                         }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
-                                    store.vaultItems[idx].isFavorite.toggle()
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                }
-                            } label: {
-                                Label(item.isFavorite ? "Aus Favoriten" : "Favorit",
-                                      systemImage: item.isFavorite ? "star.slash" : "star.fill")
-                            }
-                            .tint(.orange)
-                            Button {
-                                renameItemText = item.title
-                                renamingItem = item
-                            } label: {
-                                Label("Umbenennen", systemImage: "pencil")
-                            }
-                            .tint(.blue)
+                    } header: {
+                        HStack(spacing: 6) {
+                            ArcaIcon(name: "ArcaBankkarten", groesse: 15)
+                            Text("Bankkarten")
                         }
+                    }
                 }
-                .onDelete { indexSet in
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    let toDelete = indexSet.map { filteredItems[$0] }
-                    store.vaultItems.removeAll { item in toDelete.contains { $0.id == item.id } }
+
+                // Passwörter
+                Section {
+                    ForEach(passwoerter) { item in vaultZeile(item) }
+                        .onDelete { indexSet in
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            let toDelete = indexSet.map { passwoerter[$0] }
+                            store.vaultItems.removeAll { item in toDelete.contains { $0.id == item.id } }
+                        }
+                } header: {
+                    HStack(spacing: 6) {
+                        ArcaIcon(name: "ArcaPasswoerter", groesse: 15)
+                        Text("Passwörter")
+                    }
                 }
             }
         }
@@ -972,10 +1039,9 @@ struct VaultRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Karte: Kreditkarten-Icon, sonst Farbpunkt
+            // Karte: Bankkarten-Icon, sonst Farbpunkt
             if item.art == .karte {
-                Image(systemName: "creditcard.fill")
-                    .font(.system(size: 13))
+                ArcaIcon(name: "ArcaBankkarten", groesse: 16)
                     .foregroundStyle(color.accent)
             } else {
                 Circle()

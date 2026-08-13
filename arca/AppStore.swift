@@ -2123,7 +2123,7 @@ final class AppStore: ObservableObject {
                                     subtitle: open > 0 ? "\(open) offen" : "Erledigt",
                                     pinned: l.favoritePinned, date: l.dateCreated))
         }
-        for v in vaultItems where v.isFavorite {
+        for v in vaultItems where v.isFavorite && v.art != .karte {
             all.append(FavoriteItem(id: v.id, kind: .vault, title: v.title,
                                     subtitle: "Face ID", pinned: v.favoritePinned, date: v.dateCreated))
         }
