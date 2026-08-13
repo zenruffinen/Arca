@@ -326,13 +326,30 @@ struct ArcaKartenScanner: UIViewControllerRepresentable {
                 req.recognitionLevel = .accurate
                 req.recognitionLanguages = ["en-US", "de-DE", "fr-FR"]
                 req.usesLanguageCorrection = false   // Ziffern nicht „verbessern"
-                try? VNImageRequestHandler(cgImage: cg, orientation: .up).perform([req])
+                let ausrichtung = CGImagePropertyOrientation(bild.imageOrientation)
+                try? VNImageRequestHandler(cgImage: cg, orientation: ausrichtung).perform([req])
                 text = (req.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
             }
             onScan(bild, text)
         }
         func documentCameraViewControllerDidCancel(_ c: VNDocumentCameraViewController) { onCancel() }
         func documentCameraViewController(_ c: VNDocumentCameraViewController, didFailWithError error: Error) { onCancel() }
+    }
+}
+
+extension CGImagePropertyOrientation {
+    init(_ o: UIImage.Orientation) {
+        switch o {
+        case .up: self = .up
+        case .down: self = .down
+        case .left: self = .left
+        case .right: self = .right
+        case .upMirrored: self = .upMirrored
+        case .downMirrored: self = .downMirrored
+        case .leftMirrored: self = .leftMirrored
+        case .rightMirrored: self = .rightMirrored
+        @unknown default: self = .up
+        }
     }
 }
 
@@ -358,19 +375,23 @@ private func regexTreffer(_ muster: String, in text: String) -> [String] {
 func parseKarte(_ text: String) -> (nummer: String, ablauf: String, inhaber: String) {
     let zeilen = text.split(separator: "\n").map(String.init)
 
-    // Nummer: Muster sammeln + per-Zeile, dann Luhn bevorzugen
-    var kandidaten: [String] = []
-    for m in [#"\d{4}[ ]\d{4}[ ]\d{4}[ ]\d{4}"#,   // 16 (Visa/Mastercard)
-              #"\d{4}[ ]\d{6}[ ]\d{5}"#,           // 15 (Amex)
-              #"\d{12,19}"#] {                       // zusammenhängend
-        kandidaten += regexTreffer(m, in: text).map { $0.filter(\.isNumber) }
+    // Nummer: alle Zifferngruppen in Lesereihenfolge zusammensetzen — die OCR
+    // liefert die vier Vierergruppen oft als EINZELNE Blöcke/Zeilen.
+    let tokens = text.split(whereSeparator: { !$0.isNumber }).map(String.init).filter { !$0.isEmpty }
+    func nummerAusFenster(pruefeLuhn: Bool) -> String? {
+        for i in tokens.indices {
+            var acc = ""
+            for j in i..<tokens.count {
+                acc += tokens[j]
+                if acc.count > 19 { break }
+                if (13...19).contains(acc.count) && (!pruefeLuhn || luhnGueltig(acc)) { return acc }
+            }
+        }
+        return nil
     }
-    for z in zeilen {
-        let d = String(z.filter(\.isNumber))
-        if (13...19).contains(d.count) { kandidaten.append(d) }
-    }
-    let nummer = kandidaten.first(where: { luhnGueltig($0) && (13...19).contains($0.count) })
-        ?? kandidaten.first(where: { (13...19).contains($0.count) })
+    let nummer = nummerAusFenster(pruefeLuhn: true)
+        ?? tokens.first(where: { (13...19).contains($0.count) })
+        ?? nummerAusFenster(pruefeLuhn: false)
         ?? ""
 
     // Gültigkeit MM/JJ (auch „VALID THRU 12/28")
