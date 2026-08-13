@@ -111,6 +111,10 @@ struct HomeView: View {
     // Tresor-Gruppen im Strom (einklappbar)
     @State private var homeBankkartenAuf = false
     @State private var homePasswoerterAuf = false
+    @State private var homeTopSecretAuf = false
+    /// Einmal im Tresor angemeldet → Bankkarten & Passwörter bleiben für die
+    /// Sitzung entsperrt. Nur Top Secret verlangt eine eigene Gesichtskontrolle.
+    @State private var tresorEntsperrt = false
     @State private var laKontext = LAContext()   // festhalten, sonst verpufft der Face-ID-Callback
     @State private var showSpiderGame = false
     @State private var logoTapCount = 0
@@ -724,6 +728,11 @@ struct HomeView: View {
             .map { FavoriteItem(id: $0.id, kind: .vault, title: $0.title,
                                 subtitle: "Mit Face ID öffnen", pinned: false, date: $0.dateCreated) }
     }
+    private var topSecretItems: [FavoriteItem] {
+        store.documents.filter { $0.category == "Top Secret" }.sorted { $0.dateAdded > $1.dateAdded }
+            .map { FavoriteItem(id: $0.id, kind: .document, title: $0.title,
+                                subtitle: "Nur Ansicht", pinned: false, date: $0.dateAdded) }
+    }
     private var kartenTint: Color { Color(red: 0.28, green: 0.52, blue: 0.86) }
     private var passwortTint: Color { Color(red: 0.16, green: 0.62, blue: 0.55) }
     // Dunkelglas-Töne der Gruppenbalken (im Stil der Vorlagen)
@@ -797,12 +806,17 @@ struct HomeView: View {
 
     private var tresorGruppiert: some View {
         LazyVStack(spacing: 8) {
-            // Bankkarten — immer sichtbar, Face ID, einklappbar
+            // Bankkarten — einmal Tresor entsperren, dann gemerkt
             Button {
                 if homeBankkartenAuf {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = false }
+                } else if tresorEntsperrt {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = true }
                 } else {
-                    mitGesichtskontrolle("Bankkarten anzeigen") { homeBankkartenAuf = true }
+                    mitGesichtskontrolle("Tresor entsperren") {
+                        tresorEntsperrt = true
+                        homeBankkartenAuf = true
+                    }
                 }
             } label: {
                 gruppenBalken(icon: "ArcaBankkarten", titel: "Bankkarten",
@@ -826,12 +840,17 @@ struct HomeView: View {
                 .padding(.leading, ARCASpacing.drawerIndent)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            // Passwörter — Face ID, einklappbar
+            // Passwörter — teilt die Tresor-Entsperrung mit den Bankkarten
             Button {
                 if homePasswoerterAuf {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homePasswoerterAuf = false }
+                } else if tresorEntsperrt {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homePasswoerterAuf = true }
                 } else {
-                    mitGesichtskontrolle("Passwörter anzeigen") { homePasswoerterAuf = true }
+                    mitGesichtskontrolle("Tresor entsperren") {
+                        tresorEntsperrt = true
+                        homePasswoerterAuf = true
+                    }
                 }
             } label: {
                 gruppenBalken(icon: "ArcaPasswoerter", titel: "Passwörter",
@@ -847,17 +866,36 @@ struct HomeView: View {
                 .padding(.leading, ARCASpacing.drawerIndent)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            // Top Secret — Face ID, öffnet den reinen Aufbewahrungs-Ordner
+            // Top Secret — verlangt IMMER eine eigene Gesichtskontrolle,
+            // klappt dann inline auf wie die anderen Schubladen
             Button {
-                mitGesichtskontrolle("Top Secret öffnen") {
-                    openDocuments(category: "Top Secret")
+                if homeTopSecretAuf {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeTopSecretAuf = false }
+                } else {
+                    mitGesichtskontrolle("Top Secret öffnen") { homeTopSecretAuf = true }
                 }
             } label: {
                 gruppenBalken(icon: "ArcaLock", titel: "Top Secret",
                               dunkel: topSecretDunkel, hell: topSecretHell,
-                              anzahl: topSecretAnzahl, auf: false, gesperrt: true)
+                              anzahl: topSecretItems.count, auf: homeTopSecretAuf,
+                              gesperrt: !homeTopSecretAuf)
             }
             .buttonStyle(.plain)
+            if homeTopSecretAuf {
+                VStack(spacing: ARCASpacing.drawerRowSpacing) {
+                    if topSecretItems.isEmpty {
+                        Text("Noch nichts abgelegt — ein Dokument per Langdruck zu Top Secret hinzufügen.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 6)
+                    } else {
+                        ForEach(topSecretItems) { streamZeile($0) }
+                    }
+                }
+                .padding(.leading, ARCASpacing.drawerIndent)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(.horizontal, 20)
     }

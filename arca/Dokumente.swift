@@ -605,6 +605,7 @@ struct DocumentsView: View {
                     let docs = grouped[category] ?? []
                     if !docs.isEmpty {
                         let isCollapsed = collapsedCategories.contains(category)
+                        let istTopSecret = category == "Top Secret"
                         let catColor = categoryColor(category, overrides: store.categoryColors)
 
                         // ── Kategorie-Header als echte Row (gleiche Card wie Passwörter) ──
@@ -620,7 +621,13 @@ struct DocumentsView: View {
                                             .foregroundStyle(.secondary)
                                             .rotationEffect(.degrees(isCollapsed ? 0 : 90))
                                             .animation(.easeInOut(duration: 0.2), value: isCollapsed)
-                                        Image(store.iconFor(category))
+                                        Group {
+                                            if istTopSecret {
+                                                Image(systemName: "lock.fill")
+                                            } else {
+                                                Image(store.iconFor(category))
+                                            }
+                                        }
                                             .font(.system(size: 13, weight: .semibold))
                                             .foregroundStyle(catColor.accent)
                                             .frame(width: 28, height: 28)
