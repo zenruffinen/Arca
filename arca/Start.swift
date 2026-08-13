@@ -733,32 +733,30 @@ struct HomeView: View {
         }
     }
 
-    private func gruppenBalken(icon: String, titel: String, tint: Color,
-                               anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
-        HStack(spacing: 14) {
-            ArcaIcon(name: icon, groesse: 24)
-                .foregroundStyle(tint)
-                .frame(width: 46, height: 46)
-                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
-            Rectangle().fill(tint.opacity(0.35)).frame(width: 1, height: 28)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(titel).font(.system(size: 19, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
-                Text("\(anzahl) \(anzahl == 1 ? "Eintrag" : "Einträge")").font(.caption).foregroundStyle(.secondary)
+    private func gruppenBalken(bild: String, anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
+        Image(bild)
+            .resizable()
+            .scaledToFill()
+            .frame(maxWidth: .infinity)
+            .frame(height: 132)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(alignment: .topTrailing) {
+                HStack(spacing: 7) {
+                    if gesperrt {
+                        Image(systemName: "lock.fill").font(.system(size: 11))
+                    }
+                    Text("\(anzahl)").font(.system(size: 12, weight: .semibold))
+                    Image(systemName: auf ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(.black.opacity(0.35), in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
+                .padding(12)
             }
-            Spacer(minLength: 0)
-            if gesperrt {
-                Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(.secondary)
-            }
-            Image(systemName: auf ? "chevron.up" : "chevron.down")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint.opacity(0.8))
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .glassEffect(.regular.tint(tint.opacity(0.10)), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(tint.opacity(0.28), lineWidth: 1))
-        .contentShape(RoundedRectangle(cornerRadius: 16))
+            .contentShape(RoundedRectangle(cornerRadius: 18))
     }
 
     private var tresorGruppiert: some View {
@@ -772,7 +770,7 @@ struct HomeView: View {
                         entsperreHomeBankkarten()
                     }
                 } label: {
-                    gruppenBalken(icon: "ArcaBankkarten", titel: "Bankkarten", tint: kartenTint,
+                    gruppenBalken(bild: "ArcaBalkenBankkarten",
                                   anzahl: tresorKartenItems.count, auf: homeBankkartenAuf,
                                   gesperrt: !homeBankkartenAuf)
                 }
@@ -785,7 +783,7 @@ struct HomeView: View {
             Button {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homePasswoerterAuf.toggle() }
             } label: {
-                gruppenBalken(icon: "ArcaPasswoerter", titel: "Passwörter", tint: passwortTint,
+                gruppenBalken(bild: "ArcaBalkenPasswoerter",
                               anzahl: tresorPasswortItems.count, auf: homePasswoerterAuf, gesperrt: false)
             }
             .buttonStyle(.plain)
