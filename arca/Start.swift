@@ -110,6 +110,7 @@ struct HomeView: View {
     // Tresor-Gruppen im Strom (einklappbar)
     @State private var homeBankkartenAuf = false
     @State private var homePasswoerterAuf = false
+    @State private var laKontext = LAContext()   // festhalten, sonst verpufft der Face-ID-Callback
     @State private var showSpiderGame = false
     @State private var logoTapCount = 0
     @State private var quickAccessPreviewURL: URL? = nil
@@ -718,10 +719,16 @@ struct HomeView: View {
     }
     private var kartenTint: Color { Color(red: 0.28, green: 0.52, blue: 0.86) }
     private var passwortTint: Color { Color(red: 0.16, green: 0.62, blue: 0.55) }
+    // Dunkelglas-Töne der Gruppenbalken (im Stil der Vorlagen)
+    private var kartenDunkel: Color { Color(red: 0.09, green: 0.12, blue: 0.17) }
+    private var kartenHell: Color   { Color(red: 0.74, green: 0.83, blue: 0.93) }
+    private var passDunkel: Color   { Color(red: 0.04, green: 0.13, blue: 0.12) }
+    private var passHell: Color     { Color(red: 0.55, green: 0.88, blue: 0.82) }
 
     /// Face ID / Gerätecode, dann `dann()` (zum Aufklappen einer geschützten Gruppe).
     private func mitGesichtskontrolle(_ grund: String, _ dann: @escaping () -> Void) {
         let ctx = LAContext()
+        laKontext = ctx   // festhalten, sonst wird er vor dem Callback freigegeben
         var err: NSError?
         if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
             ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: grund) { ok, _ in
@@ -734,29 +741,44 @@ struct HomeView: View {
         }
     }
 
-    private func gruppenBalken(bild: String, anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
-        Image(bild)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(maxWidth: .infinity)
-            .frame(height: 94)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
-            .overlay(alignment: .topTrailing) {
-                HStack(spacing: 6) {
-                    if gesperrt { Image(systemName: "lock.fill").font(.system(size: 11)) }
-                    Text("\(anzahl)").font(.system(size: 12, weight: .semibold))
-                    Image(systemName: auf ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundStyle(.white.opacity(0.92))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(.white.opacity(0.12), in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.5))
-                .padding(12)
+    /// Selbst gezeichneter Dunkelglas-Balken im Stil der ChatGPT-Bilder:
+    /// Icon · Trenner · gravierter Titel — kompakte Höhe (wie „Zuletzt geöffnet").
+    private func gruppenBalken(icon: String, titel: String, dunkel: Color, hell: Color,
+                               anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
+        HStack(spacing: 14) {
+            ArcaIcon(name: icon, groesse: 22)
+                .foregroundStyle(hell)
+                .shadow(color: hell.opacity(0.4), radius: 3)
+            Rectangle().fill(hell.opacity(0.4)).frame(width: 1, height: 26)
+            Text(titel.uppercased())
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .tracking(1.5)
+                .foregroundStyle(hell.opacity(0.9))
+            Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                if gesperrt { Image(systemName: "lock.fill").font(.system(size: 11)) }
+                Text("\(anzahl)").font(.system(size: 12, weight: .semibold))
+                Image(systemName: auf ? "chevron.up" : "chevron.down").font(.system(size: 11, weight: .bold))
             }
-            .contentShape(RoundedRectangle(cornerRadius: 20))
+            .foregroundStyle(hell.opacity(0.85))
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .background(.white.opacity(0.10), in: Capsule())
+            .overlay(Capsule().strokeBorder(hell.opacity(0.2), lineWidth: 0.5))
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 56)
+        .frame(maxWidth: .infinity)
+        .background {
+            ZStack {
+                LinearGradient(colors: [dunkel, dunkel.opacity(0.7)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [.white.opacity(0.10), .clear],
+                               startPoint: .top, endPoint: .center)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(hell.opacity(0.30), lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var tresorGruppiert: some View {
@@ -769,7 +791,8 @@ struct HomeView: View {
                     mitGesichtskontrolle("Bankkarten anzeigen") { homeBankkartenAuf = true }
                 }
             } label: {
-                gruppenBalken(bild: "ArcaBalkenBankkarten",
+                gruppenBalken(icon: "ArcaBankkarten", titel: "Bankkarten",
+                              dunkel: kartenDunkel, hell: kartenHell,
                               anzahl: tresorKartenItems.count, auf: homeBankkartenAuf,
                               gesperrt: !homeBankkartenAuf)
             }
@@ -793,7 +816,8 @@ struct HomeView: View {
                     mitGesichtskontrolle("Passwörter anzeigen") { homePasswoerterAuf = true }
                 }
             } label: {
-                gruppenBalken(bild: "ArcaBalkenPasswoerter",
+                gruppenBalken(icon: "ArcaPasswoerter", titel: "Passwörter",
+                              dunkel: passDunkel, hell: passHell,
                               anzahl: tresorPasswortItems.count, auf: homePasswoerterAuf,
                               gesperrt: !homePasswoerterAuf)
             }
