@@ -737,8 +737,9 @@ struct HomeView: View {
     private func gruppenBalken(bild: String, anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
         Image(bild)
             .resizable()
-            .scaledToFit()
+            .aspectRatio(contentMode: .fill)
             .frame(maxWidth: .infinity)
+            .frame(height: 108)
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
             .overlay(alignment: .topTrailing) {
@@ -760,21 +761,27 @@ struct HomeView: View {
 
     private var tresorGruppiert: some View {
         LazyVStack(spacing: 8) {
-            // Bankkarten — Face ID, einklappbar
-            if !tresorKartenItems.isEmpty {
-                Button {
-                    if homeBankkartenAuf {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = false }
-                    } else {
-                        mitGesichtskontrolle("Bankkarten anzeigen") { homeBankkartenAuf = true }
-                    }
-                } label: {
-                    gruppenBalken(bild: "ArcaBalkenBankkarten",
-                                  anzahl: tresorKartenItems.count, auf: homeBankkartenAuf,
-                                  gesperrt: !homeBankkartenAuf)
-                }
-                .buttonStyle(.plain)
+            // Bankkarten — immer sichtbar, Face ID, einklappbar
+            Button {
                 if homeBankkartenAuf {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = false }
+                } else {
+                    mitGesichtskontrolle("Bankkarten anzeigen") { homeBankkartenAuf = true }
+                }
+            } label: {
+                gruppenBalken(bild: "ArcaBalkenBankkarten",
+                              anzahl: tresorKartenItems.count, auf: homeBankkartenAuf,
+                              gesperrt: !homeBankkartenAuf)
+            }
+            .buttonStyle(.plain)
+            if homeBankkartenAuf {
+                if tresorKartenItems.isEmpty {
+                    Text("Noch keine Karte — über ＋ eine Kreditkarte anlegen.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 6)
+                } else {
                     ForEach(tresorKartenItems) { streamZeile($0) }
                 }
             }
