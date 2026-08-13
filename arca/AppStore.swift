@@ -1863,10 +1863,12 @@ final class AppStore: ObservableObject {
     // MARK: - Speichern
 
     private func saveVault() {
-        let withoutPasswords = vaultItems.map {
-            VaultEntry(id: $0.id, title: $0.title, username: $0.username,
-                       password: "", url: $0.url, isFavorite: $0.isFavorite,
-                       dateCreated: $0.dateCreated, colorTag: $0.colorTag)
+        // ALLE Felder erhalten (art, Karten-Felder, favoritePinned, geaendertAm …) —
+        // nur das Passwort wandert ins Keychain, nicht in die JSON.
+        let withoutPasswords = vaultItems.map { item -> VaultEntry in
+            var e = item
+            e.password = ""
+            return e
         }
         saveJSON(withoutPasswords, key: "vaultItems")
         // Passwörter im iCloud Keychain (synchronizable: true → geräteübergreifend)

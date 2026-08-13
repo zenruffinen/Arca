@@ -736,27 +736,25 @@ struct HomeView: View {
     private func gruppenBalken(bild: String, anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
         Image(bild)
             .resizable()
-            .scaledToFill()
+            .scaledToFit()
             .frame(maxWidth: .infinity)
-            .frame(height: 132)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
             .overlay(alignment: .topTrailing) {
-                HStack(spacing: 7) {
-                    if gesperrt {
-                        Image(systemName: "lock.fill").font(.system(size: 11))
-                    }
+                HStack(spacing: 6) {
+                    if gesperrt { Image(systemName: "lock.fill").font(.system(size: 11)) }
                     Text("\(anzahl)").font(.system(size: 12, weight: .semibold))
                     Image(systemName: auf ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .bold))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(.white.opacity(0.92))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(.black.opacity(0.35), in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
+                .background(.white.opacity(0.12), in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.5))
                 .padding(12)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 18))
+            .contentShape(RoundedRectangle(cornerRadius: 20))
     }
 
     private var tresorGruppiert: some View {
