@@ -612,7 +612,8 @@ struct HomeView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.top, -6)
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
                 }
             }
         }
@@ -980,7 +981,7 @@ struct HomeView: View {
                     }
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
                             Spacer()
@@ -1023,10 +1024,10 @@ struct HomeView: View {
                                     }
                                 }
                                 .padding(.horizontal, 20)
-                                // Luft nach oben (fest-Plakette) und unten,
-                                // damit die Scroll-Kante das Glas nicht anschneidet
-                                .padding(.top, 10)
-                                .padding(.bottom, 10)
+                                // Nur wenig Luft (Abstand wie bei „Zuletzt geöffnet");
+                                // die „fest"-Plakette sitzt jetzt knapper an der Karte
+                                .padding(.top, 2)
+                                .padding(.bottom, 8)
                             }
                             Text("angepinnt für den schnellen Zugriff")
                                 .font(.system(size: 12))
@@ -1751,7 +1752,7 @@ struct HomeFavoriteCard: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .glassEffect(.regular, in: Capsule())
-                    .offset(x: 4, y: -8)
+                    .offset(x: 4, y: -4)
                 }
             }
         }
