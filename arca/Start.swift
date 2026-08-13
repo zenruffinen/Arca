@@ -768,16 +768,15 @@ struct HomeView: View {
         .padding(.horizontal, 16)
         .frame(height: 56)
         .frame(maxWidth: .infinity)
-        .background {
-            ZStack {
-                LinearGradient(colors: [dunkel, dunkel.opacity(0.7)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                LinearGradient(colors: [.white.opacity(0.10), .clear],
-                               startPoint: .top, endPoint: .center)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(hell.opacity(0.30), lineWidth: 1))
+        // Echtes Liquid Glass, dunkel getönt → durchscheinend & spiegelnd
+        .glassEffect(.regular.tint(dunkel.opacity(0.62)), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(LinearGradient(colors: [.white.opacity(0.16), .clear],
+                                     startPoint: .top, endPoint: .center))
+                .allowsHitTesting(false)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(hell.opacity(0.35), lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 16))
     }
 
