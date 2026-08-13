@@ -803,15 +803,19 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             if homeBankkartenAuf {
-                if tresorKartenItems.isEmpty {
-                    Text("Noch keine Karte — über ＋ eine Kreditkarte anlegen.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
-                } else {
-                    ForEach(tresorKartenItems) { streamZeile($0) }
+                VStack(spacing: 8) {
+                    if tresorKartenItems.isEmpty {
+                        Text("Noch keine Karte — über ＋ eine Kreditkarte anlegen.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 6)
+                    } else {
+                        ForEach(tresorKartenItems) { streamZeile($0) }
+                    }
                 }
+                .padding(.leading, 18)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
             // Passwörter — Face ID, einklappbar
             Button {
@@ -828,7 +832,11 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             if homePasswoerterAuf {
-                ForEach(tresorPasswortItems) { streamZeile($0) }
+                VStack(spacing: 8) {
+                    ForEach(tresorPasswortItems) { streamZeile($0) }
+                }
+                .padding(.leading, 18)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.horizontal, 20)
