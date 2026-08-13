@@ -32,7 +32,8 @@ struct ArcaTabBar: View {
     private var unsortiertAnzahl: Int {
         let bekannte = Set(store.documentCategories)
         return store.documents.filter {
-            $0.category == "Unsortiert" || !bekannte.contains($0.category)
+            $0.category != "Top Secret" &&
+            ($0.category == "Unsortiert" || !bekannte.contains($0.category))
         }.count
     }
 

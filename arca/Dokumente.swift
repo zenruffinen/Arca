@@ -460,21 +460,24 @@ struct DocumentsView: View {
             } label: { Label("Löschen", systemImage: "trash") }
         }
         .swipeActions(edge: .leading) {
-            Button {
-                store.toggleFavorite(kind: .document, id: doc.id)
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } label: {
-                Label(doc.isFavorite ? "Entfernen" : "Favorit",
-                      systemImage: doc.isFavorite ? "star.slash" : "star.fill")
+            if doc.category != "Top Secret" {
+                Button {
+                    store.toggleFavorite(kind: .document, id: doc.id)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } label: {
+                    Label(doc.isFavorite ? "Entfernen" : "Favorit",
+                          systemImage: doc.isFavorite ? "star.slash" : "star.fill")
+                }
+                .tint(.orange)
+                Button {
+                    renameText = doc.title
+                    renamingDoc = doc
+                } label: { Label("Umbenennen", systemImage: "pencil") }
+                .tint(.blue)
             }
-            .tint(.orange)
-            Button {
-                renameText = doc.title
-                renamingDoc = doc
-            } label: { Label("Umbenennen", systemImage: "pencil") }
-            .tint(.blue)
         }
         .contextMenu {
+          if doc.category != "Top Secret" {
             ArcaMenue.favorit(ist: doc.isFavorite) {
                 store.toggleFavorite(kind: .document, id: doc.id)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -546,6 +549,21 @@ struct DocumentsView: View {
                 }
             }
             Divider()
+          }
+            // Top Secret umschalten — Doku physisch nur im Tresor-Ordner, keine Editierfunktionen
+            Button {
+                if let idx = store.documents.firstIndex(where: { $0.id == doc.id }) {
+                    let rein = doc.category != "Top Secret"
+                    store.documents[idx].category = rein ? "Top Secret" : "Unsortiert"
+                    store.documents[idx].subcategory = ""
+                    if rein { store.documents[idx].isFavorite = false }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+            } label: {
+                Label(doc.category == "Top Secret" ? "Aus Top Secret holen" : "Zu Top Secret",
+                      systemImage: doc.category == "Top Secret" ? "lock.open.fill" : "lock.fill")
+            }
+            Divider()
             Button(role: .destructive) {
                 store.deleteDocument(doc)
             } label: {
@@ -580,7 +598,10 @@ struct DocumentsView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
-                ForEach(store.documentCategories.filter { store.fokusKategorie == nil || $0 == store.fokusKategorie }, id: \.self) { category in
+                ForEach(store.fokusKategorie == "Top Secret"
+                        ? ["Top Secret"]
+                        : store.documentCategories.filter { store.fokusKategorie == nil || $0 == store.fokusKategorie },
+                        id: \.self) { category in
                     let docs = grouped[category] ?? []
                     if !docs.isEmpty {
                         let isCollapsed = collapsedCategories.contains(category)

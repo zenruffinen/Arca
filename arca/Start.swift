@@ -144,8 +144,12 @@ struct HomeView: View {
     private var unsortierteAnzahl: Int {
         let bekannte = Set(store.documentCategories)
         return store.documents.filter {
-            $0.category == "Unsortiert" || !bekannte.contains($0.category)
+            $0.category != "Top Secret" &&
+            ($0.category == "Unsortiert" || !bekannte.contains($0.category))
         }.count
+    }
+    private var topSecretAnzahl: Int {
+        store.documents.filter { $0.category == "Top Secret" }.count
     }
     @State private var backupSnoozeSignal = 0
     @State private var gezogeneBlase: HomeStreamFilter? = nil
@@ -573,6 +577,23 @@ struct HomeView: View {
                             ArcaKategorieHinzufuegenKarte()
                         }
                         .buttonStyle(.plain)
+
+                        // Top-Secret-Ordner — nur mit Face ID, reine Aufbewahrung
+                        Button {
+                            mitGesichtskontrolle("Top Secret öffnen") {
+                                openDocuments(category: "Top Secret")
+                            }
+                        } label: {
+                            ArcaKategorieKarte(name: "Top Secret", icon: "ArcaLock",
+                                               farben: NoteColor.for_(2), anzahl: topSecretAnzahl)
+                                .overlay(alignment: .topTrailing) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(NoteColor.for_(2).accent)
+                                        .padding(6)
+                                }
+                        }
+                        .buttonStyle(.plain)
                     }
                     .scrollTargetLayout()
                 }
@@ -745,28 +766,28 @@ struct HomeView: View {
     /// Icon · Trenner · gravierter Titel — kompakte Höhe (wie „Zuletzt geöffnet").
     private func gruppenBalken(icon: String, titel: String, dunkel: Color, hell: Color,
                                anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
-        HStack(spacing: 14) {
-            ArcaIcon(name: icon, groesse: 22)
+        HStack(spacing: 12) {
+            ArcaIcon(name: icon, groesse: 18)
                 .foregroundStyle(hell)
                 .shadow(color: hell.opacity(0.4), radius: 3)
-            Rectangle().fill(hell.opacity(0.4)).frame(width: 1, height: 26)
+            Rectangle().fill(hell.opacity(0.4)).frame(width: 1, height: 20)
             Text(titel.uppercased())
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
-                .tracking(1.5)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .tracking(1.2)
                 .foregroundStyle(hell.opacity(0.9))
             Spacer(minLength: 0)
-            HStack(spacing: 6) {
-                if gesperrt { Image(systemName: "lock.fill").font(.system(size: 11)) }
-                Text("\(anzahl)").font(.system(size: 12, weight: .semibold))
-                Image(systemName: auf ? "chevron.up" : "chevron.down").font(.system(size: 11, weight: .bold))
+            HStack(spacing: 5) {
+                if gesperrt { Image(systemName: "lock.fill").font(.system(size: 10)) }
+                Text("\(anzahl)").font(.system(size: 11, weight: .semibold))
+                Image(systemName: auf ? "chevron.up" : "chevron.down").font(.system(size: 10, weight: .bold))
             }
             .foregroundStyle(hell.opacity(0.85))
-            .padding(.horizontal, 9).padding(.vertical, 4)
+            .padding(.horizontal, 8).padding(.vertical, 3)
             .background(.white.opacity(0.10), in: Capsule())
             .overlay(Capsule().strokeBorder(hell.opacity(0.2), lineWidth: 0.5))
         }
-        .padding(.horizontal, 16)
-        .frame(height: 56)
+        .padding(.horizontal, 14)
+        .frame(height: 42)
         .frame(maxWidth: .infinity)
         // Echtes Liquid Glass, dunkel getönt → durchscheinend, interaktiv, spiegelnd
         .glassEffect(.regular.tint(dunkel.opacity(0.52)).interactive(), in: RoundedRectangle(cornerRadius: 16))
@@ -803,7 +824,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             if homeBankkartenAuf {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     if tresorKartenItems.isEmpty {
                         Text("Noch keine Karte — über ＋ eine Kreditkarte anlegen.")
                             .font(.system(size: 13))
@@ -814,7 +835,7 @@ struct HomeView: View {
                         ForEach(tresorKartenItems) { streamZeile($0) }
                     }
                 }
-                .padding(.leading, 18)
+                .padding(.leading, 14)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
             // Passwörter — Face ID, einklappbar
@@ -832,10 +853,10 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             if homePasswoerterAuf {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     ForEach(tresorPasswortItems) { streamZeile($0) }
                 }
-                .padding(.leading, 18)
+                .padding(.leading, 14)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -920,7 +941,7 @@ struct HomeView: View {
     /// bekannten Gruppe steckt, sammelt „Unsortiert".
     private var dokumentGruppen: [(name: String, anzahl: Int)] {
         var zaehler: [String: Int] = [:]
-        for d in store.documents {
+        for d in store.documents where d.category != "Top Secret" {
             let schluessel = store.documentCategories.contains(d.category) ? d.category : "Unsortiert"
             zaehler[schluessel, default: 0] += 1
         }
