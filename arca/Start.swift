@@ -116,6 +116,7 @@ struct HomeView: View {
     @State private var logoTapCount = 0
     @State private var quickAccessPreviewURL: URL? = nil
     @State private var quickAccessNote: NoteEntry? = nil
+    @State private var quickAccessVault: VaultEntry? = nil
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
     @State private var sucheOffen = false
@@ -660,7 +661,8 @@ struct HomeView: View {
         case .list:
             selectedSection = .lists
         case .vault:
-            selectedSection = .vault
+            // Direkt diesen einen Eintrag zeigen — nicht die ganze Tresor-Liste
+            quickAccessVault = store.vaultItems.first(where: { $0.id == fav.id })
         }
     }
 
@@ -1480,6 +1482,13 @@ struct HomeView: View {
                 .presentationDetents([.medium, .large])
                 .presentationCornerRadius(28)
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .sheet(item: $quickAccessVault) { entry in
+            NavigationStack {
+                VaultDetailView(item: entry)
+                    .environmentObject(store)
+            }
+            .presentationCornerRadius(28)
         }
         .quickLookPreview($quickAccessPreviewURL)
         // Einmalige Namensfrage für die Begrüßung (iOS gibt den
