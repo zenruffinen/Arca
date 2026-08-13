@@ -340,6 +340,56 @@ struct ArcaRecentDocumentCard: View {
     }
 }
 
+// MARK: - „Zuletzt geöffnet"-Karte (kompakt, alle Typen)
+
+struct ArcaZuletztKarte: View {
+    let item: FavoriteItem
+    let action: () -> Void
+
+    private var icon: String {
+        switch item.kind {
+        case .document: return "ArcaDocument"
+        case .note:     return "ArcaIdee"
+        case .list:     return "ArcaChecklist"
+        case .vault:    return "ArcaLock"
+        }
+    }
+    private var tint: Color {
+        switch item.kind {
+        case .document: return .orange
+        case .note:     return ArcaWarm.ideenGelb
+        case .list:     return .green
+        case .vault:    return .blue
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ArcaIcon(name: icon, groesse: 15)
+                    .foregroundStyle(tint)
+                    .frame(width: 30, height: 30)
+                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 9))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(item.subtitle)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(width: 172, alignment: .leading)
+            .glassEffect(.regular.tint(tint.opacity(0.08)), in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - More Areas Chip (Passwörter, Notizen, Tasks)
 
 struct ArcaMoreAreaChip: View {

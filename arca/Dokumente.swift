@@ -380,6 +380,7 @@ struct DocumentsView: View {
     // MARK: - Dokument öffnen (mit iCloud-Download falls nötig)
 
     private func openDocument(_ doc: DocumentEntry) {
+        store.merkeGeoeffnet(doc.id)
         if store.ensureFileDownloaded(doc.filename) {
             presentPreview(doc)
         } else {

@@ -636,6 +636,7 @@ struct HomeView: View {
     }
 
     private func openFavorite(_ fav: FavoriteItem) {
+        store.merkeGeoeffnet(fav.id)
         switch fav.kind {
         case .document:
             if let doc = store.documents.first(where: { $0.id == fav.id }) {
@@ -778,7 +779,8 @@ struct HomeView: View {
     /// (20+20 Außenrand, 2 × 8 Abstand — der Rest geteilt durch drei).
     private var favoritenKartenBreite: CGFloat {
         let breite = min(seitenBreite, homeContentMaxWidth)
-        return max(96, (breite - 56) / 3)
+        // Quadratisch (~ Höhe 98): etwas schmaler, ein vierter Favorit lugt hervor
+        return max(88, min(98, (breite - 56) / 3))
     }
 
     var body: some View {
@@ -1035,6 +1037,25 @@ struct HomeView: View {
                     }
                     .transition(.scale.combined(with: .opacity))
                     .id("seitenAnfang")
+
+                    // ── Zuletzt geöffnet (zwischen Favoriten und Filter-Blasen) ──
+                    if !store.zuletztGeoeffneteItems.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                ArcaSectionTitle(title: "Zuletzt geöffnet", icon: "ArcaClock")
+                                Spacer()
+                            }
+                            .padding(.horizontal, 20)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(store.zuletztGeoeffneteItems.prefix(10)) { item in
+                                        ArcaZuletztKarte(item: item) { openFavorite(item) }
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
+                    }
 
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──

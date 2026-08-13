@@ -170,6 +170,57 @@ final class AppStore: ObservableObject {
     @Published var homeSprungNachOben: Int = 0
     /// Aktiver Filter-Chip auf dem Start — der Plus-Knopf richtet sich danach
     @Published var homeStreamFilter: HomeStreamFilter = .dokumente
+    /// Zuletzt geöffnete Einträge (id → Zeitpunkt) — lokal, gerätespezifisch
+    @Published var zuletztGeoeffnet: [UUID: Date] = [:]
+
+    /// Merkt einen Öffnen-Zeitpunkt (behält die letzten 24, speichert lokal).
+    func merkeGeoeffnet(_ id: UUID) {
+        zuletztGeoeffnet[id] = Date()
+        if zuletztGeoeffnet.count > 24 {
+            for (k, _) in zuletztGeoeffnet.sorted(by: { $0.value < $1.value }).prefix(zuletztGeoeffnet.count - 24) {
+                zuletztGeoeffnet.removeValue(forKey: k)
+            }
+        }
+        let roh = zuletztGeoeffnet.reduce(into: [String: Double]()) { $0[$1.key.uuidString] = $1.value.timeIntervalSince1970 }
+        UserDefaults.standard.set(roh, forKey: "arcaZuletztGeoeffnet")
+    }
+
+    func ladeZuletztGeoeffnet() {
+        guard let roh = UserDefaults.standard.dictionary(forKey: "arcaZuletztGeoeffnet") as? [String: Double] else { return }
+        zuletztGeoeffnet = roh.reduce(into: [UUID: Date]()) {
+            if let id = UUID(uuidString: $1.key) { $0[id] = Date(timeIntervalSince1970: $1.value) }
+        }
+    }
+
+    /// Die zuletzt geöffneten Einträge als Anzeige-Objekte (alle Typen, jüngste zuerst).
+    var zuletztGeoeffneteItems: [FavoriteItem] {
+        func relativ(_ d: Date) -> String {
+            let cal = Calendar.current
+            if cal.isDateInToday(d) { return "Heute" }
+            if cal.isDateInYesterday(d) { return "Gestern" }
+            let tage = cal.dateComponents([.day], from: d, to: Date()).day ?? 0
+            return tage <= 0 ? "Heute" : "vor \(tage) T"
+        }
+        return zuletztGeoeffnet.sorted { $0.value > $1.value }.compactMap { (id, wann) in
+            if let d = documents.first(where: { $0.id == id }) {
+                return FavoriteItem(id: d.id, kind: .document, title: d.title,
+                                    subtitle: "\(d.type.rawValue) · \(relativ(wann))", pinned: false, date: wann)
+            }
+            if let n = notes.first(where: { $0.id == id }) {
+                return FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
+                                    subtitle: "\(n.isQuickIdea ? "Blitzidee" : "Idee") · \(relativ(wann))", pinned: false, date: wann)
+            }
+            if let l = lists.first(where: { $0.id == id }) {
+                return FavoriteItem(id: l.id, kind: .list, title: l.title,
+                                    subtitle: "Aufgabe · \(relativ(wann))", pinned: false, date: wann)
+            }
+            if let v = vaultItems.first(where: { $0.id == id }) {
+                return FavoriteItem(id: v.id, kind: .vault, title: v.title,
+                                    subtitle: "Tresor · \(relativ(wann))", pinned: false, date: wann)
+            }
+            return nil
+        }
+    }
     /// Mehr-Menü in der Leiste: „export"/„import" springt die Aktion direkt an
     @Published var pendingSettingsAktion: String? = nil
     /// Notfall-Bereich anzeigen (aus dem Mehr-Menü der Leiste)
@@ -805,6 +856,7 @@ final class AppStore: ObservableObject {
         isLoadingData = true
         load()
         isLoadingData = false
+        ladeZuletztGeoeffnet()
         speichereNachfusion()
         persistFreshInstallDefaults()
         persistHomeFolderQuickViewMigrationIfNeeded()
