@@ -57,6 +57,9 @@ struct VaultEntry: Identifiable, Codable, Hashable {
     var ablauf: String = ""        // MM/JJ
     var pruefnummer: String = ""   // CVV / CVC
     var pin: String = ""
+    var kartenBildVorne: String = ""   // Dateiname eingescanntes Foto Vorderseite (filesDirectory)
+    var kartenBildHinten: String = ""  // Dateiname eingescanntes Foto Rückseite
+    var inApplePay: Bool = false       // Merker: Karte wurde zu Apple Pay hinzugefügt
 
     init(id: UUID = UUID(),
          title: String,
@@ -72,7 +75,10 @@ struct VaultEntry: Identifiable, Codable, Hashable {
          karteninhaber: String = "",
          ablauf: String = "",
          pruefnummer: String = "",
-         pin: String = "") {
+         pin: String = "",
+         kartenBildVorne: String = "",
+         kartenBildHinten: String = "",
+         inApplePay: Bool = false) {
         self.id = id
         self.title = title
         self.username = username
@@ -88,6 +94,9 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         self.ablauf = ablauf
         self.pruefnummer = pruefnummer
         self.pin = pin
+        self.kartenBildVorne = kartenBildVorne
+        self.kartenBildHinten = kartenBildHinten
+        self.inApplePay = inApplePay
     }
 
     // Custom Decoder: alte Einträge ohne colorTag bleiben kompatibel
@@ -110,6 +119,9 @@ struct VaultEntry: Identifiable, Codable, Hashable {
         ablauf       = try c.decodeIfPresent(String.self,  forKey: .ablauf)        ?? ""
         pruefnummer  = try c.decodeIfPresent(String.self,  forKey: .pruefnummer)   ?? ""
         pin          = try c.decodeIfPresent(String.self,  forKey: .pin)           ?? ""
+        kartenBildVorne  = try c.decodeIfPresent(String.self, forKey: .kartenBildVorne)  ?? ""
+        kartenBildHinten = try c.decodeIfPresent(String.self, forKey: .kartenBildHinten) ?? ""
+        inApplePay       = try c.decodeIfPresent(Bool.self,   forKey: .inApplePay)        ?? false
     }
 }
 

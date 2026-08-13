@@ -10,6 +10,8 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import VisionKit
+import Vision
 
 // MARK: - Vault
 
@@ -161,6 +163,7 @@ struct VaultView: View {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             showNewEntry = false
         }
+        .environmentObject(store)
     }
 
     // MARK: Vault List
@@ -295,12 +298,83 @@ struct VaultView: View {
 
 // MARK: - Kreditkarten-Optik
 
+// Karten-Scanner (VisionKit schneidet die Karte automatisch zu + OCR)
+struct ArcaKartenScanner: UIViewControllerRepresentable {
+    let onScan: (UIImage, String) -> Void
+    let onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> VNDocumentCameraViewController {
+        let s = VNDocumentCameraViewController()
+        s.delegate = context.coordinator
+        return s
+    }
+    func updateUIViewController(_ c: VNDocumentCameraViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(onScan: onScan, onCancel: onCancel) }
+
+    final class Coordinator: NSObject, VNDocumentCameraViewControllerDelegate {
+        let onScan: (UIImage, String) -> Void
+        let onCancel: () -> Void
+        init(onScan: @escaping (UIImage, String) -> Void, onCancel: @escaping () -> Void) {
+            self.onScan = onScan; self.onCancel = onCancel
+        }
+        func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan) {
+            guard scan.pageCount > 0 else { onCancel(); return }
+            let bild = scan.imageOfPage(at: 0)
+            var text = ""
+            if let cg = bild.cgImage {
+                let req = VNRecognizeTextRequest()
+                req.recognitionLevel = .accurate
+                req.recognitionLanguages = ["de-DE", "en-US", "fr-FR"]
+                try? VNImageRequestHandler(cgImage: cg, orientation: .up).perform([req])
+                text = (req.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+            }
+            onScan(bild, text)
+        }
+        func documentCameraViewControllerDidCancel(_ c: VNDocumentCameraViewController) { onCancel() }
+        func documentCameraViewController(_ c: VNDocumentCameraViewController, didFailWithError error: Error) { onCancel() }
+    }
+}
+
+/// Best-effort-Erkennung von Nummer / Gültigkeit / Inhaber aus dem OCR-Text.
+func parseKarte(_ text: String) -> (nummer: String, ablauf: String, inhaber: String) {
+    let zeilen = text.split(separator: "\n").map(String.init)
+    var nummer = ""
+    for z in zeilen {
+        let d = z.filter(\.isNumber)
+        if (13...19).contains(d.count) { nummer = d; break }
+    }
+    var ablauf = ""
+    let flach = text.replacingOccurrences(of: " ", with: "")
+    if let r = flach.range(of: #"(0[1-9]|1[0-2])/[0-9]{2}"#, options: .regularExpression) {
+        ablauf = String(flach[r])
+    }
+    var inhaber = ""
+    let stop = ["VALID", "THRU", "MONTH", "GOOD", "CARD", "BANK", "VISA", "MASTERCARD",
+                "MAESTRO", "DEBIT", "CREDIT", "EXPIRES", "MEMBER", "SINCE"]
+    for z in zeilen {
+        let t = z.trimmingCharacters(in: .whitespaces)
+        if t.count < 6 || t.contains(where: \.isNumber) { continue }
+        let up = t.uppercased()
+        if stop.contains(where: { up.contains($0) }) { continue }
+        if t != up || t.split(separator: " ").count < 2 { continue }   // nur GROSSBUCHSTABEN-Namenszeilen
+        inhaber = t; break
+    }
+    return (nummer, ablauf, inhaber)
+}
+
+// MARK: - Kreditkarten-Optik (Vorder-/Rückseite mit Umblättern)
+
 struct ArcaKreditkarte: View {
-    var nummer: String
-    var inhaber: String
-    var ablauf: String
+    var nummer: String = ""
+    var inhaber: String = ""
+    var ablauf: String = ""
+    var cvv: String = ""
     var farbe: NoteColor
     var maskiert: Bool = false
+    var vorneBild: UIImage? = nil
+    var hintenBild: UIImage? = nil
+    var applePay: Bool = false
+    @State private var hinten = false
 
     private var netzwerk: String {
         let d = nummer.filter(\.isNumber)
@@ -309,7 +383,6 @@ struct ArcaKreditkarte: View {
         if d.hasPrefix("34") || d.hasPrefix("37") { return "AMEX" }
         return "Karte"
     }
-
     private var nummerAnzeige: String {
         var stellen = Array(nummer.filter(\.isNumber))
         if maskiert && stellen.count > 4 {
@@ -322,9 +395,48 @@ struct ArcaKreditkarte: View {
     }
 
     var body: some View {
+        ZStack {
+            vorderseite.opacity(hinten ? 0 : 1)
+            rueckseite.opacity(hinten ? 1 : 0).rotation3DEffect(.degrees(180), axis: (0, 1, 0))
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 200)
+        .rotation3DEffect(.degrees(hinten ? 180 : 0), axis: (0, 1, 0))
+        .shadow(color: farbe.accent.opacity(0.35), radius: 12, x: 0, y: 6)
+        .contentShape(RoundedRectangle(cornerRadius: 20))
+        .onTapGesture {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.85)) { hinten.toggle() }
+        }
+    }
+
+    @ViewBuilder private var vorderseite: some View {
+        if let vorneBild {
+            fotoSeite(vorneBild, applePayBadge: applePay)
+        } else {
+            generierteVorderseite
+        }
+    }
+    @ViewBuilder private var rueckseite: some View {
+        if let hintenBild {
+            fotoSeite(hintenBild, applePayBadge: false)
+        } else {
+            generierteRueckseite
+        }
+    }
+
+    private func fotoSeite(_ bild: UIImage, applePayBadge zeigen: Bool) -> some View {
+        Image(uiImage: bild)
+            .resizable().scaledToFill()
+            .frame(maxWidth: .infinity).frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.18), lineWidth: 1))
+            .overlay(alignment: .topTrailing) { if zeigen { applePayPille.padding(10) } }
+            .overlay(alignment: .bottomTrailing) { flipHinweis.padding(10) }
+    }
+
+    private var generierteVorderseite: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
-                // Chip
                 RoundedRectangle(cornerRadius: 5)
                     .fill(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.72)],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -334,9 +446,7 @@ struct ArcaKreditkarte: View {
                             ForEach(0..<3, id: \.self) { _ in
                                 Rectangle().fill(.black.opacity(0.12)).frame(height: 0.8)
                             }
-                        }
-                        .padding(.horizontal, 6)
-                    )
+                        }.padding(.horizontal, 6))
                     .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(0.5), lineWidth: 0.5))
                 Spacer()
                 Text(netzwerk)
@@ -346,43 +456,79 @@ struct ArcaKreditkarte: View {
             Spacer(minLength: 16)
             Text(nummerAnzeige)
                 .font(.system(size: 19, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
             Spacer(minLength: 16)
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("KARTENINHABER")
-                        .font(.system(size: 7, weight: .semibold)).kerning(0.5)
-                        .foregroundStyle(.white.opacity(0.65))
-                    Text(inhaber.isEmpty ? "—" : inhaber.uppercased())
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white).lineLimit(1)
+                    Text("KARTENINHABER").font(.system(size: 7, weight: .semibold)).kerning(0.5).foregroundStyle(.white.opacity(0.65))
+                    Text(inhaber.isEmpty ? "—" : inhaber.uppercased()).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                 }
                 Spacer()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("GÜLTIG")
-                        .font(.system(size: 7, weight: .semibold)).kerning(0.5)
-                        .foregroundStyle(.white.opacity(0.65))
-                    Text(ablauf.isEmpty ? "MM/JJ" : ablauf)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white)
+                    Text("GÜLTIG").font(.system(size: 7, weight: .semibold)).kerning(0.5).foregroundStyle(.white.opacity(0.65))
+                    Text(ablauf.isEmpty ? "MM/JJ" : ablauf).font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundStyle(.white)
                 }
             }
         }
         .padding(18)
-        .frame(maxWidth: .infinity)
-        .frame(height: 200)
-        .background {
-            ZStack {
-                LinearGradient(colors: [farbe.accent, farbe.accent.opacity(0.65), Color.black.opacity(0.4)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                Circle().fill(.white.opacity(0.10)).frame(width: 230).blur(radius: 34).offset(x: 100, y: -80)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-        }
+        .frame(maxWidth: .infinity).frame(height: 200)
+        .background { kartenGrund }
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.18), lineWidth: 1))
-        .shadow(color: farbe.accent.opacity(0.35), radius: 12, x: 0, y: 6)
+        .overlay(alignment: .topTrailing) { if applePay { applePayPille.padding(10) } }
+        .overlay(alignment: .bottomTrailing) { flipHinweis.padding(10) }
+    }
+
+    private var generierteRueckseite: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: 22)
+            Rectangle().fill(.black.opacity(0.85)).frame(height: 40)
+            Spacer().frame(height: 18)
+            HStack {
+                Spacer()
+                RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.9))
+                    .frame(width: 130, height: 28)
+                    .overlay(alignment: .trailing) {
+                        Text(cvv.isEmpty ? "•••" : (maskiert ? "•••" : cvv))
+                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.black).padding(.trailing, 8)
+                    }
+            }
+            .padding(.horizontal, 18)
+            Spacer()
+            Text("CVV").font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity, alignment: .trailing).padding(.horizontal, 22)
+        }
+        .frame(maxWidth: .infinity).frame(height: 200)
+        .background { kartenGrund }
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.18), lineWidth: 1))
+        .overlay(alignment: .bottomTrailing) { flipHinweis.padding(10) }
+    }
+
+    private var kartenGrund: some View {
+        ZStack {
+            LinearGradient(colors: [farbe.accent, farbe.accent.opacity(0.65), Color.black.opacity(0.4)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            Circle().fill(.white.opacity(0.10)).frame(width: 230).blur(radius: 34).offset(x: 100, y: -80)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+
+    private var applePayPille: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "applelogo").font(.system(size: 10))
+            Text("Pay").font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(.black.opacity(0.28), in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+    }
+
+    private var flipHinweis: some View {
+        Image(systemName: "arrow.2.circlepath")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.55))
     }
 }
 
@@ -395,6 +541,7 @@ struct NewVaultEntrySheet: View {
     }
 
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var store: AppStore
     @State private var art: VaultArt = .passwort
     @State private var title = ""
     @State private var sperrHotline = ""
@@ -407,6 +554,11 @@ struct NewVaultEntrySheet: View {
     @State private var ablauf = ""
     @State private var pruefnummer = ""
     @State private var pin = ""
+    @State private var vorneBild: UIImage?
+    @State private var hintenBild: UIImage?
+    @State private var inApplePay = false
+    @State private var showScanner = false
+    @State private var scanRueckseite = false
     @State private var selectedColor = 2
     @State private var showPassword = false
     @State private var showGenerator = false
@@ -430,10 +582,12 @@ struct NewVaultEntrySheet: View {
                     }
                     .pickerStyle(.segmented)
 
-                    // Live-Vorschau der Karte
+                    // Live-Vorschau der Karte (tippen dreht sie um)
                     if art == .karte {
                         ArcaKreditkarte(nummer: kartennummer, inhaber: karteninhaber,
-                                        ablauf: ablauf, farbe: color)
+                                        ablauf: ablauf, cvv: pruefnummer, farbe: color,
+                                        vorneBild: vorneBild, hintenBild: hintenBild,
+                                        applePay: inApplePay)
                     }
 
                     // Kategorie / Vorlage (nur bei Passwörtern)
@@ -547,6 +701,37 @@ struct NewVaultEntrySheet: View {
                         }   // Ende: nur bei Passwörtern
 
                         if art == .karte {
+                            // Foto-Scan (schneidet die Karte automatisch zu, füllt Felder vor)
+                            HStack(spacing: 10) {
+                                Button {
+                                    scanRueckseite = false; showScanner = true
+                                } label: {
+                                    Label(vorneBild == nil ? "Vorderseite" : "Vorderseite ✓",
+                                          systemImage: "camera.viewfinder")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .frame(maxWidth: .infinity).padding(.vertical, 9)
+                                        .background(color.bg.opacity(0.7), in: RoundedRectangle(cornerRadius: 10))
+                                }
+                                .buttonStyle(.plain)
+                                Button {
+                                    scanRueckseite = true; showScanner = true
+                                } label: {
+                                    Label(hintenBild == nil ? "Rückseite" : "Rückseite ✓",
+                                          systemImage: "camera.viewfinder")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .frame(maxWidth: .infinity).padding(.vertical, 9)
+                                        .background(color.bg.opacity(0.7), in: RoundedRectangle(cornerRadius: 10))
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            Toggle(isOn: $inApplePay) {
+                                Label("Zu Apple Pay hinzugefügt", systemImage: "applelogo")
+                                    .font(.system(size: 14))
+                            }
+                            .tint(color.accent)
+                            .padding(.vertical, 2)
+
                             VaultFieldRow(label: "Karteninhaber", placeholder: "") {
                                 TextField("Name auf der Karte", text: $karteninhaber)
                                     .focused($focusedField, equals: .inhaber)
@@ -626,6 +811,10 @@ struct NewVaultEntrySheet: View {
                     Button {
                         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
                         let titel = t.isEmpty ? (art == .karte ? "Kreditkarte" : "Eintrag") : t
+                        let vName = vorneBild.flatMap { $0.jpegData(compressionQuality: 0.8) }
+                            .map { store.speichereKartenBild($0) } ?? ""
+                        let hName = hintenBild.flatMap { $0.jpegData(compressionQuality: 0.8) }
+                            .map { store.speichereKartenBild($0) } ?? ""
                         let entry = VaultEntry(
                             title: titel,
                             username: username.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -638,7 +827,10 @@ struct NewVaultEntrySheet: View {
                             karteninhaber: karteninhaber.trimmingCharacters(in: .whitespacesAndNewlines),
                             ablauf: ablauf.trimmingCharacters(in: .whitespacesAndNewlines),
                             pruefnummer: pruefnummer.trimmingCharacters(in: .whitespacesAndNewlines),
-                            pin: pin.trimmingCharacters(in: .whitespacesAndNewlines))
+                            pin: pin.trimmingCharacters(in: .whitespacesAndNewlines),
+                            kartenBildVorne: vName,
+                            kartenBildHinten: hName,
+                            inApplePay: inApplePay)
                         onSave(entry)
                     } label: {
                         Text("Sichern")
@@ -652,6 +844,21 @@ struct NewVaultEntrySheet: View {
                     password = generated
                     showPassword = true
                 }
+            }
+            .fullScreenCover(isPresented: $showScanner) {
+                ArcaKartenScanner(onScan: { bild, text in
+                    if scanRueckseite {
+                        hintenBild = bild
+                    } else {
+                        vorneBild = bild
+                        let p = parseKarte(text)
+                        if kartennummer.isEmpty { kartennummer = p.nummer }
+                        if ablauf.isEmpty { ablauf = p.ablauf }
+                        if karteninhaber.isEmpty { karteninhaber = p.inhaber }
+                    }
+                    showScanner = false
+                }, onCancel: { showScanner = false })
+                .ignoresSafeArea()
             }
         }
     }
@@ -763,10 +970,27 @@ struct VaultDetailView: View {
     @State private var editAblauf = ""
     @State private var editPruefnummer = ""
     @State private var editPin = ""
+    @State private var editInApplePay = false
     @State private var showSecret = false
+    @State private var vorneBild: UIImage?
+    @State private var hintenBild: UIImage?
+    @State private var editVorneBild: UIImage?
+    @State private var editHintenBild: UIImage?
+    @State private var showScanner = false
+    @State private var scanRueckseite = false
 
     private var displayColor: NoteColor {
         NoteColor.for_(isEditing ? editColor : item.colorTag)
+    }
+
+    private func ladeKartenbild(_ name: String) -> UIImage? {
+        guard !name.isEmpty else { return nil }
+        _ = store.ensureFileDownloaded(name)
+        return UIImage(contentsOfFile: store.documentURL(for: name).path)
+    }
+    private func ladeBilder() {
+        vorneBild = ladeKartenbild(item.kartenBildVorne)
+        hintenBild = ladeKartenbild(item.kartenBildHinten)
     }
 
     // MARK: Karten-Detail (Anzeige + Bearbeiten)
@@ -774,9 +998,30 @@ struct VaultDetailView: View {
         if isEditing {
             Section {
                 ArcaKreditkarte(nummer: editKartennummer, inhaber: editKarteninhaber,
-                                ablauf: editAblauf, farbe: NoteColor.for_(editColor))
+                                ablauf: editAblauf, cvv: editPruefnummer, farbe: NoteColor.for_(editColor),
+                                vorneBild: editVorneBild ?? vorneBild,
+                                hintenBild: editHintenBild ?? hintenBild,
+                                applePay: editInApplePay)
                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                     .listRowBackground(Color.clear)
+            }
+            Section {
+                HStack {
+                    Button { scanRueckseite = false; showScanner = true } label: {
+                        Label("Vorderseite", systemImage: "camera.viewfinder")
+                    }
+                    .buttonStyle(.borderless)
+                    Spacer()
+                    Button { scanRueckseite = true; showScanner = true } label: {
+                        Label("Rückseite", systemImage: "camera.viewfinder")
+                    }
+                    .buttonStyle(.borderless)
+                }
+                Toggle(isOn: $editInApplePay) {
+                    Label("Zu Apple Pay hinzugefügt", systemImage: "applelogo")
+                }
+            } header: {
+                Text("Foto & Apple Pay")
             }
             Section("Bezeichnung") {
                 TextField("z. B. Neon Mastercard", text: $editTitle)
@@ -814,7 +1059,9 @@ struct VaultDetailView: View {
         } else {
             Section {
                 ArcaKreditkarte(nummer: item.kartennummer, inhaber: item.karteninhaber,
-                                ablauf: item.ablauf, farbe: displayColor, maskiert: !showSecret)
+                                ablauf: item.ablauf, cvv: item.pruefnummer, farbe: displayColor,
+                                maskiert: !showSecret, vorneBild: vorneBild, hintenBild: hintenBild,
+                                applePay: item.inApplePay)
                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                     .listRowBackground(Color.clear)
             }
@@ -1020,6 +1267,22 @@ struct VaultDetailView: View {
             }
             .navigationTitle(isEditing ? "Bearbeiten" : item.title)
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { if item.art == .karte { ladeBilder() } }
+            .fullScreenCover(isPresented: $showScanner) {
+                ArcaKartenScanner(onScan: { bild, text in
+                    if scanRueckseite {
+                        editHintenBild = bild
+                    } else {
+                        editVorneBild = bild
+                        let p = parseKarte(text)
+                        if editKartennummer.isEmpty { editKartennummer = p.nummer }
+                        if editAblauf.isEmpty { editAblauf = p.ablauf }
+                        if editKarteninhaber.isEmpty { editKarteninhaber = p.inhaber }
+                    }
+                    showScanner = false
+                }, onCancel: { showScanner = false })
+                .ignoresSafeArea()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if isEditing {
@@ -1036,6 +1299,10 @@ struct VaultDetailView: View {
                         Button("Speichern") {
                             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                             let t = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let vName = editVorneBild.flatMap { $0.jpegData(compressionQuality: 0.8) }
+                                .map { store.speichereKartenBild($0) } ?? item.kartenBildVorne
+                            let hName = editHintenBild.flatMap { $0.jpegData(compressionQuality: 0.8) }
+                                .map { store.speichereKartenBild($0) } ?? item.kartenBildHinten
                             var updated = VaultEntry(
                                 id: item.id,
                                 title: t.isEmpty ? (item.art == .karte ? "Kreditkarte" : "Eintrag") : t,
@@ -1051,7 +1318,10 @@ struct VaultDetailView: View {
                                 karteninhaber: editKarteninhaber.trimmingCharacters(in: .whitespacesAndNewlines),
                                 ablauf: editAblauf.trimmingCharacters(in: .whitespacesAndNewlines),
                                 pruefnummer: editPruefnummer.trimmingCharacters(in: .whitespacesAndNewlines),
-                                pin: editPin.trimmingCharacters(in: .whitespacesAndNewlines)
+                                pin: editPin.trimmingCharacters(in: .whitespacesAndNewlines),
+                                kartenBildVorne: vName,
+                                kartenBildHinten: hName,
+                                inApplePay: editInApplePay
                             )
                             // Die „fest"-Nadel überlebt das Bearbeiten
                             updated.favoritePinned = item.favoritePinned
@@ -1076,6 +1346,9 @@ struct VaultDetailView: View {
                             editAblauf = item.ablauf
                             editPruefnummer = item.pruefnummer
                             editPin = item.pin
+                            editInApplePay = item.inApplePay
+                            editVorneBild = nil
+                            editHintenBild = nil
                             showPassword = false
                             isEditing = true
                         }

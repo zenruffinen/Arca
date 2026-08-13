@@ -2211,4 +2211,11 @@ final class AppStore: ObservableObject {
     func addVaultEntry(_ entry: VaultEntry) {
         vaultItems.append(entry)
     }
+
+    /// Speichert ein eingescanntes Karten-Foto (JPEG) und liefert den Dateinamen.
+    func speichereKartenBild(_ data: Data) -> String {
+        let name = "karte_\(UUID().uuidString).jpg"
+        let url = filesDirectory.appendingPathComponent(name)
+        do { try data.write(to: url, options: .atomic); return name } catch { return "" }
+    }
 }
