@@ -324,7 +324,8 @@ struct ArcaKartenScanner: UIViewControllerRepresentable {
             if let cg = bild.cgImage {
                 let req = VNRecognizeTextRequest()
                 req.recognitionLevel = .accurate
-                req.recognitionLanguages = ["de-DE", "en-US", "fr-FR"]
+                req.recognitionLanguages = ["en-US", "de-DE", "fr-FR"]
+                req.usesLanguageCorrection = false   // Ziffern nicht „verbessern"
                 try? VNImageRequestHandler(cgImage: cg, orientation: .up).perform([req])
                 text = (req.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
             }
@@ -335,28 +336,60 @@ struct ArcaKartenScanner: UIViewControllerRepresentable {
     }
 }
 
+/// Luhn-Prüfsumme — echte Kartennummern erfüllen sie.
+private func luhnGueltig(_ s: String) -> Bool {
+    let ziffern = s.compactMap { $0.wholeNumberValue }
+    guard ziffern.count >= 12 else { return false }
+    var summe = 0
+    for (i, v) in ziffern.reversed().enumerated() {
+        if i % 2 == 1 { let t = v * 2; summe += t > 9 ? t - 9 : t } else { summe += v }
+    }
+    return summe % 10 == 0
+}
+
+private func regexTreffer(_ muster: String, in text: String) -> [String] {
+    guard let re = try? NSRegularExpression(pattern: muster) else { return [] }
+    let ns = text as NSString
+    return re.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        .map { ns.substring(with: $0.range) }
+}
+
 /// Best-effort-Erkennung von Nummer / Gültigkeit / Inhaber aus dem OCR-Text.
 func parseKarte(_ text: String) -> (nummer: String, ablauf: String, inhaber: String) {
     let zeilen = text.split(separator: "\n").map(String.init)
-    var nummer = ""
-    for z in zeilen {
-        let d = z.filter(\.isNumber)
-        if (13...19).contains(d.count) { nummer = d; break }
+
+    // Nummer: Muster sammeln + per-Zeile, dann Luhn bevorzugen
+    var kandidaten: [String] = []
+    for m in [#"\d{4}[ ]\d{4}[ ]\d{4}[ ]\d{4}"#,   // 16 (Visa/Mastercard)
+              #"\d{4}[ ]\d{6}[ ]\d{5}"#,           // 15 (Amex)
+              #"\d{12,19}"#] {                       // zusammenhängend
+        kandidaten += regexTreffer(m, in: text).map { $0.filter(\.isNumber) }
     }
+    for z in zeilen {
+        let d = String(z.filter(\.isNumber))
+        if (13...19).contains(d.count) { kandidaten.append(d) }
+    }
+    let nummer = kandidaten.first(where: { luhnGueltig($0) && (13...19).contains($0.count) })
+        ?? kandidaten.first(where: { (13...19).contains($0.count) })
+        ?? ""
+
+    // Gültigkeit MM/JJ (auch „VALID THRU 12/28")
     var ablauf = ""
     let flach = text.replacingOccurrences(of: " ", with: "")
     if let r = flach.range(of: #"(0[1-9]|1[0-2])/[0-9]{2}"#, options: .regularExpression) {
         ablauf = String(flach[r])
     }
+
+    // Inhaber: GROSSBUCHSTABEN-Zeile mit 2+ Wörtern, ohne Ziffern/Schlüsselwörter
     var inhaber = ""
     let stop = ["VALID", "THRU", "MONTH", "GOOD", "CARD", "BANK", "VISA", "MASTERCARD",
-                "MAESTRO", "DEBIT", "CREDIT", "EXPIRES", "MEMBER", "SINCE"]
+                "MAESTRO", "DEBIT", "CREDIT", "EXPIRES", "MEMBER", "SINCE", "WORLD", "PLATINUM", "GOLD"]
     for z in zeilen {
         let t = z.trimmingCharacters(in: .whitespaces)
         if t.count < 6 || t.contains(where: \.isNumber) { continue }
         let up = t.uppercased()
         if stop.contains(where: { up.contains($0) }) { continue }
-        if t != up || t.split(separator: " ").count < 2 { continue }   // nur GROSSBUCHSTABEN-Namenszeilen
+        if t != up || t.split(separator: " ").count < 2 { continue }
         inhaber = t; break
     }
     return (nummer, ablauf, inhaber)
