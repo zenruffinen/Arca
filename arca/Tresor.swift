@@ -626,23 +626,29 @@ struct NewVaultEntrySheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-
-                    // Art: Passwort oder Kreditkarte
+            VStack(spacing: 0) {
+                // Fixierter Kopf: Umschalter + (bei Karte) die Karte zum Ablesen
+                VStack(spacing: 14) {
                     Picker("Art", selection: $art) {
                         Text("Passwort").tag(VaultArt.passwort)
                         Text("Kreditkarte").tag(VaultArt.karte)
                     }
                     .pickerStyle(.segmented)
 
-                    // Live-Vorschau der Karte (tippen dreht sie um)
+                    // Karte bleibt oben stehen — drunter in Ruhe abtippen
                     if art == .karte {
                         ArcaKreditkarte(nummer: kartennummer, inhaber: karteninhaber,
                                         ablauf: ablauf, cvv: pruefnummer, farbe: color,
                                         vorneBild: vorneBild, hintenBild: hintenBild,
                                         applePay: inApplePay)
                     }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 10)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
 
                     // Kategorie / Vorlage (nur bei Passwörtern)
                     if art == .passwort {
@@ -900,19 +906,12 @@ struct NewVaultEntrySheet: View {
                 }
             }
             .fullScreenCover(isPresented: $showScanner) {
-                ArcaKartenScanner(onScan: { bild, text in
-                    if scanRueckseite {
-                        hintenBild = bild
-                    } else {
-                        vorneBild = bild
-                        let p = parseKarte(text)
-                        if kartennummer.isEmpty { kartennummer = p.nummer }
-                        if ablauf.isEmpty { ablauf = p.ablauf }
-                        if karteninhaber.isEmpty { karteninhaber = p.inhaber }
-                    }
+                ArcaKartenScanner(onScan: { bild, _ in
+                    if scanRueckseite { hintenBild = bild } else { vorneBild = bild }
                     showScanner = false
                 }, onCancel: { showScanner = false })
                 .ignoresSafeArea()
+            }
             }
         }
     }
@@ -1323,16 +1322,8 @@ struct VaultDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { if item.art == .karte { ladeBilder() } }
             .fullScreenCover(isPresented: $showScanner) {
-                ArcaKartenScanner(onScan: { bild, text in
-                    if scanRueckseite {
-                        editHintenBild = bild
-                    } else {
-                        editVorneBild = bild
-                        let p = parseKarte(text)
-                        if editKartennummer.isEmpty { editKartennummer = p.nummer }
-                        if editAblauf.isEmpty { editAblauf = p.ablauf }
-                        if editKarteninhaber.isEmpty { editKarteninhaber = p.inhaber }
-                    }
+                ArcaKartenScanner(onScan: { bild, _ in
+                    if scanRueckseite { editHintenBild = bild } else { editVorneBild = bild }
                     showScanner = false
                 }, onCancel: { showScanner = false })
                 .ignoresSafeArea()
