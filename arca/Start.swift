@@ -1713,8 +1713,8 @@ struct HomeFavoriteCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            .padding(12)
-            .frame(width: breite, height: 118, alignment: .leading)
+            .padding(10)
+            .frame(width: breite, height: 98, alignment: .leading)
             // Ganz Glas, kein Rahmen — „fest" zeigt allein die Plakette
             .glassEffect(.regular.tint(tint.opacity(0.09)), in: RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .topTrailing) {

@@ -463,11 +463,11 @@ struct ArcaKategorieKarte: View {
     let anzahl: Int
 
     var body: some View {
-        VStack(spacing: 4) {
-            ArcaIcon(name: icon, groesse: 18)
+        VStack(spacing: 3) {
+            ArcaIcon(name: icon, groesse: 17)
                 .foregroundStyle(farben.accent)
-                .frame(width: 38, height: 38)
-                .background(farben.bg, in: RoundedRectangle(cornerRadius: 11))
+                .frame(width: 36, height: 36)
+                .background(farben.bg, in: RoundedRectangle(cornerRadius: 10))
             Text(name)
                 .font(.system(size: 10.5, weight: .semibold))
                 .foregroundStyle(.primary)
@@ -479,9 +479,9 @@ struct ArcaKategorieKarte: View {
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(farben.accent)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .padding(.horizontal, 6)
-        .frame(width: 60, height: 112)
+        .frame(width: 60, height: 94)
         .glassEffect(.regular.tint(farben.bg.opacity(0.55)),
                      in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
@@ -492,11 +492,11 @@ struct ArcaKategorieKarte: View {
 /// „+ Kategorie hinzufügen" — gleiche schmale Form, Glas.
 struct ArcaKategorieHinzufuegenKarte: View {
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 6) {
             Image(systemName: "plus")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(ArcaWarm.terrakotta)
-                .frame(width: 40, height: 40)
+                .frame(width: 36, height: 36)
                 .background(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45),
                                                   style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
             Text("Kategorie\nhinzufügen")
@@ -504,7 +504,7 @@ struct ArcaKategorieHinzufuegenKarte: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .frame(width: 60, height: 112)
+        .frame(width: 60, height: 94)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(Color.secondary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
