@@ -719,17 +719,18 @@ struct HomeView: View {
     private var kartenTint: Color { Color(red: 0.28, green: 0.52, blue: 0.86) }
     private var passwortTint: Color { Color(red: 0.16, green: 0.62, blue: 0.55) }
 
-    private func entsperreHomeBankkarten() {
+    /// Face ID / Gerätecode, dann `dann()` (zum Aufklappen einer geschützten Gruppe).
+    private func mitGesichtskontrolle(_ grund: String, _ dann: @escaping () -> Void) {
         let ctx = LAContext()
         var err: NSError?
         if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
-            ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Bankkarten anzeigen") { ok, _ in
+            ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: grund) { ok, _ in
                 if ok { DispatchQueue.main.async {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = true }
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { dann() }
                 } }
             }
         } else {
-            withAnimation { homeBankkartenAuf = true }
+            withAnimation { dann() }
         }
     }
 
@@ -765,7 +766,7 @@ struct HomeView: View {
                     if homeBankkartenAuf {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = false }
                     } else {
-                        entsperreHomeBankkarten()
+                        mitGesichtskontrolle("Bankkarten anzeigen") { homeBankkartenAuf = true }
                     }
                 } label: {
                     gruppenBalken(bild: "ArcaBalkenBankkarten",
@@ -777,12 +778,17 @@ struct HomeView: View {
                     ForEach(tresorKartenItems) { streamZeile($0) }
                 }
             }
-            // Passwörter — einklappbar
+            // Passwörter — Face ID, einklappbar
             Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homePasswoerterAuf.toggle() }
+                if homePasswoerterAuf {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homePasswoerterAuf = false }
+                } else {
+                    mitGesichtskontrolle("Passwörter anzeigen") { homePasswoerterAuf = true }
+                }
             } label: {
                 gruppenBalken(bild: "ArcaBalkenPasswoerter",
-                              anzahl: tresorPasswortItems.count, auf: homePasswoerterAuf, gesperrt: false)
+                              anzahl: tresorPasswortItems.count, auf: homePasswoerterAuf,
+                              gesperrt: !homePasswoerterAuf)
             }
             .buttonStyle(.plain)
             if homePasswoerterAuf {
