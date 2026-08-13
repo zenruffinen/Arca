@@ -1082,14 +1082,16 @@ struct HomeView: View {
                                                 .foregroundStyle(.white)
                                                 .padding(.horizontal, 15)
                                                 .padding(.vertical, 8)
-                                                .glassEffect(.regular.tint(blasenFarbe).interactive(), in: Capsule())
+                                                .glassEffect(.regular.tint(blasenFarbe.opacity(0.82)).interactive(), in: Capsule())
+                                                .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.6))
+                                                .shadow(color: blasenFarbe.opacity(0.3), radius: 5, x: 0, y: 2)
                                         } else {
                                             Text(filter.label)
                                                 .font(.system(size: 13, weight: .medium))
-                                                .foregroundStyle(.primary.opacity(0.7))
+                                                .foregroundStyle(blasenFarbe.opacity(0.9))
                                                 .padding(.horizontal, 15)
                                                 .padding(.vertical, 8)
-                                                .glassEffect(.regular.interactive(), in: Capsule())
+                                                .glassEffect(.regular.tint(blasenFarbe.opacity(0.16)).interactive(), in: Capsule())
                                         }
                                     }
                                     .contentShape(Rectangle())
