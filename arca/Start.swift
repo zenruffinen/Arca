@@ -12,6 +12,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import QuickLook
 import EventKit
+import LocalAuthentication
 
 /// Momentaufnahme der horizontalen Scroll-Position (für den Dreh-Regler).
 struct ScrollInfo: Equatable {
@@ -106,6 +107,9 @@ struct HomeView: View {
     @State private var dokScrollPos = ScrollPosition()
     @State private var dokFrac: Double = 0
     @State private var dokMaxX: CGFloat = 1
+    // Tresor-Gruppen im Strom (einklappbar)
+    @State private var homeBankkartenAuf = false
+    @State private var homePasswoerterAuf = false
     @State private var showSpiderGame = false
     @State private var logoTapCount = 0
     @State private var quickAccessPreviewURL: URL? = nil
@@ -700,6 +704,159 @@ struct HomeView: View {
         return all.sorted { $0.date > $1.date }
     }
 
+    // MARK: Tresor im Strom — einklappbare Gruppen (Bankkarten / Passwörter)
+
+    private var tresorKartenItems: [FavoriteItem] {
+        store.vaultItems.filter { $0.art == .karte }.sorted { $0.dateCreated > $1.dateCreated }
+            .map { FavoriteItem(id: $0.id, kind: .vault, title: $0.title,
+                                subtitle: "Mit Face ID öffnen", pinned: false, date: $0.dateCreated) }
+    }
+    private var tresorPasswortItems: [FavoriteItem] {
+        store.vaultItems.filter { $0.art != .karte }.sorted { $0.dateCreated > $1.dateCreated }
+            .map { FavoriteItem(id: $0.id, kind: .vault, title: $0.title,
+                                subtitle: "Mit Face ID öffnen", pinned: false, date: $0.dateCreated) }
+    }
+    private var kartenTint: Color { Color(red: 0.28, green: 0.52, blue: 0.86) }
+    private var passwortTint: Color { Color(red: 0.16, green: 0.62, blue: 0.55) }
+
+    private func entsperreHomeBankkarten() {
+        let ctx = LAContext()
+        var err: NSError?
+        if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
+            ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Bankkarten anzeigen") { ok, _ in
+                if ok { DispatchQueue.main.async {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = true }
+                } }
+            }
+        } else {
+            withAnimation { homeBankkartenAuf = true }
+        }
+    }
+
+    private func gruppenBalken(icon: String, titel: String, tint: Color,
+                               anzahl: Int, auf: Bool, gesperrt: Bool) -> some View {
+        HStack(spacing: 14) {
+            ArcaIcon(name: icon, groesse: 24)
+                .foregroundStyle(tint)
+                .frame(width: 46, height: 46)
+                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+            Rectangle().fill(tint.opacity(0.35)).frame(width: 1, height: 28)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(titel).font(.system(size: 19, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
+                Text("\(anzahl) \(anzahl == 1 ? "Eintrag" : "Einträge")").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            if gesperrt {
+                Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(.secondary)
+            }
+            Image(systemName: auf ? "chevron.up" : "chevron.down")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint.opacity(0.8))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular.tint(tint.opacity(0.10)), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(tint.opacity(0.28), lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var tresorGruppiert: some View {
+        LazyVStack(spacing: 8) {
+            // Bankkarten — Face ID, einklappbar
+            if !tresorKartenItems.isEmpty {
+                Button {
+                    if homeBankkartenAuf {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homeBankkartenAuf = false }
+                    } else {
+                        entsperreHomeBankkarten()
+                    }
+                } label: {
+                    gruppenBalken(icon: "ArcaBankkarten", titel: "Bankkarten", tint: kartenTint,
+                                  anzahl: tresorKartenItems.count, auf: homeBankkartenAuf,
+                                  gesperrt: !homeBankkartenAuf)
+                }
+                .buttonStyle(.plain)
+                if homeBankkartenAuf {
+                    ForEach(tresorKartenItems) { streamZeile($0) }
+                }
+            }
+            // Passwörter — einklappbar
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { homePasswoerterAuf.toggle() }
+            } label: {
+                gruppenBalken(icon: "ArcaPasswoerter", titel: "Passwörter", tint: passwortTint,
+                              anzahl: tresorPasswortItems.count, auf: homePasswoerterAuf, gesperrt: false)
+            }
+            .buttonStyle(.plain)
+            if homePasswoerterAuf {
+                ForEach(tresorPasswortItems) { streamZeile($0) }
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    @ViewBuilder private func streamZeile(_ item: FavoriteItem) -> some View {
+        let istFav = istFavorit(item)
+        HomeStreamRow(item: item,
+                      expanded: item.kind == .list && expandedLists.contains(item.id)) {
+            if item.kind == .list {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    if expandedLists.contains(item.id) { expandedLists.remove(item.id) }
+                    else { expandedLists.insert(item.id) }
+                }
+            } else {
+                openFavorite(item)
+            }
+        }
+        .contentShape(Rectangle())
+        .wennDraggable(item.kind != .vault, item.id.uuidString)
+        .contextMenu {
+            ArcaMenue.favorit(ist: istFav) {
+                store.toggleFavorite(kind: item.kind, id: item.id)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            if istFav {
+                ArcaMenue.fest {
+                    store.toggleFavoritePin(kind: item.kind, id: item.id)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            }
+            Divider()
+            ArcaMenue.umbenennen {
+                streamRenameText = item.title
+                streamRenameItem = item
+            }
+            ArcaMenue.farbe(aktuell: streamFarbe(item)) { idx in
+                setzeStreamFarbe(item, idx)
+            }
+            if item.kind == .list {
+                Button {
+                    neuerPunktText = ""
+                    punktFuerListe = item.id
+                } label: { Label("Punkt hinzufügen", systemImage: "plus.circle") }
+            }
+            if item.kind == .note {
+                Menu {
+                    Button { wandleNotizInAufgaben(item) } label: { Label("Aufgabenliste", systemImage: "checkmark.square") }
+                    Button { wandleNotizInPasswort(item) } label: { Label("Passwort-Eintrag", systemImage: "key.fill") }
+                    if store.notes.first(where: { $0.id == item.id })?.isQuickIdea == true {
+                        Button { macheZurFestenNotiz(item) } label: { Label("Feste Idee", systemImage: "lightbulb.fill") }
+                    }
+                } label: { Label("Umwandeln in …", systemImage: "arrow.triangle.2.circlepath") }
+            }
+            ArcaMenue.loeschen {
+                if item.kind == .vault { vaultZumLoeschen = item }
+                else { loescheStreamEintrag(item) }
+            }
+        }
+        if item.kind == .list, expandedLists.contains(item.id),
+           let liste = store.lists.first(where: { $0.id == item.id }) {
+            listeAufgeklappt(liste)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
     /// Dokumente treten im Strom als Gruppen auf — alle Gruppen, auch
     /// leere (sonst wären frisch erstellte unsichtbar). Was in keiner
     /// bekannten Gruppe steckt, sammelt „Unsortiert".
@@ -1123,6 +1280,8 @@ struct HomeView: View {
 
                         if streamFilter == .dokumente {
                             dokumentKarussell
+                        } else if streamFilter == .passwoerter && !store.vaultItems.isEmpty {
+                            tresorGruppiert
                         } else if streamItems.isEmpty {
                             Text("Noch nichts hier — wirf Arca eine Blitzidee zu.")
                                 .font(.system(size: 13))
@@ -1132,83 +1291,7 @@ struct HomeView: View {
                         } else {
                             LazyVStack(spacing: 8) {
                                 ForEach(streamItems.prefix(streamLimit)) { item in
-                                    let istFav = istFavorit(item)
-                                    HomeStreamRow(item: item,
-                                                  expanded: item.kind == .list && expandedLists.contains(item.id)) {
-                                        if item.kind == .list {
-                                            // Tasks klappen auf und lassen sich direkt abhaken
-                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                                if expandedLists.contains(item.id) {
-                                                    expandedLists.remove(item.id)
-                                                } else {
-                                                    expandedLists.insert(item.id)
-                                                }
-                                            }
-                                        } else {
-                                            openFavorite(item)
-                                        }
-                                    }
-                                    .contentShape(Rectangle())
-                                    // Ziehbar auf den Schreibtisch (iPad/Mac)
-                                    .wennDraggable(item.kind != .vault, item.id.uuidString)
-                                    // Gedrückt halten → Favorit, direkt im Strom
-                                    .contextMenu {
-                                        ArcaMenue.favorit(ist: istFav) {
-                                            store.toggleFavorite(kind: item.kind, id: item.id)
-                                            UINotificationFeedbackGenerator().notificationOccurred(.success)
-                                        }
-                                        if istFav {
-                                            ArcaMenue.fest {
-                                                store.toggleFavoritePin(kind: item.kind, id: item.id)
-                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                            }
-                                        }
-                                        Divider()
-                                        ArcaMenue.umbenennen {
-                                            streamRenameText = item.title
-                                            streamRenameItem = item
-                                        }
-                                        ArcaMenue.farbe(aktuell: streamFarbe(item)) { idx in
-                                            setzeStreamFarbe(item, idx)
-                                        }
-                                        if item.kind == .list {
-                                            Button {
-                                                neuerPunktText = ""
-                                                punktFuerListe = item.id
-                                            } label: {
-                                                Label("Punkt hinzufügen", systemImage: "plus.circle")
-                                            }
-                                        }
-                                        if item.kind == .note {
-                                            Menu {
-                                                Button { wandleNotizInAufgaben(item) } label: {
-                                                    Label("Aufgabenliste", systemImage: "checkmark.square")
-                                                }
-                                                Button { wandleNotizInPasswort(item) } label: {
-                                                    Label("Passwort-Eintrag", systemImage: "key.fill")
-                                                }
-                                                if store.notes.first(where: { $0.id == item.id })?.isQuickIdea == true {
-                                                    Button { macheZurFestenNotiz(item) } label: {
-                                                        Label("Feste Idee", systemImage: "lightbulb.fill")
-                                                    }
-                                                }
-                                            } label: {
-                                                Label("Umwandeln in …", systemImage: "arrow.triangle.2.circlepath")
-                                            }
-                                        }
-                                        ArcaMenue.loeschen {
-                                            if item.kind == .vault {
-                                                vaultZumLoeschen = item
-                                            } else {
-                                                loescheStreamEintrag(item)
-                                            }
-                                        }
-                                    }
-                                    if item.kind == .list, expandedLists.contains(item.id),
-                                       let liste = store.lists.first(where: { $0.id == item.id }) {
-                                        listeAufgeklappt(liste)
-                                            .transition(.opacity.combined(with: .move(edge: .top)))
-                                    }
+                                    streamZeile(item)
                                 }
                                 if streamItems.count > streamLimit {
                                     Button {
