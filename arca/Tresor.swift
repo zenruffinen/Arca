@@ -63,6 +63,29 @@ struct VaultView: View {
         }
     }
 
+    private var kartenTint: Color { Color(red: 0.28, green: 0.52, blue: 0.86) }   // kühl-blau (Bankkarten)
+    private var passwortTint: Color { Color(red: 0.16, green: 0.62, blue: 0.55) } // türkis (Passwörter)
+
+    /// Prominenter Glas-Balken als Gruppen-Überschrift: Logo | Trenner | Titel.
+    private func gruppenBalken(icon: String, titel: String, tint: Color) -> some View {
+        HStack(spacing: 14) {
+            ArcaIcon(name: icon, groesse: 24)
+                .foregroundStyle(tint)
+                .frame(width: 46, height: 46)
+                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+            Rectangle().fill(tint.opacity(0.35)).frame(width: 1, height: 28)
+            Text(titel)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular.tint(tint.opacity(0.10)), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(tint.opacity(0.28), lineWidth: 1))
+    }
+
     @ViewBuilder private func vaultZeile(_ item: VaultEntry) -> some View {
         VaultRow(item: item, copiedItemID: $copiedItemID)
             .contentShape(Rectangle())
@@ -249,63 +272,49 @@ struct VaultView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
-                // Bankkarten — als Gruppe, nur mit Face ID sichtbar
+                // ── Gruppe Bankkarten (Glas-Balken + Face ID) ──
                 if !bankkarten.isEmpty {
-                    Section {
-                        if bankkartenEntsperrt {
-                            ForEach(bankkarten) { item in vaultZeile(item) }
-                        } else {
-                            Button { entsperreBankkarten() } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "faceid")
-                                        .font(.system(size: 18))
-                                        .foregroundStyle(.blue)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text("Mit Face ID öffnen")
-                                            .font(.system(size: 15, weight: .medium))
-                                            .foregroundStyle(.primary)
-                                        Text("\(bankkarten.count) Karte\(bankkarten.count == 1 ? "" : "n") geschützt")
-                                            .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "lock.fill").foregroundStyle(.secondary)
+                    gruppenBalken(icon: "ArcaBankkarten", titel: "Bankkarten", tint: kartenTint)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    if bankkartenEntsperrt {
+                        ForEach(bankkarten) { item in vaultZeile(item) }
+                    } else {
+                        Button { entsperreBankkarten() } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "faceid")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(kartenTint)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Mit Face ID öffnen")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(.primary)
+                                    Text("\(bankkarten.count) Karte\(bankkarten.count == 1 ? "" : "n") geschützt")
+                                        .font(.caption).foregroundStyle(.secondary)
                                 }
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
+                                Spacer()
+                                Image(systemName: "lock.fill").foregroundStyle(.secondary)
                             }
-                            .buttonStyle(.plain)
-                            .listRowBackground(Color(.secondarySystemBackground))
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
                         }
-                    } header: {
-                        HStack(spacing: 8) {
-                            ArcaIcon(name: "ArcaBankkarten", groesse: 18)
-                            Text("Bankkarten")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
-                        .foregroundStyle(.primary)
-                        .textCase(nil)
+                        .buttonStyle(.plain)
+                        .listRowBackground(Color(.secondarySystemBackground))
                     }
-                    .headerProminence(.increased)
                 }
 
-                // Passwörter
-                Section {
-                    ForEach(passwoerter) { item in vaultZeile(item) }
-                        .onDelete { indexSet in
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            let toDelete = indexSet.map { passwoerter[$0] }
-                            store.vaultItems.removeAll { item in toDelete.contains { $0.id == item.id } }
-                        }
-                } header: {
-                    HStack(spacing: 8) {
-                        ArcaIcon(name: "ArcaPasswoerter", groesse: 18)
-                        Text("Passwörter")
-                            .font(.system(size: 16, weight: .semibold))
+                // ── Gruppe Passwörter (Glas-Balken) ──
+                gruppenBalken(icon: "ArcaPasswoerter", titel: "Passwörter", tint: passwortTint)
+                    .listRowInsets(EdgeInsets(top: bankkarten.isEmpty ? 8 : 18, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                ForEach(passwoerter) { item in vaultZeile(item) }
+                    .onDelete { indexSet in
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        let toDelete = indexSet.map { passwoerter[$0] }
+                        store.vaultItems.removeAll { item in toDelete.contains { $0.id == item.id } }
                     }
-                    .foregroundStyle(.primary)
-                    .textCase(nil)
-                }
-                .headerProminence(.increased)
             }
         }
         .listStyle(.insetGrouped)
