@@ -768,15 +768,21 @@ struct HomeView: View {
         .padding(.horizontal, 16)
         .frame(height: 56)
         .frame(maxWidth: .infinity)
-        // Echtes Liquid Glass, dunkel getönt → durchscheinend & spiegelnd
-        .glassEffect(.regular.tint(dunkel.opacity(0.62)), in: RoundedRectangle(cornerRadius: 16))
+        // Echtes Liquid Glass, dunkel getönt → durchscheinend, interaktiv, spiegelnd
+        .glassEffect(.regular.tint(dunkel.opacity(0.52)).interactive(), in: RoundedRectangle(cornerRadius: 16))
         .overlay(
+            // diagonaler Glanz-Streifen (Reflex) wie auf echtem Glas
             RoundedRectangle(cornerRadius: 16)
-                .fill(LinearGradient(colors: [.white.opacity(0.16), .clear],
-                                     startPoint: .top, endPoint: .center))
+                .fill(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.05), .clear],
+                                     startPoint: .topLeading, endPoint: .center))
                 .allowsHitTesting(false)
         )
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(hell.opacity(0.35), lineWidth: 1))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16).strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.55), hell.opacity(0.3), .white.opacity(0.15)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                lineWidth: 1)
+        )
         .contentShape(RoundedRectangle(cornerRadius: 16))
     }
 
