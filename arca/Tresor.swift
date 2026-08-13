@@ -1153,17 +1153,32 @@ struct VaultDetailView: View {
     }
 
     // MARK: Karten-Detail (Anzeige + Bearbeiten)
-    @ViewBuilder private var kartenDetail: some View {
-        if isEditing {
-            Section {
+    /// Die Karte, oben fixiert (per safeAreaInset) — bleibt sichtbar,
+    /// während man unten die Felder eintippt.
+    @ViewBuilder private var kartenKopf: some View {
+        Group {
+            if isEditing {
                 ArcaKreditkarte(nummer: editKartennummer, inhaber: editKarteninhaber,
                                 ablauf: editAblauf, cvv: editPruefnummer, farbe: NoteColor.for_(editColor),
                                 vorneBild: editVorneBild ?? vorneBild,
                                 hintenBild: editHintenBild ?? hintenBild,
                                 applePay: editInApplePay)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-                    .listRowBackground(Color.clear)
+            } else {
+                ArcaKreditkarte(nummer: item.kartennummer, inhaber: item.karteninhaber,
+                                ablauf: item.ablauf, cvv: item.pruefnummer, farbe: displayColor,
+                                maskiert: !showSecret, vorneBild: vorneBild, hintenBild: hintenBild,
+                                applePay: item.inApplePay)
             }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
+        .background(Color(.systemGroupedBackground))
+    }
+
+    @ViewBuilder private var kartenDetail: some View {
+        if isEditing {
             Section {
                 HStack {
                     Button { scanRueckseite = false; showScanner = true } label: {
@@ -1224,14 +1239,6 @@ struct VaultDetailView: View {
                 Text("Erscheint mit Anruf-Knopf im Notfall-Bereich (Mehr → Notfall).")
             }
         } else {
-            Section {
-                ArcaKreditkarte(nummer: item.kartennummer, inhaber: item.karteninhaber,
-                                ablauf: item.ablauf, cvv: item.pruefnummer, farbe: displayColor,
-                                maskiert: !showSecret, vorneBild: vorneBild, hintenBild: hintenBild,
-                                applePay: item.inApplePay)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-                    .listRowBackground(Color.clear)
-            }
             Section {
                 Toggle(isOn: $showSecret) {
                     Label(showSecret ? "Nummer & Codes verbergen" : "Nummer & Codes zeigen",
@@ -1431,6 +1438,9 @@ struct VaultDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if item.art == .karte { kartenKopf }
             }
             .navigationTitle(isEditing ? "Bearbeiten" : item.title)
             .navigationBarTitleDisplayMode(.inline)
