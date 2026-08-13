@@ -353,6 +353,21 @@ extension CGImagePropertyOrientation {
     }
 }
 
+/// Kartennummer live in Vierergruppen: „1234 5678 9012 3456".
+func gruppiereKartennummer(_ s: String) -> String {
+    let d = Array(s.filter(\.isNumber).prefix(19))
+    return stride(from: 0, to: d.count, by: 4)
+        .map { String(d[$0..<min($0 + 4, d.count)]) }
+        .joined(separator: " ")
+}
+
+/// Gültig-bis mit automatischem Schrägstrich: „MM/JJ".
+func formatiereAblauf(_ s: String) -> String {
+    let d = String(s.filter(\.isNumber).prefix(4))
+    if d.count <= 2 { return d }
+    return "\(d.prefix(2))/\(d.dropFirst(2))"
+}
+
 /// Luhn-Prüfsumme — echte Kartennummern erfüllen sie.
 private func luhnGueltig(_ s: String) -> Bool {
     let ziffern = s.compactMap { $0.wholeNumberValue }
@@ -802,12 +817,20 @@ struct NewVaultEntrySheet: View {
                                     .focused($focusedField, equals: .nummer)
                                     .keyboardType(.numberPad)
                                     .font(.system(.body, design: .monospaced))
+                                    .onChange(of: kartennummer) { _, v in
+                                        let g = gruppiereKartennummer(v)
+                                        if g != kartennummer { kartennummer = g }
+                                    }
                             }
                             HStack(spacing: 12) {
                                 VaultFieldRow(label: "Gültig (MM/JJ)", placeholder: "") {
                                     TextField("MM/JJ", text: $ablauf)
                                         .focused($focusedField, equals: .ablauf)
-                                        .keyboardType(.numbersAndPunctuation)
+                                        .keyboardType(.numberPad)
+                                        .onChange(of: ablauf) { _, v in
+                                            let f = formatiereAblauf(v)
+                                            if f != ablauf { ablauf = f }
+                                        }
                                 }
                                 VaultFieldRow(label: "CVV", placeholder: "") {
                                     SecureField("•••", text: $pruefnummer)
@@ -1087,11 +1110,19 @@ struct VaultDetailView: View {
                 TextField("1234 5678 9012 3456", text: $editKartennummer)
                     .keyboardType(.numberPad)
                     .font(.system(.body, design: .monospaced))
+                    .onChange(of: editKartennummer) { _, v in
+                        let g = gruppiereKartennummer(v)
+                        if g != editKartennummer { editKartennummer = g }
+                    }
             }
             Section("Gültig / CVV") {
                 HStack {
                     TextField("MM/JJ", text: $editAblauf)
-                        .keyboardType(.numbersAndPunctuation)
+                        .keyboardType(.numberPad)
+                        .onChange(of: editAblauf) { _, v in
+                            let f = formatiereAblauf(v)
+                            if f != editAblauf { editAblauf = f }
+                        }
                     Divider()
                     SecureField("CVV", text: $editPruefnummer)
                         .keyboardType(.numberPad)
@@ -1128,7 +1159,7 @@ struct VaultDetailView: View {
                 Section("Kartennummer") {
                     HStack {
                         Text(showSecret
-                             ? item.kartennummer
+                             ? gruppiereKartennummer(item.kartennummer)
                              : "•••• " + String(item.kartennummer.suffix(4)))
                             .font(.system(.body, design: .monospaced))
                         Spacer()
@@ -1386,7 +1417,7 @@ struct VaultDetailView: View {
                             editURL = item.url
                             editSperrHotline = item.sperrHotline
                             editColor = item.colorTag
-                            editKartennummer = item.kartennummer
+                            editKartennummer = gruppiereKartennummer(item.kartennummer)
                             editKarteninhaber = item.karteninhaber
                             editAblauf = item.ablauf
                             editPruefnummer = item.pruefnummer
