@@ -739,8 +739,8 @@ struct HomeView: View {
             .resizable()
             .aspectRatio(contentMode: .fill)
             .frame(maxWidth: .infinity)
-            .frame(height: 108)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .frame(height: 94)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
             .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
             .overlay(alignment: .topTrailing) {
                 HStack(spacing: 6) {
@@ -838,6 +838,18 @@ struct HomeView: View {
             }
             ArcaMenue.farbe(aktuell: streamFarbe(item)) { idx in
                 setzeStreamFarbe(item, idx)
+            }
+            if item.kind == .vault {
+                let istKarte = store.vaultItems.first(where: { $0.id == item.id })?.art == .karte
+                Button {
+                    if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
+                        store.vaultItems[i].art = istKarte ? .passwort : .karte
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
+                } label: {
+                    Label(istKarte ? "In Passwort umwandeln" : "In Kreditkarte umwandeln",
+                          systemImage: istKarte ? "key.fill" : "creditcard")
+                }
             }
             if item.kind == .list {
                 Button {
