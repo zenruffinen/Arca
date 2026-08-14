@@ -1185,9 +1185,15 @@ struct HomeView: View {
                     )
                     // feiner Innenrand am Foto
                     .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 0.6))
-                    // weißer Sticker-/Klebe-Rand rundherum
-                    .padding(3)
-                    .background(Circle().fill(.white))
+                    // glasiger Sticker-/Klebe-Rand rundherum (Liquid Glass)
+                    .padding(3.5)
+                    .glassEffect(.regular, in: Circle())
+                    .overlay(
+                        Circle().strokeBorder(
+                            LinearGradient(colors: [.white.opacity(0.85), .white.opacity(0.2)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 0.8)
+                    )
                     // aufgeklebt: weicher Schlagschatten
                     .shadow(color: .black.opacity(0.28), radius: 3.5, x: 0, y: 2.5)
                 }
