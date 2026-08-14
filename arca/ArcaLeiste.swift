@@ -112,25 +112,11 @@ struct ArcaTabBar: View {
                         store.quickCaptureAutoRecord = true
                         store.pendingQuickCapture = true
                     }
-                    Menu {
-                        Button { store.zeigeNotfall = true } label: {
-                            Label("Notfall", systemImage: "cross.case.fill")
-                        }
-                        Divider()
-                        Button { store.pendingSettingsAktion = "export"; selected = .settings } label: {
-                            Label("Daten sichern", systemImage: "square.and.arrow.up")
-                        }
-                        Button { store.pendingSettingsAktion = "import"; selected = .settings } label: {
-                            Label("Daten wiederherstellen", systemImage: "square.and.arrow.down")
-                        }
-                        Divider()
-                        Button { selected = .settings } label: {
-                            Label("Einstellungen", systemImage: "gearshape")
-                        }
-                    } label: {
-                        leistenLabel(icon: "ArcaSettings", label: "Mehr", aktiv: selected == .settings)
+                    // „Mehr" öffnet direkt die Einstellungen (Sichern/Wiederherstellen
+                    // liegen dort; Notfall ist oben im Kopf). Kein Aufklappmenü mehr.
+                    leistenItem(icon: "ArcaSettings", label: "Mehr", aktiv: selected == .settings) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .settings }
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .frame(height: 60)
