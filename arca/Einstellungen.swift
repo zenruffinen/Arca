@@ -427,6 +427,74 @@ struct SettingsView: View {
         AppStore.arcabackupContentType
     }
 
+    // MARK: - Glas-Gruppen (neuer Look)
+
+    /// Eine Gruppe als Glas-Karte mit optionaler Überschrift darüber.
+    @ViewBuilder
+    private func glasGruppe<Inhalt: View>(_ titel: String? = nil,
+                                          @ViewBuilder inhalt: () -> Inhalt) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let titel {
+                Text(titel.uppercased())
+                    .font(.system(size: 12, weight: .bold))
+                    .tracking(0.5)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 8)
+            }
+            VStack(spacing: 0) { inhalt() }
+                .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.5)),
+                             in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(.white.opacity(0.4), lineWidth: 0.5)
+                )
+        }
+    }
+
+    /// Feine Trennlinie zwischen zwei Zeilen einer Glas-Gruppe.
+    private var zeilenTrenner: some View {
+        Divider().overlay(Color.primary.opacity(0.06)).padding(.leading, 54)
+    }
+
+    /// Icon-Plakette links in einer Einstellungszeile.
+    private func zeilenIcon(_ symbol: String, _ farbe: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(farbe)
+            .frame(width: 30, height: 30)
+            .background(farbe.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    /// Kleiner Hinweis-Streifen am Fuß einer Gruppe.
+    private func hinweisKarte(symbol: String, farbe: Color, titel: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol).font(.system(size: 17)).foregroundStyle(farbe)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(titel).font(.system(size: 12, weight: .bold)).foregroundStyle(farbe)
+                Text(text).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(farbe.opacity(0.07))
+    }
+
+    /// Eine antippbare Aktionszeile (Icon · Titel · Chevron).
+    private func aktionsZeile(_ symbol: String, _ farbe: Color, _ titel: String,
+                              _ aktion: @escaping () -> Void) -> some View {
+        Button(action: aktion) {
+            HStack(spacing: 12) {
+                zeilenIcon(symbol, farbe)
+                Text(titel).font(.system(size: 15, weight: .medium)).foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     private func backupImportErrorMessage(for url: URL, error: AppStore.BackupImportError) -> String {
         if store.isBlockedDocumentExtension(url) {
             let ext = url.pathExtension.uppercased()
@@ -556,156 +624,138 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                // ── Kopf: kompakt ──
-                Section {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // ── Kopf ──
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Einstellungen")
-                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .font(.system(size: 26, weight: .bold, design: .rounded))
                             Text("App, Daten und Präferenzen.")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        ArcaGlassIcon(size: 34)
+                        ArcaGlassIcon(size: 40)
                     }
-                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                }
+                    .padding(.horizontal, 6)
 
-                // ── Profil: eine Zeile, Name direkt hier tippbar ──
-                Section {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(ArcaWarm.terrakotta)
-                            .frame(width: 38, height: 38)
-                            .background(ArcaWarm.terrakotta.opacity(0.14), in: Circle())
-                        VStack(alignment: .leading, spacing: 1) {
-                            TextField("Dein Name", text: $userName)
-                                .font(.system(size: 16, weight: .semibold))
-                                .textInputAutocapitalization(.words)
-                            Text("Für die Begrüßung auf dem Start")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 1)
-
-                    // App-Symbol: Standard oder Gold
-                    if UIApplication.shared.supportsAlternateIcons {
-                        HStack(spacing: 16) {
-                            Label("App-Symbol", systemImage: "app.gift")
-                            Spacer()
-                            iconWahl(name: nil, bild: "ArcaIcon", titel: "Arca")
-                            iconWahl(name: "ArcaGold", bild: "ArcaGoldVorschau", titel: "Gold")
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
-
-                aboutSection
-
-                // ── Trinkgeld: Arca unterstützen ──
-                Section {
-                    TrinkgeldKarte()
-                } header: {
-                    Text("Arca unterstützen")
-                }
-
-                // ── Nutzer & Synchronisation ──
-                Section {
-                    HStack {
-                        Label("iCloud", systemImage: "icloud.fill")
-                        Spacer()
-                        HStack(spacing: 4) {
-                            if store.iCloudStatus == .synced {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 13))
+                    // ── 1) Persönlich ──
+                    glasGruppe("Persönlich") {
+                        HStack(spacing: 12) {
+                            zeilenIcon("person.fill", ArcaWarm.terrakotta)
+                            VStack(alignment: .leading, spacing: 1) {
+                                TextField("Dein Name", text: $userName)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .textInputAutocapitalization(.words)
+                                Text("Für die Begrüßung auf dem Start")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
                             }
-                            Text(store.iCloudStatus.rawValue)
                         }
-                        .font(.subheadline)
-                        .foregroundStyle(store.iCloudStatus == .synced ? .green :
-                                         store.iCloudStatus == .downloading ? .orange : .secondary)
-                    }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
 
-                    // „Gut zu wissen" — kompakt
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "icloud.and.arrow.down.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(.blue.opacity(0.75))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Gut zu wissen")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.blue)
-                            Text("Deine Daten wandern sicher über iCloud zwischen deinen Geräten. „Warte auf Download“ heißt: Inhalte kommen gerade aus der Cloud.")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                        if UIApplication.shared.supportsAlternateIcons {
+                            zeilenTrenner
+                            HStack(spacing: 14) {
+                                zeilenIcon("app.gift", ArcaWarm.terrakotta)
+                                Text("App-Symbol").font(.system(size: 15, weight: .medium))
+                                Spacer()
+                                iconWahl(name: nil, bild: "ArcaIcon", titel: "Arca")
+                                iconWahl(name: "ArcaGold", bild: "ArcaGoldVorschau", titel: "Gold")
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 10)
                         }
                     }
-                    .padding(.vertical, 2)
-                    .listRowBackground(Color.blue.opacity(0.07))
-                } header: {
-                    Text("Nutzer & Synchronisation")
-                }
 
-                // Backup — wichtigste Funktion, direkt oben
-                Section {
-                    Button {
-                        exportPassword = ""
-                        exportPasswordConfirm = ""
-                        exportPasswordError = ""
-                        showExportPassword = false
-                        showExportPasswordSheet = true
-                    } label: {
-                        Label("Daten sichern", systemImage: "square.and.arrow.up.fill")
-                            .foregroundStyle(.blue)
-                    }
-
-                    Button {
-                        showImportConfirm = true
-                    } label: {
-                        Label("Daten wiederherstellen", systemImage: "square.and.arrow.down.fill")
-                            .foregroundStyle(.green)
-                    }
-                    // „Deine Daten. Deine Sicherheit." — kompakt
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "checkmark.shield.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(.green)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Deine Daten. Deine Sicherheit.")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.green)
-                            Text("Backups sind verschlüsselt — in iCloud Drive, per Mail oder lokal gesichert, jederzeit wiederherstellbar.")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                    // ── 2) Daten & Sicherheit ──
+                    glasGruppe("Daten & Sicherheit") {
+                        HStack(spacing: 12) {
+                            zeilenIcon("icloud.fill", .blue)
+                            Text("iCloud").font(.system(size: 15, weight: .medium))
+                            Spacer()
+                            HStack(spacing: 4) {
+                                if store.iCloudStatus == .synced {
+                                    Image(systemName: "checkmark.circle.fill").font(.system(size: 13))
+                                }
+                                Text(store.iCloudStatus.rawValue)
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(store.iCloudStatus == .synced ? .green :
+                                             store.iCloudStatus == .downloading ? .orange : .secondary)
                         }
-                    }
-                    .padding(.vertical, 2)
-                    .listRowBackground(Color.green.opacity(0.08))
-                } header: {
-                    Text("Sichern und Wiederherstellen")
-                }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
 
-                // Wusstest du? – wechselnde Tipps & versteckte Funktionen
-                Section {
-                    DidYouKnowCard()
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                } footer: {
-                    Label("Arca ist kostenlos, werbefrei und sammelt keine Daten über dich.", systemImage: "lock.shield.fill")
+                        zeilenTrenner
+                        aktionsZeile("square.and.arrow.up.fill", .blue, "Daten sichern") {
+                            exportPassword = ""; exportPasswordConfirm = ""
+                            exportPasswordError = ""; showExportPassword = false
+                            showExportPasswordSheet = true
+                        }
+                        zeilenTrenner
+                        aktionsZeile("square.and.arrow.down.fill", .green, "Daten wiederherstellen") {
+                            showImportConfirm = true
+                        }
+
+                        hinweisKarte(symbol: "checkmark.shield.fill", farbe: .green,
+                                     titel: "Deine Daten. Deine Sicherheit.",
+                                     text: "Backups sind verschlüsselt — in iCloud Drive, per Mail oder lokal gesichert, jederzeit wiederherstellbar.")
+                    }
+
+                    // ── 3) Über Arca ──
+                    glasGruppe("Über Arca") {
+                        Button { showReleaseNotes = true } label: {
+                            HStack(spacing: 12) {
+                                zeilenIcon("app.badge", ArcaWarm.terrakotta)
+                                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.1")")
+                                    .font(.system(size: 15, weight: .medium)).foregroundStyle(.primary)
+                                Spacer()
+                                Text("Aktuell")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.green)
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(Color.green.opacity(0.14), in: Capsule())
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 12)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        zeilenTrenner
+                        HStack(spacing: 12) {
+                            zeilenIcon("person.crop.square.fill", .secondary)
+                            Text("Entwickler: Hans zen Ruffinen")
+                                .font(.system(size: 15, weight: .medium)).foregroundStyle(.primary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
+                        zeilenTrenner
+                        RateAppRow().padding(.horizontal, 14).padding(.vertical, 4)
+                        zeilenTrenner
+                        FeedbackLinkRow(url: feedbackURL).padding(.horizontal, 14).padding(.vertical, 4)
+                    }
+
+                    // ── 4) Arca unterstützen ──
+                    glasGruppe("Arca unterstützen") {
+                        TrinkgeldKarte().padding(.horizontal, 12).padding(.vertical, 10)
+                    }
+
+                    // ── 5) Wusstest du? ──
+                    glasGruppe("Wusstest du?") {
+                        DidYouKnowCard().padding(.horizontal, 12).padding(.vertical, 12)
+                    }
+
+                    Label("Arca ist kostenlos, werbefrei und sammelt keine Daten über dich.",
+                          systemImage: "lock.shield.fill")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 2)
                 }
-
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 44)
             }
-            .listSectionSpacing(14)
-            .scrollContentBackground(.hidden)
             .background(ArcaWarm.hintergrund)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
