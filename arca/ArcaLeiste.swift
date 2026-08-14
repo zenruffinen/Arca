@@ -82,16 +82,26 @@ struct ArcaTabBar: View {
                 .frame(height: 60)
                 .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: -2)
 
-            // Seiten-Items: Home links, Mikro + Mehr rechts, Mitte bleibt frei
+            // Seiten-Items: Home + Suche links, Mikro + Mehr rechts, Mitte frei
             HStack(spacing: 0) {
-                leistenItem(icon: "ArcaHome", label: "Home", aktiv: spaceActive) {
-                    store.fokusKategorie = nil
-                    store.zeigeIdeenPinnwand = false
-                    if selected == .home {
-                        store.homeStreamFilter = .dokumente
-                        store.homeSprungNachOben += 1
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .home }
+                HStack(spacing: 22) {
+                    leistenItem(icon: "ArcaHome", label: "Home", aktiv: spaceActive) {
+                        store.fokusKategorie = nil
+                        store.zeigeIdeenPinnwand = false
+                        if selected == .home {
+                            store.homeStreamFilter = .dokumente
+                            store.homeSprungNachOben += 1
+                        } else {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .home }
+                        }
+                    }
+                    leistenItem(icon: "ArcaSearch", label: "Suche", aktiv: false) {
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        store.fokusKategorie = nil
+                        if selected != .home {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .home }
+                        }
+                        store.sucheFokusSignal += 1
                     }
                 }
                 Spacer(minLength: 0)
