@@ -1185,17 +1185,25 @@ struct HomeView: View {
                     )
                     // feiner Innenrand am Foto
                     .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 0.6))
-                    // glasiger Sticker-/Klebe-Rand rundherum (Liquid Glass)
-                    .padding(3.5)
-                    .glassEffect(.regular, in: Circle())
+                    // glasiger Sticker-/Klebe-Rand rundherum (Liquid Glass, 3D wie die anderen)
+                    .padding(4)
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    // diagonaler Reflex-Streifen → Tiefe/3D
+                    .overlay(
+                        Circle()
+                            .fill(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.08), .clear],
+                                                 startPoint: .topLeading, endPoint: .center))
+                            .allowsHitTesting(false)
+                    )
+                    // heller Kanten-Rim mit Verlauf
                     .overlay(
                         Circle().strokeBorder(
-                            LinearGradient(colors: [.white.opacity(0.85), .white.opacity(0.2)],
+                            LinearGradient(colors: [.white.opacity(0.9), .white.opacity(0.25), .white.opacity(0.5)],
                                            startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 0.8)
+                            lineWidth: 1)
                     )
                     // aufgeklebt: weicher Schlagschatten
-                    .shadow(color: .black.opacity(0.28), radius: 3.5, x: 0, y: 2.5)
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2.5)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Profilbild wählen")
