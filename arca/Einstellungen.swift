@@ -181,7 +181,8 @@ struct DidYouKnowCard: View {
         ArcaTip(icon: "house.fill", text: "Über „In Schnellansicht anzeigen“ legst du fest, welche Ordner auf dem Startbildschirm erscheinen.", tint: .blue),
         ArcaTip(icon: "mic.fill", text: "Notizen kannst du einfach einsprechen – Arca wandelt deine Stimme in Text um.", tint: .purple),
         ArcaTip(icon: "bolt.fill", text: "Mit der Blitzidee hältst du Gedanken in Sekunden fest, bevor sie weg sind.", tint: .yellow),
-        ArcaTip(icon: "qrcode.viewfinder", text: "Der QR-Scanner auf dem Start liest Codes blitzschnell ein.", tint: .teal),
+        ArcaTip(icon: "creditcard.fill", text: "Fotografiere deine Bankkarte – Vorder- und Rückseite. In der Liste erkennst du sie sofort am kleinen Vorschaubild.", tint: .teal),
+        ArcaTip(icon: "heart.text.square.fill", text: "Im Digitalen Erbe hinterlegst du Abos, Konten und eine Nachricht – ein Totmannschalter gibt sie im Ernstfall an eine Vertrauensperson frei.", tint: .pink),
         ArcaTip(icon: "lock.shield.fill", text: "Alle Passwörter liegen sicher im iCloud-Schlüsselbund – verschlüsselt und nur für dich.", tint: .green),
         ArcaTip(icon: "icloud.fill", text: "Deine Daten synchronisieren sich automatisch zwischen iPhone und iPad.", tint: .cyan),
         ArcaTip(icon: "square.and.arrow.up.fill", text: "Sichere deinen Tresor regelmäßig über „Daten sichern“ – so bist du auch bei Geräteverlust geschützt.", tint: .indigo),
@@ -351,7 +352,7 @@ struct SettingsView: View {
     @State private var importPickerStartFolder: URL? = nil
 
     private var feedbackURL: URL? {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.1"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0"
         let subject = "Arca Feedback (Version \(version))"
         var components = URLComponents()
         components.scheme = "mailto"
@@ -367,7 +368,7 @@ struct SettingsView: View {
                 showReleaseNotes = true
             } label: {
                 HStack {
-                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.1")", systemImage: "app.badge")
+                    Label("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0")", systemImage: "app.badge")
                     Spacer()
                     Text("Aktuell")
                         .font(.system(size: 11, weight: .semibold))
@@ -707,7 +708,7 @@ struct SettingsView: View {
                         Button { showReleaseNotes = true } label: {
                             HStack(spacing: 12) {
                                 zeilenIcon("app.badge", ArcaWarm.terrakotta)
-                                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.4.1")")
+                                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0")")
                                     .font(.system(size: 15, weight: .medium)).foregroundStyle(.primary)
                                 Spacer()
                                 Text("Aktuell")
@@ -771,6 +772,19 @@ struct SettingsView: View {
             .sheet(isPresented: $showReleaseNotes) {
                 NavigationStack {
                     List {
+                        Section {
+                            Label("Ganz neuer Startbildschirm mit persönlichem Profilbild, Bereichs-Wahlleiste und der glasigen „Arca virtual crown“ zum Blättern", systemImage: "sparkles")
+                            Label("Kreditkarten im Tresor: Vorder- und Rückseite fotografieren, umdrehen per Tipp, Apple-Pay-Merker – in der Liste als kleines Vorschaubild", systemImage: "creditcard.fill")
+                            Label("Tresor-Schubladen: Bankkarten, Passwörter und ein Top-Secret-Fach – geöffnet mit einer Gesichtskontrolle", systemImage: "lock.rectangle.stack.fill")
+                            Label("Digitales Erbe: Nachlass-Mappe mit Totmannschalter – gibt Abos, Konten und eine Nachricht im Ernstfall an eine Vertrauensperson frei", systemImage: "heart.text.square.fill")
+                            Label("Dokumente & Tresor im aufgeräumten Apple-Mail-Stil – schlichte Köpfe, eingerückte Glas-Kärtchen", systemImage: "list.bullet.rectangle.fill")
+                            Label("Einstellungen im Liquid-Glass-Look, logisch gruppiert", systemImage: "gearshape.fill")
+                            Label("Suche direkt in der unteren Leiste, aufgeräumter Kopf", systemImage: "magnifyingglass")
+                            Label("Keine doppelten Gruppennamen mehr – bestehende werden automatisch zusammengeführt", systemImage: "folder.fill.badge.gearshape")
+                        } header: {
+                            Text("Neu in Version 3.0")
+                        }
+
                         Section {
                             Label("iCloud: Datenverlust beim App-Update behoben – Downloads werden vollständig abgewartet", systemImage: "icloud.fill")
                             Label("Ladehinweis beim iCloud-Download und Sync-Status in den Einstellungen", systemImage: "icloud.and.arrow.down.fill")
