@@ -449,16 +449,17 @@ struct DocumentsView: View {
         // Ziehbar: in andere Gruppen oder auf den Schreibtisch
         .onDrag { NSItemProvider(object: doc.id.uuidString as NSString) }
         .foregroundStyle(.primary)
-        // Mail-Stil: eingerückter Block mit runden Ecken + Liquid Glass (wie die Tresor-Zeilen)
+        // Mail-Stil: eingerückter Block mit runden Ecken + Liquid Glass (wie die Passwort-Zeilen)
         .listRowBackground(
             Color.clear
                 .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.65)),
                              in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(.horizontal, 14)
+                .padding(.leading, indented ? 42 : 28)
+                .padding(.trailing, 14)
                 .padding(.vertical, 1.5)
         )
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 2, leading: indented ? 46 : 28, bottom: 2, trailing: 26))
+        .listRowInsets(EdgeInsets(top: 2, leading: indented ? 58 : 44, bottom: 2, trailing: 26))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 store.deleteDocument(doc)
@@ -774,10 +775,6 @@ struct DocumentsView: View {
 
                                     // Untergruppen-Header-Zeile
                                     HStack(spacing: 0) {
-                                        // Farbiger linker Streifen
-                                        Rectangle()
-                                            .fill(catColor.accent)
-                                            .frame(width: 3)
                                         Button {
                                             withAnimation(.easeInOut(duration: 0.22)) {
                                                 if isSubcollapsed { collapsedSubcategories.remove(subcatKey) }
@@ -794,15 +791,13 @@ struct DocumentsView: View {
                                                     .font(.system(size: 13, weight: .semibold))
                                                     .foregroundStyle(catColor.accent)
                                                 Text(subcat)
-                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .font(.system(size: 14, weight: .bold))
                                                     .foregroundStyle(.primary)
-                                                Spacer()
                                                 Text("\(subcatDocs.count)")
-                                                    .font(.caption.weight(.bold))
-                                                    .foregroundStyle(catColor.accent)
-                                                    .padding(.horizontal, 7)
-                                                    .padding(.vertical, 2)
-                                                    .background(catColor.bg.opacity(0.9), in: Capsule())
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundStyle(.secondary)
+                                                    .padding(.leading, 2)
+                                                Spacer()
                                             }
                                             .padding(.horizontal, 12)
                                             .contentShape(Rectangle())
@@ -819,10 +814,10 @@ struct DocumentsView: View {
                                             } label: { Label("Untergruppe löschen", systemImage: "trash") }
                                         }
                                     }
-                                    .padding(.vertical, 7)
-                                    .listRowBackground(catColor.bg.opacity(0.18))
+                                    .padding(.vertical, 6)
+                                    .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 0))
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 30, bottom: 2, trailing: 16))
 
                                     // Dokumente in dieser Untergruppe
                                     if !isSubcollapsed {
