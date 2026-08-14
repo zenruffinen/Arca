@@ -449,10 +449,15 @@ struct DocumentsView: View {
         // Ziehbar: in andere Gruppen oder auf den Schreibtisch
         .onDrag { NSItemProvider(object: doc.id.uuidString as NSString) }
         .foregroundStyle(.primary)
-        .listRowBackground(Color(.secondarySystemBackground))
-        .listRowSeparator(.visible)
-        .listRowSeparatorTint(Color.primary.opacity(0.06))
-        .listRowInsets(EdgeInsets(top: 0, leading: indented ? 36 : 16, bottom: 0, trailing: 12))
+        // Mail-Stil: eingerückter Block mit runden Ecken unter dem Gruppennamen
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 1.5)
+        )
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 2, leading: indented ? 46 : 28, bottom: 2, trailing: 26))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 store.deleteDocument(doc)

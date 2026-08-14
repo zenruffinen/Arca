@@ -85,10 +85,15 @@ struct VaultView: View {
         VaultRow(item: item, copiedItemID: $copiedItemID)
             .contentShape(Rectangle())
             .onTapGesture { selectedItem = item }
-            .listRowBackground(Color(.secondarySystemBackground))
-            .listRowSeparator(.visible)
-            .listRowSeparatorTint(Color.primary.opacity(0.06))
-            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
+            // Mail-Stil: eingerückter Block mit runden Ecken unter dem Gruppennamen
+            .listRowBackground(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 1.5)
+            )
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 28, bottom: 2, trailing: 26))
             .contextMenu {
                 if item.art != .karte {
                     ArcaMenue.favorit(ist: item.isFavorite) {
@@ -295,7 +300,14 @@ struct VaultView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .listRowBackground(Color(.secondarySystemBackground))
+                        .listRowBackground(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color(.secondarySystemBackground))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 1.5)
+                        )
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 2, leading: 28, bottom: 2, trailing: 26))
                     }
                 }
 
