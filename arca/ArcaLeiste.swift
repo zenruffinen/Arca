@@ -113,6 +113,9 @@ struct ArcaTabBar: View {
                         store.pendingQuickCapture = true
                     }
                     Menu {
+                        Button { store.zeigeQRScan = true } label: {
+                            Label("QR-Code scannen", systemImage: "qrcode.viewfinder")
+                        }
                         Button { store.zeigeNotfall = true } label: {
                             Label("Notfall", systemImage: "cross.case.fill")
                         }

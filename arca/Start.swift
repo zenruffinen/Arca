@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 import QuickLook
 import EventKit
 import LocalAuthentication
+import PhotosUI
 import ARCAKit
 
 /// Momentaufnahme der horizontalen Scroll-Position (für den Dreh-Regler).
@@ -102,7 +103,7 @@ func formatActivityDate(_ date: Date) -> String {
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @Binding var selectedSection: ArcaSection
-    @State private var showQRScanner = false
+    @State private var profilAuswahl: PhotosPickerItem? = nil
     @State private var showAlleFavoriten = false
     @State private var sichtbareDokKarte: String? = nil
     @State private var dokScrollPos = ScrollPosition()
@@ -1150,15 +1151,35 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Notfall")
 
-                // Erfassen läuft sonst komplett über den Plus unten
-                Button { showQRScanner = true } label: {
-                    ArcaIcon(name: "ArcaScan", groesse: 18)
-                        .foregroundStyle(.primary)
-                        .frame(width: 36, height: 36)
-                        .glassEffect(.regular, in: Circle())
+                // Persönlicher Kopf: Profilbild (antippen zum Wählen).
+                // QR-Scan liegt jetzt im „Mehr"-Menü unten.
+                PhotosPicker(selection: $profilAuswahl, matching: .images, photoLibrary: .shared()) {
+                    Group {
+                        if let data = store.profilBildData, let ui = UIImage(data: data) {
+                            Image(uiImage: ui).resizable().scaledToFill()
+                        } else {
+                            Image(systemName: "person.crop.circle.fill")
+                                .resizable().scaledToFit()
+                                .foregroundStyle(.secondary)
+                                .padding(2)
+                        }
+                    }
+                    .frame(width: 38, height: 38)
+                    .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("QR-Code scannen")
+                .accessibilityLabel("Profilbild wählen")
+                .onChange(of: profilAuswahl) { _, neu in
+                    guard let neu else { return }
+                    Task {
+                        if let data = try? await neu.loadTransferable(type: Data.self),
+                           let ui = UIImage(data: data) {
+                            store.profilBildData = ui.arcaKleinesQuadrat(240)
+                        }
+                    }
+                }
 
                 // Zahnrad: auf iPad/Mac ist die Seitenleiste oft zu —
                 // die Einstellungen bleiben trotzdem einen Tipp entfernt
@@ -1469,10 +1490,6 @@ struct HomeView: View {
                     .onChange(of: geo.size.width) { _, neu in seitenBreite = neu }
             }
         )
-        .sheet(isPresented: $showQRScanner) {
-            QRScannerSheet()
-                .environmentObject(store)
-        }
         .fullScreenCover(isPresented: $showSpiderGame) {
             SpiderGameView()
         }
@@ -2890,6 +2907,31 @@ struct FeatureRow: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+}
+
+// MARK: - Profilbild: klein & quadratisch (für den Kopf)
+
+extension UIImage {
+    /// Mittig quadratisch zuschneiden, auf `kante` px skalieren, als JPEG-Data.
+    func arcaKleinesQuadrat(_ kante: CGFloat = 240) -> Data? {
+        let minSeite = min(size.width, size.height)
+        let crop = CGRect(x: (size.width - minSeite) / 2,
+                          y: (size.height - minSeite) / 2,
+                          width: minSeite, height: minSeite)
+        let quelle: UIImage
+        if let cg = cgImage?.cropping(to: CGRect(x: crop.origin.x * scale, y: crop.origin.y * scale,
+                                                 width: crop.width * scale, height: crop.height * scale)) {
+            quelle = UIImage(cgImage: cg, scale: scale, orientation: imageOrientation)
+        } else {
+            quelle = self
+        }
+        let ziel = CGSize(width: kante, height: kante)
+        let renderer = UIGraphicsImageRenderer(size: ziel)
+        let skaliert = renderer.image { _ in
+            quelle.draw(in: CGRect(origin: .zero, size: ziel))
+        }
+        return skaliert.jpegData(compressionQuality: 0.85)
     }
 }
 

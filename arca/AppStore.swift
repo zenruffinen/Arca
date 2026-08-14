@@ -304,6 +304,16 @@ final class AppStore: ObservableObject {
     @Published var zeigeNotfall: Bool = false
     /// Aufräumen/Sortieren-Fenster anzeigen (aus dem Unsortiert-Korb der Leiste)
     @Published var zeigeAufraeumen: Bool = false
+    /// QR-Code-Scanner anzeigen (aus dem Mehr-Menü der Leiste)
+    @Published var zeigeQRScan: Bool = false
+    /// Persönliches Profilbild (lokal, klein). Macht den Kopf persönlicher.
+    @Published var profilBildData: Data? = nil {
+        didSet {
+            guard !isLoadingData else { return }
+            if let d = profilBildData { UserDefaults.standard.set(d, forKey: "profilBild") }
+            else { UserDefaults.standard.removeObject(forKey: "profilBild") }
+        }
+    }
     /// Die Ideen-Pinnwand rechts eingeblendet?
     @Published var zeigeIdeenPinnwand: Bool = false
     /// Pinnwand formatfüllend (Vollbild) statt rechts angedockt?
@@ -2133,6 +2143,7 @@ final class AppStore: ObservableObject {
         if let decoded = loadJSON([ErbeEintrag].self, key: "erbeEintraege") {
             erbeEintraege = decoded
         }
+        profilBildData = UserDefaults.standard.data(forKey: "profilBild")
         erbeVertrauensperson = UserDefaults.standard.string(forKey: "erbeVertrauensperson") ?? ""
         if let f = UserDefaults.standard.string(forKey: "erbeFrage"), !f.isEmpty { erbeFrage = f }
         if UserDefaults.standard.object(forKey: "erbeFristTage") != nil {
