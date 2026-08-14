@@ -568,8 +568,10 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .padding(.vertical, 7)
                     .scrollTargetLayout()
                 }
+                .frame(height: 116)   // feste Höhe: Platz für die vergrößerte Kachel, Layout bleibt stabil
                 .contentMargins(.horizontal, 20, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
@@ -644,6 +646,9 @@ struct HomeView: View {
                 }
             }
         }
+        // Gruppen + Crown als fester Block, etwas nach unten (≈3 mm) —
+        // so sitzt die Home-Seite immer gleich.
+        .padding(.top, 11)
     }
 
     // Glasiger 3D-Pfeil neben der virtual crown (‹ / ›)
