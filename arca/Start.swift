@@ -526,10 +526,10 @@ struct HomeView: View {
                                 anzahl: gruppe.anzahl)
                             .id(gruppe.name)
                             // Der per Rad angewählte Ordner wird etwas größer (mittlere Karte)
-                            .scaleEffect(gruppe.name == aktiverName ? 1.14 : 1.0)
+                            .scaleEffect(gruppe.name == aktiverName ? 1.06 : 1.0)
                             .shadow(color: gruppe.name == aktiverName
-                                    ? categoryColor(gruppe.name, overrides: store.categoryColors).accent.opacity(0.25)
-                                    : .clear, radius: 6, y: 3)
+                                    ? categoryColor(gruppe.name, overrides: store.categoryColors).accent.opacity(0.22)
+                                    : .clear, radius: 4, y: 2)
                             .zIndex(gruppe.name == aktiverName ? 1 : 0)
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: aktiverName)
                             .contentShape(RoundedRectangle(cornerRadius: 15))
@@ -571,7 +571,7 @@ struct HomeView: View {
                     .padding(.vertical, 4)
                     .scrollTargetLayout()
                 }
-                .frame(height: 104)   // feste Höhe: Platz für die vergrößerte Kachel, Layout bleibt stabil
+                .frame(height: 102)   // feste Höhe: Platz für die vergrößerte Kachel, kein Beschnitt oben
                 .contentMargins(.horizontal, 20, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
