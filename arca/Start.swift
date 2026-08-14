@@ -112,6 +112,7 @@ struct HomeView: View {
     @State private var homeBankkartenAuf = false
     @State private var homePasswoerterAuf = false
     @State private var homeTopSecretAuf = false
+    @State private var zeigeErbe = false
     /// Einmal im Tresor angemeldet → Bankkarten & Passwörter bleiben für die
     /// Sitzung entsperrt. Nur Top Secret verlangt eine eigene Gesichtskontrolle.
     @State private var tresorEntsperrt = false
@@ -714,6 +715,8 @@ struct HomeView: View {
     private var passHell: Color     { Color(red: 0.55, green: 0.88, blue: 0.82) }
     private var topSecretDunkel: Color { Color(red: 0.10, green: 0.07, blue: 0.14) }
     private var topSecretHell: Color   { Color(red: 0.80, green: 0.74, blue: 0.92) }
+    private var erbeDunkel: Color { Color(red: 0.14, green: 0.10, blue: 0.05) }
+    private var erbeHell: Color   { Color(red: 0.92, green: 0.80, blue: 0.52) }
 
     /// Face ID / Gerätecode, dann `dann()` (zum Aufklappen einer geschützten Gruppe).
     private func mitGesichtskontrolle(_ grund: String, _ dann: @escaping () -> Void) {
@@ -868,8 +871,23 @@ struct HomeView: View {
                 .padding(.leading, ARCASpacing.drawerIndent)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            // Digitales Erbe — Face ID, öffnet die Nachlass-Mappe (Totmannschalter)
+            Button {
+                mitGesichtskontrolle("Digitales Erbe öffnen") {
+                    store.erbeAktivitaetBestaetigen()
+                    zeigeErbe = true
+                }
+            } label: {
+                gruppenBalken(icon: "ArcaLock", titel: "Digitales Erbe",
+                              dunkel: erbeDunkel, hell: erbeHell,
+                              anzahl: store.erbeEintraege.count, auf: false, gesperrt: true)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
+        .sheet(isPresented: $zeigeErbe) {
+            ErbeView().environmentObject(store)
+        }
     }
 
     @ViewBuilder private func streamZeile(_ item: FavoriteItem) -> some View {

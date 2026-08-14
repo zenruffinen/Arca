@@ -88,6 +88,83 @@ final class AppStore: ObservableObject {
             saveVault()
         }
     }
+
+    // MARK: - Digitales Erbe (Nachlass-Mappe mit Totmannschalter)
+    /// Die Inhalte der Nachlass-Mappe (Abos, Konten, Hinweise, Nachrichten).
+    @Published var erbeEintraege: [ErbeEintrag] = [] {
+        didSet { guard !isLoadingData else { return }; saveJSON(erbeEintraege, key: "erbeEintraege") }
+    }
+    /// Name der Vertrauensperson, die im Ernstfall zugreifen darf.
+    @Published var erbeVertrauensperson: String = "" {
+        didSet { guard !isLoadingData else { return }; UserDefaults.standard.set(erbeVertrauensperson, forKey: "erbeVertrauensperson") }
+    }
+    /// Frei wählbare Freigabe-Frage (Standard: Geburtsort).
+    @Published var erbeFrage: String = "Geburtsort" {
+        didSet { guard !isLoadingData else { return }; UserDefaults.standard.set(erbeFrage, forKey: "erbeFrage") }
+    }
+    /// Nach wie vielen Tagen ohne Lebenszeichen der Schalter auslöst.
+    @Published var erbeFristTage: Int = 90 {
+        didSet { guard !isLoadingData else { return }; UserDefaults.standard.set(erbeFristTage, forKey: "erbeFristTage") }
+    }
+    /// Totmannschalter scharf?
+    @Published var erbeAktiv: Bool = false {
+        didSet { guard !isLoadingData else { return }; UserDefaults.standard.set(erbeAktiv, forKey: "erbeAktiv") }
+    }
+    /// Letztes Lebenszeichen (erfolgreiches Entsperren durch den Besitzer).
+    @Published var erbeLetzteAktivitaet: Date = Date() {
+        didSet { guard !isLoadingData else { return }; UserDefaults.standard.set(erbeLetzteAktivitaet, forKey: "erbeLetzteAktivitaet") }
+    }
+
+    /// Die Freigabe-Antwort liegt nur als Hash im iCloud-Keychain — nie im Klartext.
+    private static let erbeAntwortKey = "arca_erbe_antwort_hash"
+
+    private func erbeHash(_ s: String) -> String {
+        let norm = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+        let digest = SHA256.hash(data: Data(norm.utf8))
+        return digest.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Ist eine Freigabe-Antwort hinterlegt?
+    var erbeHatAntwort: Bool {
+        KeychainManager.shared.load(key: Self.erbeAntwortKey, synchronizable: true) != nil
+    }
+    /// Antwort setzen (nur der Hash wird gespeichert).
+    func erbeAntwortSetzen(_ antwort: String) {
+        let t = antwort.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        KeychainManager.shared.save(key: Self.erbeAntwortKey, value: erbeHash(t), synchronizable: true)
+        objectWillChange.send()
+    }
+    func erbeAntwortLoeschen() {
+        KeychainManager.shared.delete(key: Self.erbeAntwortKey)
+        objectWillChange.send()
+    }
+    /// Prüft die vom Angehörigen eingegebene Antwort.
+    func erbePruefeAntwort(_ antwort: String) -> Bool {
+        guard let gespeichert = KeychainManager.shared.load(key: Self.erbeAntwortKey, synchronizable: true)
+        else { return false }
+        return erbeHash(antwort) == gespeichert
+    }
+    /// Lebenszeichen setzen — verschiebt den Auslöse-Zeitpunkt nach hinten.
+    func erbeAktivitaetBestaetigen() {
+        erbeLetzteAktivitaet = Date()
+    }
+    /// Tage seit dem letzten Lebenszeichen.
+    var erbeTageInaktiv: Int {
+        max(0, Int(Date().timeIntervalSince(erbeLetzteAktivitaet) / 86400))
+    }
+    /// Verbleibende Tage bis zur Freigabe (0 = ausgelöst).
+    var erbeTageBisFreigabe: Int {
+        max(0, erbeFristTage - erbeTageInaktiv)
+    }
+    /// Totmannschalter ausgelöst? Scharf + Antwort hinterlegt + Frist überschritten.
+    var erbeAusgeloest: Bool {
+        erbeAktiv && erbeHatAntwort && erbeTageInaktiv >= erbeFristTage
+    }
+    func addErbeEintrag(_ e: ErbeEintrag) { erbeEintraege.append(e) }
+    func loescheErbeEintrag(_ id: UUID) { erbeEintraege.removeAll { $0.id == id } }
     @Published var documents: [DocumentEntry] = [] {
         didSet {
             guard !isLoadingData, !stempeltGerade else { return }
@@ -1991,6 +2068,19 @@ final class AppStore: ObservableObject {
         if let decoded = loadJSON([NoteEntry].self, key: "notes") {
             notes = loeseKonflikte(
                 fusioniereUndMerke(notes, decoded, schluessel: "notes"), key: "notes")
+        }
+        // Digitales Erbe
+        if let decoded = loadJSON([ErbeEintrag].self, key: "erbeEintraege") {
+            erbeEintraege = decoded
+        }
+        erbeVertrauensperson = UserDefaults.standard.string(forKey: "erbeVertrauensperson") ?? ""
+        if let f = UserDefaults.standard.string(forKey: "erbeFrage"), !f.isEmpty { erbeFrage = f }
+        if UserDefaults.standard.object(forKey: "erbeFristTage") != nil {
+            erbeFristTage = UserDefaults.standard.integer(forKey: "erbeFristTage")
+        }
+        erbeAktiv = UserDefaults.standard.bool(forKey: "erbeAktiv")
+        if let d = UserDefaults.standard.object(forKey: "erbeLetzteAktivitaet") as? Date {
+            erbeLetzteAktivitaet = d
         }
         if let decoded = loadJSON([ListEntry].self, key: "lists") {
             lists = loeseKonflikte(

@@ -91,8 +91,10 @@ struct ArcaSwoosh: Shape {
 // MARK: - LockView (Einstiegspunkt)
 
 struct LockView: View {
+    @EnvironmentObject var store: AppStore
     @Binding var isUnlocked: Bool
     @State private var showNotfall = false
+    @State private var showErbe = false
 
     private var hasPIN: Bool {
         KeychainManager.shared.load(key: "arca_pin_hash") != nil
@@ -115,21 +117,41 @@ struct LockView: View {
         // Notfall geht vor: Notrufnummern auch ohne Entsperren erreichbar
         // (nur öffentliche Nummern — die eigenen Hotlines bleiben verschlossen)
         .overlay(alignment: .bottom) {
-            Button {
-                showNotfall = true
-            } label: {
-                Label("Notfall", systemImage: "cross.case.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.red)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
+            HStack(spacing: 12) {
+                Button {
+                    showNotfall = true
+                } label: {
+                    Label("Notfall", systemImage: "cross.case.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+                .buttonStyle(.plain)
+
+                // Angehörigen-Zugang zum Digitalen Erbe — nur wenn eingerichtet
+                if store.erbeAktiv {
+                    Button {
+                        showErbe = true
+                    } label: {
+                        Label("Digitales Erbe", systemImage: "heart.text.square.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
             .padding(.bottom, 40)
         }
         .sheet(isPresented: $showNotfall) {
             NotfallView(karten: [], nurOeffentlich: true)
+        }
+        .sheet(isPresented: $showErbe) {
+            ErbeUnlockView().environmentObject(store)
         }
     }
 }

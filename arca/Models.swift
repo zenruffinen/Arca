@@ -357,3 +357,54 @@ struct FavoriteItem: Identifiable, Hashable {
     let pinned: Bool
     let date: Date
 }
+
+// MARK: - Digitales Erbe (Nachlass-Mappe)
+
+/// Ein Eintrag in der Nachlass-Mappe — Abo, Konto/Login-Hinweis, wo ein
+/// Dokument liegt, eine persönliche Nachricht. Bewusst schlichter Freitext,
+/// damit Angehörige alles an einem Ort finden.
+struct ErbeEintrag: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var titel: String = ""
+    var inhalt: String = ""
+    var kategorie: ErbeKategorie = .sonstiges
+    var dateCreated: Date = Date()
+
+    // Rückwärtskompatibel dekodieren (Codable-Hausregel)
+    init(id: UUID = UUID(), titel: String = "", inhalt: String = "",
+         kategorie: ErbeKategorie = .sonstiges, dateCreated: Date = Date()) {
+        self.id = id; self.titel = titel; self.inhalt = inhalt
+        self.kategorie = kategorie; self.dateCreated = dateCreated
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        titel = try c.decodeIfPresent(String.self, forKey: .titel) ?? ""
+        inhalt = try c.decodeIfPresent(String.self, forKey: .inhalt) ?? ""
+        kategorie = try c.decodeIfPresent(ErbeKategorie.self, forKey: .kategorie) ?? .sonstiges
+        dateCreated = try c.decodeIfPresent(Date.self, forKey: .dateCreated) ?? Date()
+    }
+}
+
+enum ErbeKategorie: String, Codable, CaseIterable, Identifiable {
+    case abo, konto, dokument, nachricht, sonstiges
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .abo:       return "Abo / Vertrag"
+        case .konto:     return "Konto / Login"
+        case .dokument:  return "Wichtiges Dokument"
+        case .nachricht: return "Persönliche Nachricht"
+        case .sonstiges: return "Sonstiges"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .abo:       return "arrow.triangle.2.circlepath"
+        case .konto:     return "person.badge.key.fill"
+        case .dokument:  return "doc.text.fill"
+        case .nachricht: return "heart.text.square.fill"
+        case .sonstiges: return "tray.full.fill"
+        }
+    }
+}

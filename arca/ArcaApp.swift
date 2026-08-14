@@ -40,6 +40,7 @@ struct ArcaApp: App {
                 // LockView als Overlay (verdeckt ContentView, zerstört es aber nicht)
                 if !isUnlocked {
                     LockView(isUnlocked: $isUnlocked)
+                        .environmentObject(store)
                         .onOpenURL { url in
                             handleURL(url)
                         }
@@ -63,6 +64,10 @@ struct ArcaApp: App {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: isUnlocked)
+            // Jedes erfolgreiche Entsperren ist ein Lebenszeichen für den Totmannschalter
+            .onChange(of: isUnlocked) { _, entsperrt in
+                if entsperrt { store.erbeAktivitaetBestaetigen() }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .arcaBlitzidee)) { _ in
                 store.pendingQuickCapture = true
             }
