@@ -304,8 +304,6 @@ final class AppStore: ObservableObject {
     @Published var zeigeNotfall: Bool = false
     /// Aufräumen/Sortieren-Fenster anzeigen (aus dem Unsortiert-Korb der Leiste)
     @Published var zeigeAufraeumen: Bool = false
-    /// QR-Code-Scanner anzeigen (aus dem Mehr-Menü der Leiste)
-    @Published var zeigeQRScan: Bool = false
     /// Persönliches Profilbild (lokal, klein). Macht den Kopf persönlicher.
     @Published var profilBildData: Data? = nil {
         didSet {

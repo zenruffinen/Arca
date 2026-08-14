@@ -90,10 +90,6 @@ struct ContentView: View {
         .sheet(isPresented: $store.zeigeNotfall) {
             NotfallView(karten: store.vaultItems.filter { !$0.sperrHotline.isEmpty })
         }
-        // QR-Scan global (aus dem „Mehr"-Menü der Leiste)
-        .sheet(isPresented: $store.zeigeQRScan) {
-            QRScannerSheet().environmentObject(store)
-        }
         // Die Ideen-Pinnwand: rechts angedockt, links bleibt der Space sichtbar
         .overlay {
             if store.zeigeIdeenPinnwand {
