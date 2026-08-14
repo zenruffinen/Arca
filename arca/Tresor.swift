@@ -74,7 +74,7 @@ struct VaultView: View {
                 .foregroundStyle(tint)
                 .frame(width: 22)
             Text(titel)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(.primary)
             Spacer(minLength: 0)
         }
@@ -85,10 +85,11 @@ struct VaultView: View {
         VaultRow(item: item, copiedItemID: $copiedItemID)
             .contentShape(Rectangle())
             .onTapGesture { selectedItem = item }
-            // Mail-Stil: eingerückter Block mit runden Ecken unter dem Gruppennamen
+            // Mail-Stil: eingerückter Block mit runden Ecken + Liquid Glass
             .listRowBackground(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
+                Color.clear
+                    .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.65)),
+                                 in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 1.5)
             )
@@ -301,8 +302,9 @@ struct VaultView: View {
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color(.secondarySystemBackground))
+                            Color.clear
+                                .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.65)),
+                                             in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 1.5)
                         )

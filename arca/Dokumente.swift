@@ -449,10 +449,11 @@ struct DocumentsView: View {
         // Ziehbar: in andere Gruppen oder auf den Schreibtisch
         .onDrag { NSItemProvider(object: doc.id.uuidString as NSString) }
         .foregroundStyle(.primary)
-        // Mail-Stil: eingerückter Block mit runden Ecken unter dem Gruppennamen
+        // Mail-Stil: eingerückter Block mit runden Ecken + Liquid Glass (wie die Tresor-Zeilen)
         .listRowBackground(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+            Color.clear
+                .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.65)),
+                             in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 1.5)
         )
@@ -637,7 +638,7 @@ struct DocumentsView: View {
                                             .foregroundStyle(catColor.accent)
                                             .frame(width: 22)
                                         Text(category)
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .font(.system(size: 15, weight: .bold))
                                             .foregroundStyle(.primary)
                                         if store.isInHomeFolderQuickView(category) {
                                             Image(systemName: "house.fill")
