@@ -33,6 +33,7 @@ struct QuickCaptureSheet: View {
     @State private var erkanntesZiel: ErfassungsZiel = .notiz
     @State private var wartetAufZiel = false
     @State private var zielTimer: Timer? = nil
+    @State private var sonarPuls = false
 
     var body: some View {
         NavigationStack {
@@ -59,23 +60,46 @@ struct QuickCaptureSheet: View {
                         .padding(.vertical, 12)
                     }
                     .frame(maxHeight: 180)
-                    .background(Color(.secondarySystemBackground))
-                    Divider()
+                    .background(.ultraThinMaterial)
+                    Divider().opacity(0.4)
                 }
 
                 Spacer()
 
-                // Mic-Button
+                // Mic-Orb — Glas mit Glühen, Sonar-Ringe beim Aufnehmen
                 ZStack {
-                    Circle()
-                        .fill(speech.isRecording ? blitzOrange.opacity(0.12) : Color.secondary.opacity(0.07))
-                        .frame(width: 130, height: 130)
-                        .scaleEffect(speech.isRecording ? 1.08 : 1.0)
-                        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: speech.isRecording)
+                    if speech.isRecording {
+                        ForEach(0..<2, id: \.self) { i in
+                            Circle()
+                                .stroke(blitzOrange.opacity(0.35), lineWidth: 2)
+                                .frame(width: 138, height: 138)
+                                .scaleEffect(sonarPuls ? 1.7 : 0.9)
+                                .opacity(sonarPuls ? 0 : 0.6)
+                                .animation(.easeOut(duration: 2.0).repeatForever(autoreverses: false)
+                                    .delay(Double(i) * 1.0), value: sonarPuls)
+                        }
+                    }
+                    Color.clear
+                        .frame(width: 138, height: 138)
+                        .glassEffect(.regular.tint(blitzOrange.opacity(speech.isRecording ? 0.38 : 0.14)).interactive(),
+                                     in: Circle())
+                        .overlay(
+                            Circle()
+                                .fill(LinearGradient(colors: [.white.opacity(0.4), .white.opacity(0.05), .clear],
+                                                     startPoint: .topLeading, endPoint: .center))
+                                .allowsHitTesting(false)
+                        )
+                        .overlay(Circle().strokeBorder(
+                            LinearGradient(colors: [.white.opacity(0.7), blitzOrange.opacity(0.35), .white.opacity(0.2)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1))
+                        .shadow(color: blitzOrange.opacity(speech.isRecording ? 0.5 : 0.22),
+                                radius: speech.isRecording ? 22 : 9, y: 3)
+                        .scaleEffect(speech.isRecording ? 1.06 : 1.0)
+                        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: speech.isRecording)
 
                     Image(systemName: speech.isRecording ? "waveform" : "mic.fill")
-                        .font(.system(size: 54, weight: .medium))
-                        .foregroundStyle(speech.isRecording ? blitzOrange : .secondary)
+                        .font(.system(size: 50, weight: .medium))
+                        .foregroundStyle(speech.isRecording ? blitzOrange : ArcaWarm.terrakotta)
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .onTapGesture {
@@ -121,8 +145,8 @@ struct QuickCaptureSheet: View {
                         .font(.body)
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(blitzOrange.opacity(0.07))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .glassEffect(.regular.tint(blitzOrange.opacity(0.14)),
+                                     in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .padding(.horizontal)
                         .padding(.bottom, 8)
                 }
@@ -160,7 +184,9 @@ struct QuickCaptureSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 14)
             }
+            .background(ArcaWarm.hintergrund.ignoresSafeArea())
             .onAppear {
+                sonarPuls = true
                 // „Halten = Diktat": Aufnahme startet sofort
                 if autoRecord && !speech.isRecording { beginRecording() }
             }
