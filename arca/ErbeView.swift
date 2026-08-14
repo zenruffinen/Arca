@@ -323,14 +323,33 @@ struct ErbeUnlockView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 48))
+                .font(.system(size: 44))
                 .foregroundStyle(.secondary)
             Text("Dieses Fach ist verschlossen")
                 .font(.title3.bold())
-            Text("Das Digitale Erbe öffnet sich erst, wenn Arca über einen längeren Zeitraum nicht benutzt wurde. Bis dahin bleibt es privat.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            if store.erbeAktiv {
+                VStack(spacing: 6) {
+                    Text("\(store.erbeTageBisFreigabe)")
+                        .font(.system(size: 68, weight: .bold, design: .rounded))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .contentTransition(.numericText())
+                    Text(store.erbeTageBisFreigabe == 1 ? "Tag bis zur Freigabe" : "Tage bis zur Freigabe")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text("Zuletzt vor \(store.erbeTageInaktiv) Tag\(store.erbeTageInaktiv == 1 ? "" : "en") benutzt · Frist \(store.erbeFristTage) Tage")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text("Das Digitale Erbe öffnet sich erst, wenn Arca so lange nicht benutzt wurde. Bis dahin bleibt es privat.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Das Digitale Erbe ist noch nicht eingerichtet.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
             Spacer()
         }
         .padding(24)

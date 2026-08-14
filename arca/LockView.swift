@@ -130,20 +130,18 @@ struct LockView: View {
                 }
                 .buttonStyle(.plain)
 
-                // Angehörigen-Zugang zum Digitalen Erbe — nur wenn eingerichtet
-                if store.erbeAktiv {
-                    Button {
-                        showErbe = true
-                    } label: {
-                        Label("Digitales Erbe", systemImage: "heart.text.square.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(ArcaWarm.terrakotta)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
+                // Angehörigen-Zugang zum Digitalen Erbe — immer sichtbar
+                Button {
+                    showErbe = true
+                } label: {
+                    Label("Digitales Erbe", systemImage: "heart.text.square.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
                 }
+                .buttonStyle(.plain)
             }
             .padding(.bottom, 40)
         }
