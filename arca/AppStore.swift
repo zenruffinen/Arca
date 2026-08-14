@@ -933,6 +933,7 @@ final class AppStore: ObservableObject {
         isLoadingData = true
         load()
         isLoadingData = false
+        entferneDoppelteKategorien()   // bestehende Doppelnamen einmalig zusammenführen
         ladeZuletztGeoeffnet()
         speichereNachfusion()
         persistFreshInstallDefaults()
@@ -1044,6 +1045,7 @@ final class AppStore: ObservableObject {
         isLoadingData = true
         load()
         isLoadingData = false
+        entferneDoppelteKategorien()
         speichereNachfusion()
         downloadAllCloudFiles()
         updateCloudSyncState()
@@ -1823,9 +1825,67 @@ final class AppStore: ObservableObject {
         documents.append(entry)
     }
 
+    /// Existierende Kategorie, die diesem Namen entspricht (case-insensitiv, getrimmt).
+    func vorhandeneKategorie(_ name: String) -> String? {
+        let key = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return documentCategories.first {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == key
+        }
+    }
+
+    /// Führt eine Gruppe in eine andere zusammen (Dokumente, Untergruppen,
+    /// Farbe, Icon, Schnellansicht) und entfernt die Quelle — nie Duplikate.
+    func mergeKategorie(_ quelle: String, in ziel: String) {
+        guard quelle != ziel else { return }
+        documents = documents.map { d in
+            var x = d; if x.category == quelle { x.category = ziel }; return x
+        }
+        if let subs = documentSubcategories[quelle] {
+            var zielSubs = documentSubcategories[ziel] ?? []
+            for s in subs where !zielSubs.contains(s) { zielSubs.append(s) }
+            documentSubcategories[ziel] = zielSubs
+            documentSubcategories.removeValue(forKey: quelle)
+        }
+        documentCategories.removeAll { $0 == quelle }
+        if categoryColors[ziel] == nil, let f = categoryColors[quelle] { categoryColors[ziel] = f }
+        categoryColors.removeValue(forKey: quelle)
+        if categoryIcons[ziel] == nil, let s = categoryIcons[quelle] { categoryIcons[ziel] = s }
+        categoryIcons.removeValue(forKey: quelle)
+        homeFolderQuickView.removeAll { $0 == quelle }
+    }
+
+    /// Räumt bestehende Doppelnamen auf: unterschiedliche Schreibweisen
+    /// werden zusammengeführt, exakte Wiederholungen aus der Liste entfernt.
+    func entferneDoppelteKategorien() {
+        // Kanonischen Namen je (getrimmt, kleingeschrieben) merken — erster gewinnt
+        var kanonischFuer: [String: String] = [:]
+        for cat in documentCategories {
+            let key = cat.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if kanonischFuer[key] == nil { kanonischFuer[key] = cat }
+        }
+        // Abweichende Schreibweisen in den kanonischen Namen zusammenführen
+        let zusammen: [(String, String)] = documentCategories.compactMap { cat in
+            let key = cat.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let kanonisch = kanonischFuer[key], kanonisch != cat { return (cat, kanonisch) }
+            return nil
+        }
+        for (quelle, ziel) in zusammen { mergeKategorie(quelle, in: ziel) }
+        // Exakte Wiederholungen aus der Liste entfernen (Reihenfolge wahren)
+        var gesehen = Set<String>()
+        let entdoppelt = documentCategories.filter { gesehen.insert($0).inserted }
+        if entdoppelt.count != documentCategories.count {
+            documentCategories = entdoppelt
+        }
+    }
+
     func renameCategory(from old: String, to new: String) {
         let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != old else { return }
+        // Keine zwei Gruppen mit gleichem Namen: existiert das Ziel schon → zusammenführen
+        if let ziel = vorhandeneKategorie(trimmed), ziel != old {
+            mergeKategorie(old, in: ziel)
+            return
+        }
         if let idx = documentCategories.firstIndex(of: old) {
             documentCategories[idx] = trimmed
         }

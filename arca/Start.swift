@@ -1658,13 +1658,15 @@ struct HomeView: View {
             Button("Erstellen") {
                 let name = neueGruppeName.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !name.isEmpty {
-                    if !store.documentCategories.contains(name) {
+                    // Keine Duplikate: existiert der Name schon, wird er wiederverwendet
+                    let ziel = store.vorhandeneKategorie(name) ?? name
+                    if store.vorhandeneKategorie(name) == nil {
                         store.documentCategories.append(name)
                     }
                     if let doc = docFuerNeueGruppe {
-                        verschiebeDokument(doc, nach: name)
+                        verschiebeDokument(doc, nach: ziel)
                     }
-                    withAnimation { _ = expandedFolders.insert(name) }
+                    withAnimation { _ = expandedFolders.insert(ziel) }
                 }
                 docFuerNeueGruppe = nil
             }

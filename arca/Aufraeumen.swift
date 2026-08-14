@@ -113,11 +113,12 @@ struct AufraeumModus: View {
                 Button("Anlegen und einsortieren") {
                     let name = neueGruppeName.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !name.isEmpty else { return }
-                    if !store.documentCategories.contains(name) {
+                    let ziel = store.vorhandeneKategorie(name) ?? name
+                    if store.vorhandeneKategorie(name) == nil {
                         store.documentCategories.append(name)
                     }
                     if let doc = aktuellesDok {
-                        sortiere(doc, nach: name)
+                        sortiere(doc, nach: ziel)
                     }
                 }
                 Button("Abbrechen", role: .cancel) {}

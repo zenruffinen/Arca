@@ -369,7 +369,7 @@ struct DocumentCategoryManagerView: View {
                 TextField("Name", text: $newCategoryName)
                 Button("Hinzufügen") {
                     let trimmed = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty && !store.documentCategories.contains(trimmed) {
+                    if !trimmed.isEmpty && store.vorhandeneKategorie(trimmed) == nil {
                         store.documentCategories.append(trimmed)
                     }
                     newCategoryName = ""
