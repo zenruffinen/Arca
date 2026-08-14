@@ -512,6 +512,10 @@ struct HomeView: View {
                 // (der Balken hier war doppelt — bewusst entfernt 14.08.).
 
                 // Eine Reihe, läuft nach rechts durch (kein Titel — der Chip sagt schon „Dokumente")
+                let namenFuerAuswahl = dokumentGruppen.map { $0.name }
+                let aktivIndex = namenFuerAuswahl.isEmpty ? 0
+                    : min(max(Int((dokFrac * Double(max(namenFuerAuswahl.count - 1, 1))).rounded()), 0), namenFuerAuswahl.count - 1)
+                let aktiverName = namenFuerAuswahl.indices.contains(aktivIndex) ? namenFuerAuswahl[aktivIndex] : ""
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
@@ -521,6 +525,13 @@ struct HomeView: View {
                                 farben: categoryColor(gruppe.name, overrides: store.categoryColors),
                                 anzahl: gruppe.anzahl)
                             .id(gruppe.name)
+                            // Der per Rad angewählte Ordner wird etwas größer (mittlere Karte)
+                            .scaleEffect(gruppe.name == aktiverName ? 1.14 : 1.0)
+                            .shadow(color: gruppe.name == aktiverName
+                                    ? categoryColor(gruppe.name, overrides: store.categoryColors).accent.opacity(0.25)
+                                    : .clear, radius: 6, y: 3)
+                            .zIndex(gruppe.name == aktiverName ? 1 : 0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: aktiverName)
                             .contentShape(RoundedRectangle(cornerRadius: 15))
                             .onTapGesture { openDocuments(category: gruppe.name) }
                             .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
@@ -586,9 +597,37 @@ struct HomeView: View {
                     .padding(.top, 0)
 
                     VStack(spacing: 3) {
-                        ArcaDrehregler(breite: 210, hoehe: 38, tint: radFarbe,
-                                       fraction: dokFrac, anzahl: namen.count) { neueFrac in
-                            dokScrollPos.scrollTo(x: CGFloat(neueFrac) * dokMaxX)
+                        HStack(spacing: 10) {
+                            // ‹ eine Kategorie zurück
+                            Button {
+                                let ziel = max(idx - 1, 0)
+                                let frac = namen.count > 1 ? Double(ziel) / Double(namen.count - 1) : 0
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    dokScrollPos.scrollTo(x: CGFloat(frac) * dokMaxX)
+                                }
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            } label: { kronePfeil("chevron.left", radFarbe) }
+                            .buttonStyle(.plain)
+                            .disabled(idx == 0)
+                            .opacity(idx == 0 ? 0.35 : 1)
+
+                            ArcaDrehregler(breite: 168, hoehe: 40, tint: radFarbe,
+                                           fraction: dokFrac, anzahl: namen.count) { neueFrac in
+                                dokScrollPos.scrollTo(x: CGFloat(neueFrac) * dokMaxX)
+                            }
+
+                            // › eine Kategorie vor
+                            Button {
+                                let ziel = min(idx + 1, namen.count - 1)
+                                let frac = namen.count > 1 ? Double(ziel) / Double(namen.count - 1) : 0
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    dokScrollPos.scrollTo(x: CGFloat(frac) * dokMaxX)
+                                }
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            } label: { kronePfeil("chevron.right", radFarbe) }
+                            .buttonStyle(.plain)
+                            .disabled(idx == namen.count - 1)
+                            .opacity(idx == namen.count - 1 ? 0.35 : 1)
                         }
                         HStack(spacing: 4) {
                             Text("Arca virtual crown")
@@ -605,6 +644,22 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    // Glasiger 3D-Pfeil neben der virtual crown (‹ / ›)
+    private func kronePfeil(_ symbol: String, _ farbe: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(farbe)
+            .frame(width: 36, height: 36)
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(
+                Circle().stroke(
+                    LinearGradient(colors: [.white.opacity(0.75), .white.opacity(0.1)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.14), radius: 3, x: 0, y: 2)
     }
 
     private func favSymbol(_ kind: FavoriteKind) -> String {
@@ -1325,64 +1380,52 @@ struct HomeView: View {
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
                     VStack(alignment: .leading, spacing: 10) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 6) {
-                                // Reihenfolge ist frei sortierbar: Blase gedrückt
-                                // halten und an die Wunschposition ziehen
-                                ForEach(store.bereichsOrdnung, id: \.self) { filter in
-                                    Group {
-                                        // Schicke Liquid-Glass-Blasen (iOS 26/27): gewählt = in ihrer
-                                        // Bereichsfarbe getöntes Glas, die übrigen als klares Glas
-                                        let blasenFarbe: Color = switch filter {
-                                        case .dokumente:   NoteColor.for_(5).accent
-                                        case .notizen:     ArcaWarm.ideenGelb
-                                        case .tasks:       NoteColor.for_(3).accent
-                                        case .passwoerter: NoteColor.for_(2).accent
-                                        }
-                                        if streamFilter == filter {
-                                            Text(filter.label)
-                                                .font(.system(size: 13, weight: .semibold))
-                                                .foregroundStyle(.white)
-                                                .padding(.horizontal, 15)
-                                                .padding(.vertical, 8)
-                                                .glassEffect(.regular.tint(blasenFarbe.opacity(0.82)).interactive(), in: Capsule())
-                                                .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.6))
-                                                .shadow(color: blasenFarbe.opacity(0.3), radius: 5, x: 0, y: 2)
-                                        } else {
-                                            Text(filter.label)
-                                                .font(.system(size: 13, weight: .medium))
-                                                .foregroundStyle(blasenFarbe.opacity(0.9))
-                                                .padding(.horizontal, 15)
-                                                .padding(.vertical, 8)
-                                                .glassEffect(.regular.tint(blasenFarbe.opacity(0.16)).interactive(), in: Capsule())
-                                        }
-                                    }
-                                    .contentShape(Rectangle())
-                                    // Doppeltipp auf „Ideen" öffnet die Pinnwand
-                                    .onTapGesture(count: 2) {
-                                        if filter == .notizen {
-                                            store.homeStreamFilter = .notizen
-                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                                store.zeigeIdeenPinnwand = true
-                                            }
+                        // Bereichs-Wahlleiste im Segment-Stil: vier gleich breite
+                        // Zellen (Icon + Label), die aktive farbig mit Unterstrich.
+                        HStack(spacing: 0) {
+                            ForEach(store.bereichsOrdnung, id: \.self) { filter in
+                                let farbe: Color = switch filter {
+                                case .dokumente:   NoteColor.for_(5).accent
+                                case .notizen:     ArcaWarm.ideenGelb
+                                case .tasks:       NoteColor.for_(3).accent
+                                case .passwoerter: NoteColor.for_(2).accent
+                                }
+                                let aktiv = streamFilter == filter
+                                VStack(spacing: 5) {
+                                    ArcaIcon(name: filter.icon, groesse: 19)
+                                        .foregroundStyle(aktiv ? farbe : Color.secondary)
+                                        .frame(height: 22)
+                                    Text(filter.label)
+                                        .font(.system(size: 12, weight: aktiv ? .bold : .medium))
+                                        .foregroundStyle(aktiv ? farbe : Color.secondary)
+                                    Capsule()
+                                        .fill(aktiv ? farbe : Color.clear)
+                                        .frame(width: 26, height: 2.5)
+                                }
+                                .padding(.top, 6)
+                                .padding(.bottom, 2)
+                                .frame(maxWidth: .infinity)
+                                .contentShape(Rectangle())
+                                .onTapGesture(count: 2) {
+                                    if filter == .notizen {
+                                        store.homeStreamFilter = .notizen
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                            store.zeigeIdeenPinnwand = true
                                         }
                                     }
-                                    .onTapGesture {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            store.homeStreamFilter = filter
-                                            streamLimit = 25
-                                        }
+                                }
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        store.homeStreamFilter = filter
+                                        streamLimit = 25
                                     }
-                                    .onDrag {
-                                        gezogeneBlase = filter
-                                        return NSItemProvider(object: filter.rawValue as NSString)
-                                    }
-                                    .onDrop(of: [.text], delegate: BlasenTauschDelegate(
-                                        ziel: filter, gezogen: $gezogeneBlase, store: store))
                                 }
                             }
-                            .padding(.horizontal, 20)
                         }
+                        .overlay(alignment: .bottom) {
+                            Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 1)
+                        }
+                        .padding(.horizontal, 14)
 
                         if streamFilter == .dokumente {
                             dokumentKarussell
@@ -2091,6 +2134,14 @@ enum HomeStreamFilter: String, CaseIterable {
         case .notizen:     return "Ideen"
         case .tasks:       return "Aufgaben"
         case .passwoerter: return "Tresor"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .dokumente:   return "ArcaDocument"
+        case .notizen:     return "ArcaIdee"
+        case .tasks:       return "ArcaChecklist"
+        case .passwoerter: return "ArcaKey"
         }
     }
 }

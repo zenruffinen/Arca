@@ -12,6 +12,39 @@ import SwiftUI
 
 // MARK: - Custom Tab Bar
 
+/// Der Rahmen der unteren Leiste mit einem Bogen (Notch) in der Mitte,
+/// in dem der erhöhte Plus-/Besen-Knopf sitzt.
+struct NotchedBar: Shape {
+    var notchRadius: CGFloat = 34
+    var corner: CGFloat = 26
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let cx = rect.midX
+        let r = notchRadius
+        let top = rect.minY
+
+        p.move(to: CGPoint(x: rect.minX, y: top + corner))
+        p.addQuadCurve(to: CGPoint(x: rect.minX + corner, y: top),
+                       control: CGPoint(x: rect.minX, y: top))
+        // hin zum Bogen
+        p.addLine(to: CGPoint(x: cx - r, y: top))
+        // weicher Bogen nach unten (Bogen im Rahmen)
+        p.addQuadCurve(to: CGPoint(x: cx, y: top + r * 0.82),
+                       control: CGPoint(x: cx - r * 0.52, y: top + r * 0.92))
+        p.addQuadCurve(to: CGPoint(x: cx + r, y: top),
+                       control: CGPoint(x: cx + r * 0.52, y: top + r * 0.92))
+        // weiter zur rechten Ecke
+        p.addLine(to: CGPoint(x: rect.maxX - corner, y: top))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: top + corner),
+                       control: CGPoint(x: rect.maxX, y: top))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        p.closeSubpath()
+        return p
+    }
+}
+
 struct ArcaTabItem {
     let section: ArcaSection
     let icon: String
@@ -38,148 +71,146 @@ struct ArcaTabBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 11) {
-            // Links: Space + Einstellungen
-            barKreis(icon: "ArcaHome", titel: "Space", unter: "Home", aktiv: spaceActive) {
-                // Von jeder Position zuverlässig zurück nach Hause:
-                store.fokusKategorie = nil
-                store.zeigeIdeenPinnwand = false
-                if selected == .home {
-                    // Schon zuhause: auf den Start-Zustand zurück (Dokumente) + nach oben
-                    store.homeStreamFilter = .dokumente
-                    store.homeSprungNachOben += 1
-                } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .home }
+        ZStack {
+            // Rahmen mit Bogen in der Mitte
+            NotchedBar(notchRadius: 36, corner: 26)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    NotchedBar(notchRadius: 36, corner: 26)
+                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                )
+                .frame(height: 60)
+                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: -2)
+
+            // Seiten-Items: Home links, Mikro + Mehr rechts, Mitte bleibt frei
+            HStack(spacing: 0) {
+                leistenItem(icon: "ArcaHome", label: "Home", aktiv: spaceActive) {
+                    store.fokusKategorie = nil
+                    store.zeigeIdeenPinnwand = false
+                    if selected == .home {
+                        store.homeStreamFilter = .dokumente
+                        store.homeSprungNachOben += 1
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { selected = .home }
+                    }
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 22) {
+                    leistenItem(icon: "ArcaMic", label: "Mikro", aktiv: false,
+                                farbe: ArcaWarm.terrakotta) {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        store.quickCaptureAutoRecord = true
+                        store.pendingQuickCapture = true
+                    }
+                    Menu {
+                        Button { store.zeigeNotfall = true } label: {
+                            Label("Notfall", systemImage: "cross.case.fill")
+                        }
+                        Divider()
+                        Button { store.pendingSettingsAktion = "export"; selected = .settings } label: {
+                            Label("Daten sichern", systemImage: "square.and.arrow.up")
+                        }
+                        Button { store.pendingSettingsAktion = "import"; selected = .settings } label: {
+                            Label("Daten wiederherstellen", systemImage: "square.and.arrow.down")
+                        }
+                        Divider()
+                        Button { selected = .settings } label: {
+                            Label("Einstellungen", systemImage: "gearshape")
+                        }
+                    } label: {
+                        leistenLabel(icon: "ArcaSettings", label: "Mehr", aktiv: selected == .settings)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+            .frame(height: 60)
+            .padding(.horizontal, 30)
 
-            // Einstellungen · Settings (Menü: Notfall · Sichern · Wiederherstellen)
-            Menu {
-                Button { store.zeigeNotfall = true } label: {
-                    Label("Notfall", systemImage: "cross.case.fill")
-                }
-                Divider()
-                Button {
-                    store.pendingSettingsAktion = "export"; selected = .settings
-                } label: { Label("Daten sichern", systemImage: "square.and.arrow.up") }
-                Button {
-                    store.pendingSettingsAktion = "import"; selected = .settings
-                } label: { Label("Daten wiederherstellen", systemImage: "square.and.arrow.down") }
-                Divider()
-                Button { selected = .settings } label: {
-                    Label("Einstellungen", systemImage: "gearshape")
-                }
-            } label: {
-                kreisInhalt(icon: "ArcaSettings", titel: "Einstellungen", unter: "Settings",
-                            aktiv: selected == .settings)
-            }
-            .buttonStyle(.plain)
-
-            Spacer(minLength: 4)
-
-            // Mitte: Der Besen fordert zum Aufräumen auf — nur wenn etwas unsortiert ist
-            if unsortiertAnzahl > 0 {
-                besenKreis
-                Spacer(minLength: 4)
-            }
-
-            // Rechts: Mikrofon + Plus
-            barKreis(icon: "ArcaMic", titel: "Mikrofon", unter: "Aufnahme",
-                     aktiv: false, iconFarbe: ArcaWarm.terrakotta) {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                store.quickCaptureAutoRecord = true
-                store.pendingQuickCapture = true
-            }
-
-            plusGross
+            // Der erhöhte zentrale Knopf sitzt im Bogen
+            zentralKnopf
+                .offset(y: -14)
         }
-        .padding(.horizontal, 10)
-        .padding(.bottom, 34)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 26)
     }
 
-    // MARK: Besen — fordert zum Aufräumen auf (nur bei Unsortiertem)
+    // MARK: Zentraler Knopf — Plus, wird zum Besen wenn Unordnung herrscht
 
-    private var besenKreis: some View {
-        Button {
+    private var zentralKnopf: some View {
+        let aufraeumen = unsortiertAnzahl > 0
+        return Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            store.zeigeAufraeumen = true
+            if aufraeumen { store.zeigeAufraeumen = true }
+            else { legeKontextbezogenAn() }
         } label: {
-            ArcaIcon(name: "ArcaBroom", groesse: 24)
-                .foregroundStyle(ArcaWarm.terrakotta)
-                .frame(width: 56, height: 56)
-                .glassEffect(.regular.tint(ArcaWarm.terrakotta.opacity(0.18)), in: Circle())
-                .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.5))
+            VStack(spacing: 4) {
+                ZStack {
+                    Circle()
+                        .fill(ArcaWarm.terrakotta)
+                        .frame(width: 56, height: 56)
+                        .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 7, x: 0, y: 3)
+                    if aufraeumen {
+                        ArcaIcon(name: "ArcaBroom", groesse: 25).foregroundStyle(.white)
+                    } else {
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                // Plakette: Aufräum-Zähler ODER Kontext-Symbol des Plus
                 .overlay(alignment: .topTrailing) {
-                    Text("\(unsortiertAnzahl)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(minWidth: 17, minHeight: 17)
-                        .padding(.horizontal, 2)
-                        .background(ArcaWarm.terrakotta, in: Capsule())
-                        .offset(x: 5, y: -3)
+                    if aufraeumen {
+                        Text("\(unsortiertAnzahl)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(minWidth: 18, minHeight: 18)
+                            .padding(.horizontal, 2)
+                            .background(Color.red, in: Capsule())
+                            .offset(x: 6, y: -4)
+                    } else {
+                        ArcaIcon(name: kontextIcon, groesse: 11)
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                            .frame(width: 22, height: 22)
+                            .background(ArcaWarm.karte, in: Circle())
+                            .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.2))
+                            .offset(x: 7, y: -5)
+                            .id(kontextIcon)
+                    }
                 }
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Aufräumen — \(unsortiertAnzahl) unsortiert")
-    }
-
-    // MARK: Kreis-Knopf (nur Icon, schwebend — ohne Label)
-
-    private func barKreis(icon: String, titel: String, unter: String, aktiv: Bool,
-                          iconFarbe: Color? = nil,
-                          action: @escaping () -> Void) -> some View {
-        Button { action() } label: {
-            kreisInhalt(icon: icon, titel: titel, unter: unter, aktiv: aktiv, iconFarbe: iconFarbe)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func kreisInhalt(icon: String, titel: String, unter: String, aktiv: Bool,
-                             iconFarbe: Color? = nil) -> some View {
-        ArcaIcon(name: icon, groesse: 21)
-            .foregroundStyle(iconFarbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.72)))
-            .symbolRenderingMode(.hierarchical)
-            .frame(width: 48, height: 48)
-            .glassEffect(.regular, in: Circle())
-            .overlay {
-                if aktiv { Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 1.5) }
+                Text(aufraeumen ? "Aufräumen" : "Neu")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(aufraeumen ? ArcaWarm.terrakotta : Color.secondary)
             }
-            .contentShape(Circle())
-            .accessibilityLabel(titel)
-    }
-
-    // MARK: Großer Plus mit Schlüssel-Badge
-
-    private var plusGross: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            legeKontextbezogenAn()
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 54, height: 54)
-                .background(ArcaWarm.terrakotta, in: Circle())
-                .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 7, x: 0, y: 3)
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            ZStack {
-                Circle().fill(ArcaWarm.karte)
-                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.2))
-                ArcaIcon(name: kontextIcon, groesse: 11)
-                    .foregroundStyle(ArcaWarm.terrakotta)
-                    .transition(.opacity)
-                    .id(kontextIcon)
-            }
-            .frame(width: 23, height: 23)
-            .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
-            .offset(x: 7, y: -7)
-            .allowsHitTesting(false)
-            .animation(.easeInOut(duration: 0.2), value: kontextIcon)
+        .animation(.easeInOut(duration: 0.25), value: aufraeumen)
+        .accessibilityLabel(aufraeumen ? "Aufräumen — \(unsortiertAnzahl) unsortiert" : "Neu anlegen")
+    }
+
+    // MARK: Leisten-Item mit Label (Icon oben, Text unten)
+
+    private func leistenItem(icon: String, label: String, aktiv: Bool,
+                             farbe: Color? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            leistenLabel(icon: icon, label: label, aktiv: aktiv, farbe: farbe)
         }
-        .accessibilityLabel("Neu anlegen")
+        .buttonStyle(.plain)
+    }
+
+    private func leistenLabel(icon: String, label: String, aktiv: Bool,
+                              farbe: Color? = nil) -> some View {
+        VStack(spacing: 4) {
+            ArcaIcon(name: icon, groesse: 23)
+                .foregroundStyle(farbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.6)))
+                .symbolRenderingMode(.hierarchical)
+                .frame(height: 28)
+            Text(label)
+                .font(.system(size: 10, weight: aktiv ? .semibold : .medium))
+                .foregroundStyle(aktiv ? ArcaWarm.terrakotta : Color.secondary)
+        }
+        .frame(minWidth: 48)
+        .contentShape(Rectangle())
+        .accessibilityLabel(label)
     }
 
     /// Die Plakette am Plus zeigt, was gerade angelegt würde — sie wandert

@@ -600,9 +600,30 @@ struct ArcaDrehregler: View {
                 LinearGradient(colors: [.black.opacity(0.18), .clear, .clear, .black.opacity(0.18)],
                                startPoint: .leading, endPoint: .trailing))
         )
-        .glassEffect(.regular.tint(tint.opacity(0.22)), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 1))
-        .overlay(Capsule().strokeBorder(tint.opacity(0.5), lineWidth: 1))
+        .glassEffect(.regular.tint(tint.opacity(0.26)), in: Capsule())
+        // 3D-Zylinder: heller Scheitel oben, sanfter Schatten unten
+        .overlay(
+            Capsule().fill(
+                LinearGradient(stops: [
+                    .init(color: .white.opacity(0.48), location: 0.0),
+                    .init(color: .white.opacity(0.12), location: 0.30),
+                    .init(color: .clear, location: 0.55),
+                    .init(color: .black.opacity(0.16), location: 1.0)
+                ], startPoint: .top, endPoint: .bottom))
+                .allowsHitTesting(false)
+        )
+        // schmale Specular-Glanzlinie ganz oben
+        .overlay(alignment: .top) {
+            Capsule()
+                .fill(.white.opacity(0.6))
+                .frame(height: 2)
+                .padding(.horizontal, breite * 0.14)
+                .padding(.top, 3)
+                .blur(radius: 1)
+                .allowsHitTesting(false)
+        }
+        .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 1))
+        .overlay(Capsule().strokeBorder(tint.opacity(0.55), lineWidth: 1))
         .contentShape(Capsule())
         .animation(.easeInOut(duration: 0.25), value: tint)
         .gesture(
