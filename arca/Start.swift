@@ -568,10 +568,10 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 4)
                     .scrollTargetLayout()
                 }
-                .frame(height: 116)   // feste Höhe: Platz für die vergrößerte Kachel, Layout bleibt stabil
+                .frame(height: 104)   // feste Höhe: Platz für die vergrößerte Kachel, Layout bleibt stabil
                 .contentMargins(.horizontal, 20, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
@@ -646,9 +646,8 @@ struct HomeView: View {
                 }
             }
         }
-        // Gruppen + Crown als fester Block, etwas nach unten (≈3 mm) —
+        // Gruppen + Crown als fester Block (feste Höhe der Kachel-Reihe) —
         // so sitzt die Home-Seite immer gleich.
-        .padding(.top, 11)
     }
 
     // Glasiger 3D-Pfeil neben der virtual crown (‹ / ›)
@@ -1136,27 +1135,7 @@ struct HomeView: View {
 
                 Spacer()
 
-                // Die Lupe: holt das Suchfeld hervor und schickt es wieder weg
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        sucheOffen.toggle()
-                    }
-                    if sucheOffen {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            isSearchFocused = true
-                        }
-                    } else {
-                        searchText = ""
-                        isSearchFocused = false
-                    }
-                } label: {
-                    ArcaIcon(name: sucheOffen ? "xmark" : "ArcaSearch", groesse: 17)
-                        .foregroundStyle(sucheOffen ? ArcaWarm.terrakotta : .primary)
-                        .frame(width: 36, height: 36)
-                        .glassEffect(.regular, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Alles durchsuchen")
+                // Die Suche liegt jetzt unten in der Leiste (obere Lupe entfernt 14.08.)
 
                 // Notfall immer griffbereit: Notrufnummern + Karten sperren
                 Button {
@@ -1691,10 +1670,17 @@ struct HomeView: View {
             }
             Button("Abbrechen", role: .cancel) { docFuerNeueGruppe = nil }
         }
-        // ⌘F vom Mac/iPad: Suchfeld fokussieren
+        // Suche aus der unteren Leiste (und ⌘F): umschalten — öffnen/schließen
         .onChange(of: store.sucheFokusSignal) { _, _ in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { sucheOffen = true }
-            isSearchFocused = true
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { sucheOffen.toggle() }
+            if sucheOffen {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { isSearchFocused = true }
+            } else {
+                searchText = ""
+                isSearchFocused = false
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: store.favoriteItems.count)
         .animation(.easeInOut(duration: 0.2), value: isSearching)
