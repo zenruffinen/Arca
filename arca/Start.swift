@@ -1172,10 +1172,24 @@ struct HomeView: View {
                                 .padding(2)
                         }
                     }
-                    .frame(width: 38, height: 38)
+                    .frame(width: 40, height: 40)
                     .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                    // Glas-Bubble: heller Dome-Glanz oben links
+                    .overlay(
+                        Circle()
+                            .fill(RadialGradient(
+                                colors: [.white.opacity(0.6), .white.opacity(0.05), .clear],
+                                center: UnitPoint(x: 0.32, y: 0.24),
+                                startRadius: 0, endRadius: 26))
+                            .allowsHitTesting(false)
+                    )
+                    // feiner Innenrand am Foto
+                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 0.6))
+                    // weißer Sticker-/Klebe-Rand rundherum
+                    .padding(3)
+                    .background(Circle().fill(.white))
+                    // aufgeklebt: weicher Schlagschatten
+                    .shadow(color: .black.opacity(0.28), radius: 3.5, x: 0, y: 2.5)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Profilbild wählen")
