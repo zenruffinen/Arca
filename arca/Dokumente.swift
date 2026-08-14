@@ -628,25 +628,23 @@ struct DocumentsView: View {
                                                 Image(store.iconFor(category))
                                             }
                                         }
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .font(.system(size: 14, weight: .semibold))
                                             .foregroundStyle(catColor.accent)
-                                            .frame(width: 28, height: 28)
-                                            .background(catColor.bg.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
+                                            .frame(width: 22)
                                         Text(category)
                                             .font(.system(size: 15, weight: .semibold))
                                             .foregroundStyle(.primary)
                                         if store.isInHomeFolderQuickView(category) {
                                             Image(systemName: "house.fill")
                                                 .font(.system(size: 10, weight: .semibold))
-                                                .foregroundStyle(catColor.accent.opacity(0.85))
+                                                .foregroundStyle(.secondary)
                                                 .accessibilityHidden(true)
                                         }
                                         Text("\(docs.count)")
-                                            .font(.caption.weight(.bold))
-                                            .foregroundStyle(catColor.accent)
-                                            .padding(.horizontal, 7)
-                                            .padding(.vertical, 2)
-                                            .background(catColor.bg.opacity(0.7), in: Capsule())
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundStyle(.secondary)
+                                            .padding(.leading, 2)
+                                        Spacer()
                                     }
                                     .contentShape(Rectangle())
                                 }
@@ -739,37 +737,13 @@ struct DocumentsView: View {
                                         Label("Gruppe löschen", systemImage: "trash")
                                     }
                                 }
-
-                                Spacer()
-
-                                Button {
-                                    if let url = store.exportFolder(category: category) {
-                                        shareItem = ShareURLItem(url: url)
-                                    }
-                                } label: {
-                                    Image(systemName: "person.2.fill")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.blue)
-                                }
-                                .buttonStyle(.borderless)
-
-                                Button {
-                                    categoryRenameText = category
-                                    renamingCategory = category
-                                    showCategoryRename = true
-                                } label: {
-                                    Image(systemName: "pencil")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.borderless)
                             }
                             .padding(.vertical, 6)
-                            // Gleiche Farbwelt wie die Gruppen-Karten auf dem Start
-                            .listRowBackground(catColor.bg.opacity(0.55))
-                            .listRowSeparator(isCollapsed ? .hidden : .visible)
-                            .listRowSeparatorTint(Color.primary.opacity(0.06))
-                            .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 12))
+                            // Apple-Mail-Stil: schlichter Textkopf, kein farbiger Kasten.
+                            // Umbenennen/Teilen/Farbe/Löschen liegen im Langdruck-Menü.
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 2, trailing: 16))
                             .id(category)
 
                             // ── Dokument-Zeilen (nur wenn aufgeklappt) ──

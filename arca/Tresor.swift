@@ -67,23 +67,18 @@ struct VaultView: View {
     private var passwortTint: Color { Color(red: 0.16, green: 0.62, blue: 0.55) } // türkis (Passwörter)
 
     /// Prominenter Glas-Balken als Gruppen-Überschrift: Logo | Trenner | Titel.
+    // Apple-Mail-Stil: schlichter Textkopf statt Glas-Banner (14.08.).
     private func gruppenBalken(icon: String, titel: String, tint: Color) -> some View {
-        HStack(spacing: 14) {
-            ArcaIcon(name: icon, groesse: 24)
+        HStack(spacing: 8) {
+            ArcaIcon(name: icon, groesse: 15)
                 .foregroundStyle(tint)
-                .frame(width: 46, height: 46)
-                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
-            Rectangle().fill(tint.opacity(0.35)).frame(width: 1, height: 28)
+                .frame(width: 22)
             Text(titel)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.primary)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .glassEffect(.regular.tint(tint.opacity(0.10)), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(tint.opacity(0.28), lineWidth: 1))
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder private func vaultZeile(_ item: VaultEntry) -> some View {

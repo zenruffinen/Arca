@@ -507,36 +507,8 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)
             } else {
-                if unsortierteAnzahl > 0 {
-                    Button {
-                        store.zeigeAufraeumen = true
-                    } label: {
-                        HStack(spacing: 7) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text("Aufräumen")
-                                .font(.system(size: 13, weight: .bold))
-                            Text("\(unsortierteAnzahl)")
-                                .font(.system(size: 11, weight: .bold))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.25), in: Capsule())
-                            Spacer()
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(red: 0.85, green: 0.62, blue: 0.30), ArcaWarm.terrakotta],
-                                startPoint: .topLeading, endPoint: .bottomTrailing),
-                            in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
-                }
+                // Aufräumen-Hinweis nur noch unten als Besen-Icon in der Leiste
+                // (der Balken hier war doppelt — bewusst entfernt 14.08.).
 
                 // Eine Reihe, läuft nach rechts durch (kein Titel — der Chip sagt schon „Dokumente")
                 ScrollView(.horizontal, showsIndicators: false) {
