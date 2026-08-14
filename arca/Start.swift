@@ -1162,6 +1162,8 @@ struct HomeView: View {
                 // Persönlicher Kopf: Profilbild (antippen zum Wählen).
                 // QR-Scan liegt jetzt im „Mehr"-Menü unten.
                 PhotosPicker(selection: $profilAuswahl, matching: .images, photoLibrary: .shared()) {
+                    // Foto klein & mittig im Glas-Puck (wie der Notfall-Knopf) —
+                    // ringsum bleibt ein sichtbarer Glasrand.
                     Group {
                         if let data = store.profilBildData, let ui = UIImage(data: data) {
                             Image(uiImage: ui).resizable().scaledToFill()
@@ -1169,41 +1171,23 @@ struct HomeView: View {
                             Image(systemName: "person.crop.circle.fill")
                                 .resizable().scaledToFit()
                                 .foregroundStyle(.secondary)
-                                .padding(2)
                         }
                     }
-                    .frame(width: 40, height: 40)
+                    .frame(width: 25, height: 25)
                     .clipShape(Circle())
-                    // Glas-Bubble: heller Dome-Glanz oben links
-                    .overlay(
-                        Circle()
-                            .fill(RadialGradient(
-                                colors: [.white.opacity(0.6), .white.opacity(0.05), .clear],
-                                center: UnitPoint(x: 0.32, y: 0.24),
-                                startRadius: 0, endRadius: 26))
-                            .allowsHitTesting(false)
-                    )
-                    // feiner Innenrand am Foto
-                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 0.6))
-                    // glasiger Sticker-/Klebe-Rand rundherum (Liquid Glass, 3D wie die anderen)
-                    .padding(4)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 0.5))
+                    // Glas-Puck rundherum (gleiche Größe wie der Notfall-Knopf: 36)
+                    .frame(width: 36, height: 36)
                     .glassEffect(.regular.interactive(), in: Circle())
-                    // diagonaler Reflex-Streifen → Tiefe/3D
+                    // diagonaler Reflex → 3D-Tiefe wie die anderen Glas-Elemente
                     .overlay(
                         Circle()
-                            .fill(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.08), .clear],
+                            .fill(LinearGradient(colors: [.white.opacity(0.4), .white.opacity(0.06), .clear],
                                                  startPoint: .topLeading, endPoint: .center))
                             .allowsHitTesting(false)
                     )
-                    // heller Kanten-Rim mit Verlauf
-                    .overlay(
-                        Circle().strokeBorder(
-                            LinearGradient(colors: [.white.opacity(0.9), .white.opacity(0.25), .white.opacity(0.5)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 1)
-                    )
-                    // aufgeklebt: weicher Schlagschatten
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2.5)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 0.75))
+                    .shadow(color: .black.opacity(0.18), radius: 2.5, x: 0, y: 1.5)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Profilbild wählen")
