@@ -952,8 +952,16 @@ struct HomeView: View {
 
     @ViewBuilder private func streamZeile(_ item: FavoriteItem) -> some View {
         let istFav = istFavorit(item)
+        // Bankkarte mit Foto → kleines Vorschaubild in der Zeile
+        let kartenBild: String? = {
+            guard item.kind == .vault,
+                  let e = store.vaultItems.first(where: { $0.id == item.id }),
+                  e.art == .karte, !e.kartenBildVorne.isEmpty else { return nil }
+            return e.kartenBildVorne
+        }()
         HomeStreamRow(item: item,
-                      expanded: item.kind == .list && expandedLists.contains(item.id)) {
+                      expanded: item.kind == .list && expandedLists.contains(item.id),
+                      kartenBild: kartenBild) {
             if item.kind == .list {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     if expandedLists.contains(item.id) { expandedLists.remove(item.id) }
@@ -1722,17 +1730,23 @@ struct HomeSearchBar: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .focused(focused)
-            if !text.isEmpty {
-                Button {
+                .submitLabel(.done)
+                .onSubmit { focused.wrappedValue = false }
+            // Immer ein Knopf zum Schließen der Tastatur — auch bei leerer Eingabe
+            Button {
+                if text.isEmpty {
+                    focused.wrappedValue = false
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                } else {
                     text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                        .font(.system(size: 14))
                 }
-                .buttonStyle(.borderless)
-                .transition(.scale.combined(with: .opacity))
+            } label: {
+                Image(systemName: text.isEmpty ? "keyboard.chevron.compact.down" : "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+                    .font(.system(size: 14))
             }
+            .buttonStyle(.borderless)
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 10)
@@ -2160,6 +2174,8 @@ struct HomeStreamRow: View {
     let item: FavoriteItem
     /// Tasklisten: aufgeklappt zeigt der Pfeil nach unten
     var expanded: Bool = false
+    /// Bankkarten: Dateiname der fotografierten Vorderseite (kleines Preview)
+    var kartenBild: String? = nil
     let onTap: () -> Void
 
     private var icon: String {
@@ -2183,10 +2199,14 @@ struct HomeStreamRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                ArcaIcon(name: icon, groesse: 17)
-                    .foregroundStyle(tint)
-                    .frame(width: 34, height: 34)
-                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+                if let kartenBild {
+                    KartenMiniBild(dateiname: kartenBild)
+                } else {
+                    ArcaIcon(name: icon, groesse: 17)
+                        .foregroundStyle(tint)
+                        .frame(width: 34, height: 34)
+                        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)

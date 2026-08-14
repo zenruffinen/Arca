@@ -1056,6 +1056,41 @@ struct VaultFieldRow<Content: View>: View {
 
 // MARK: - VaultRow
 
+/// Kleines Vorschaubild der fotografierten Karte (Vorderseite) für die
+/// Zeilen im Bankkarten-Balken. Lädt einmalig aus dem Dateispeicher.
+struct KartenMiniBild: View {
+    @EnvironmentObject var store: AppStore
+    let dateiname: String
+    @State private var bild: UIImage? = nil
+
+    var body: some View {
+        Group {
+            if let bild {
+                Image(uiImage: bild).resizable().scaledToFill()
+            } else {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Color.secondary.opacity(0.15))
+                    .overlay(
+                        ArcaIcon(name: "ArcaBankkarten", groesse: 12)
+                            .foregroundStyle(.secondary)
+                    )
+            }
+        }
+        .frame(width: 40, height: 26)
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.12), radius: 1.5, y: 1)
+        .task(id: dateiname) {
+            guard bild == nil, !dateiname.isEmpty else { return }
+            _ = store.ensureFileDownloaded(dateiname)
+            bild = UIImage(contentsOfFile: store.documentURL(for: dateiname).path)
+        }
+    }
+}
+
 struct VaultRow: View {
     let item: VaultEntry
     @Binding var copiedItemID: UUID?
@@ -1065,8 +1100,10 @@ struct VaultRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Karte: Bankkarten-Icon, sonst Farbpunkt
-            if item.art == .karte {
+            // Karte mit Foto → kleines Vorschaubild; sonst Icon/Farbpunkt
+            if item.art == .karte, !item.kartenBildVorne.isEmpty {
+                KartenMiniBild(dateiname: item.kartenBildVorne)
+            } else if item.art == .karte {
                 ArcaIcon(name: "ArcaBankkarten", groesse: 16)
                     .foregroundStyle(color.accent)
             } else {
