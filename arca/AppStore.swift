@@ -165,6 +165,85 @@ final class AppStore: ObservableObject {
     }
     func addErbeEintrag(_ e: ErbeEintrag) { erbeEintraege.append(e) }
     func loescheErbeEintrag(_ id: UUID) { erbeEintraege.removeAll { $0.id == id } }
+
+    // MARK: - Demo/Tutorial (nur beim allerersten, leeren Start)
+
+    private static let demoFlagKey = "arcaDemoSeeded_v1"
+    static let willkommenDatei = "arca_willkommen.jpg"
+    private static let demoKategorien = ["Reise", "Papiere", "Finanzen", "Gesundheit"]
+
+    /// Schreibt das Willkommens-Bild in den Dateispeicher und legt das Dokument an.
+    private func erzeugeWillkommensDokument() -> DocumentEntry? {
+        guard let bild = UIImage(named: "ArcaWillkommen"),
+              let jpg = bild.jpegData(compressionQuality: 0.9) else { return nil }
+        try? jpg.write(to: documentURL(for: Self.willkommenDatei))
+        var doc = DocumentEntry(title: "Willkommen bei Arca", type: .image,
+                                filename: Self.willkommenDatei, dateAdded: Date(), category: "Unsortiert")
+        doc.isFavorite = true
+        doc.favoritePinned = true
+        return doc
+    }
+
+    /// Nur beim allerersten, wirklich leeren Start: Fantasie-Demodaten erzeugen.
+    /// Auf bestehenden/synchronisierenden Installationen passiert nichts.
+    func seedeDemodatenWennErststart() {
+        guard !UserDefaults.standard.bool(forKey: Self.demoFlagKey) else { return }
+        guard !hasAnyExistingDataStore(), !hasPendingCloudDataDownloads() else { return }
+        UserDefaults.standard.set(true, forKey: Self.demoFlagKey)
+
+        for k in Self.demoKategorien where !documentCategories.contains(k) {
+            documentCategories.append(k)
+        }
+
+        var docs: [DocumentEntry] = []
+        if let w = erzeugeWillkommensDokument() { docs.append(w) }
+        func demoDoc(_ t: String, _ cat: String) -> DocumentEntry {
+            DocumentEntry(title: t, type: .pdf, filename: "", dateAdded: Date(), category: cat)
+        }
+        docs.append(contentsOf: [
+            demoDoc("Reisepass", "Papiere"),
+            demoDoc("Mietvertrag Musterstraße 3", "Papiere"),
+            demoDoc("Stromrechnung", "Finanzen"),
+            demoDoc("Impfpass", "Gesundheit"),
+            demoDoc("Hotelbuchung Rom", "Reise"),
+        ])
+        documents.append(contentsOf: docs)
+
+        notes.insert(NoteEntry(title: "Geschenkidee für Anna 🎁",
+                               text: "Aquarellkasten und der neue Roman."), at: 0)
+        notes.insert(NoteEntry(title: "Buchtipp",
+                               text: "„Der Klang der Berge“ — unbedingt lesen."), at: 0)
+
+        lists.insert(ListEntry(title: "Einkauf",
+            items: [ChecklistItem(text: "Milch"), ChecklistItem(text: "Brot"),
+                    ChecklistItem(text: "Kaffee"), ChecklistItem(text: "Äpfel")],
+            colorTag: 3), at: 0)
+
+        vaultItems.append(VaultEntry(title: "WLAN Zuhause", username: "FritzBox",
+                                     password: "sonne-mond-42", colorTag: 2))
+        vaultItems.append(VaultEntry(title: "Meine Visa", username: "", password: "",
+                                     colorTag: 2, art: .karte,
+                                     kartennummer: "4000 1234 5678 9010",
+                                     karteninhaber: "Hans Muster", ablauf: "08/29"))
+
+        demoModusAktiv = true
+    }
+
+    /// „Loslegen": alle Demodaten löschen — nur das Willkommens-Dokument bleibt.
+    /// Läuft nur im Demo-Modus (auf echten Installationen nie aktiv).
+    func raeumeDemodatenAuf() {
+        guard demoModusAktiv else { return }
+        documents.removeAll { $0.filename != Self.willkommenDatei }
+        notes.removeAll { _ in true }
+        lists.removeAll { _ in true }
+        for v in vaultItems { KeychainManager.shared.delete(key: "vault_\(v.id)") }
+        vaultItems.removeAll()
+        for k in Self.demoKategorien where documents.first(where: { $0.category == k }) == nil {
+            documentCategories.removeAll { $0 == k }
+        }
+        demoModusAktiv = false
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
     @Published var documents: [DocumentEntry] = [] {
         didSet {
             guard !isLoadingData, !stempeltGerade else { return }
@@ -311,6 +390,11 @@ final class AppStore: ObservableObject {
             if let d = profilBildData { UserDefaults.standard.set(d, forKey: "profilBild") }
             else { UserDefaults.standard.removeObject(forKey: "profilBild") }
         }
+    }
+
+    /// Demo-/Tutorial-Modus aktiv? (lokal, synct nicht) — zeigt den Aufräum-Hinweis.
+    @Published var demoModusAktiv: Bool = false {
+        didSet { guard !isLoadingData else { return }; UserDefaults.standard.set(demoModusAktiv, forKey: "arcaDemoModus") }
     }
     /// Die Ideen-Pinnwand rechts eingeblendet?
     @Published var zeigeIdeenPinnwand: Bool = false
@@ -942,6 +1026,7 @@ final class AppStore: ObservableObject {
         load()
         isLoadingData = false
         entferneDoppelteKategorien()   // bestehende Doppelnamen einmalig zusammenführen
+        seedeDemodatenWennErststart()  // nur beim allerersten, leeren Start
         ladeZuletztGeoeffnet()
         speichereNachfusion()
         persistFreshInstallDefaults()
@@ -2142,6 +2227,7 @@ final class AppStore: ObservableObject {
             erbeEintraege = decoded
         }
         profilBildData = UserDefaults.standard.data(forKey: "profilBild")
+        demoModusAktiv = UserDefaults.standard.bool(forKey: "arcaDemoModus")
         erbeVertrauensperson = UserDefaults.standard.string(forKey: "erbeVertrauensperson") ?? ""
         if let f = UserDefaults.standard.string(forKey: "erbeFrage"), !f.isEmpty { erbeFrage = f }
         if UserDefaults.standard.object(forKey: "erbeFristTage") != nil {

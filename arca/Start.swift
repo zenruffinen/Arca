@@ -1222,6 +1222,44 @@ struct HomeView: View {
             .padding(.top, 8)
             .padding(.bottom, 10)
 
+            // ── Demo-Modus: Hinweis + „Loslegen" (räumt die Beispiel-Daten weg) ──
+            if store.demoModusAktiv && !isSearching {
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Demo-Modus")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("So sieht Arca gefüllt aus. Wenn du loslegst, räumen wir die Beispiele weg.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                            store.raeumeDemodatenAuf()
+                        }
+                    } label: {
+                        Text("Loslegen")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .background(ArcaWarm.terrakotta, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(12)
+                .glassEffect(.regular.tint(ArcaWarm.terrakotta.opacity(0.12)),
+                             in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(ArcaWarm.terrakotta.opacity(0.25), lineWidth: 1))
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             // ── Bühne: großer Gruß, darunter der Kalender — beim Suchen
             //    klappen beide weg und machen den Ergebnissen Platz ──
             if !isSearching {
@@ -1324,9 +1362,12 @@ struct HomeView: View {
                     }
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
                             ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
+                            Text("angepinnt für schnellen Zugriff")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
                             Spacer()
                         }
                         .padding(.horizontal, 20)
@@ -1384,7 +1425,7 @@ struct HomeView: View {
 
                     // ── Zuletzt geöffnet (zwischen Favoriten und Filter-Blasen) ──
                     if !store.zuletztGeoeffneteItems.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 ArcaSectionTitle(title: "Zuletzt geöffnet", icon: "ArcaClock")
                                 Spacer()
@@ -1400,6 +1441,7 @@ struct HomeView: View {
                             }
                         }
                         .padding(.top, -8)
+                        .padding(.bottom, -11)   // ~3 mm unter „Zuletzt geöffnet" gewinnen
                     }
 
 
