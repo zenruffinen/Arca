@@ -1173,7 +1173,7 @@ struct HomeView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(width: 25, height: 25)
+                    .frame(width: 30, height: 30)
                     .clipShape(Circle())
                     .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 0.5))
                     // Glas-Puck rundherum (gleiche Größe wie der Notfall-Knopf: 36)
