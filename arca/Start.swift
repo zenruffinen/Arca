@@ -1995,26 +1995,21 @@ struct HomeFavoriteCard: View {
         Button(action: onTap) {
             // Sanft getönte Karten wie in der Skizze — die Typ-Farbe trägt
             // Hintergrund-Hauch, Icon und (bei „fest") Rand + Plakette
-            VStack(alignment: .leading, spacing: 6) {
-                if let previewURL {
-                    DocThumbnail(url: previewURL, type: docType)
-                } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(tint)
-                }
-                Spacer(minLength: 0)
+            HStack(spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 26, height: 26)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
                 Text(item.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(item.subtitle)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
             }
-            .padding(10)
-            .frame(width: breite, height: 98, alignment: .leading)
+            .padding(9)
+            .frame(width: breite, height: 52, alignment: .leading)
             // Ganz Glas, kein Rahmen — „fest" zeigt allein die Plakette
             .glassEffect(.regular.tint(tint.opacity(0.09)), in: RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .topTrailing) {
