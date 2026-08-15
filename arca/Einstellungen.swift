@@ -392,8 +392,7 @@ struct SettingsView: View {
     @State private var showReleaseNotes = false
     @State private var showImportConfirm = false
     @State private var importPickerStartFolder: URL? = nil
-    @State private var showExportPicker = false
-    @State private var exportPickerURL: URL? = nil
+    @State private var exportPickerItem: ShareURLItem? = nil
     @State private var exportPickerStartFolder: URL? = nil
 
     private var feedbackURL: URL? {
@@ -628,9 +627,8 @@ struct SettingsView: View {
                     // Warten bis das Passwort-Blatt wirklich zu ist, dann den echten
                     // Dateien-Browser öffnen (Ordner wählen / neuen Ordner anlegen).
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        exportPickerURL = url
                         exportPickerStartFolder = store.beginAccessingRememberedBackupFolder()
-                        showExportPicker = true
+                        exportPickerItem = ShareURLItem(url: url, isArcaBackup: true)
                     }
                 case .failure(.passwordTooShort):
                     exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
@@ -1101,26 +1099,24 @@ struct SettingsView: View {
                 }
             }
             // --- Export: echter Dateien-Browser (Ordner wählen / neu anlegen) ---
-            .sheet(isPresented: $showExportPicker, onDismiss: {
+            .sheet(item: $exportPickerItem, onDismiss: {
                 store.releaseRememberedBackupFolderAccess()
                 exportPickerStartFolder = nil
-                exportPickerURL = nil
-            }) {
-                if let url = exportPickerURL {
-                    BackupExportDocumentPicker(
-                        fileURL: url,
-                        directoryURL: exportPickerStartFolder
-                    ) { saved in
-                        store.rememberBackupFolder(containing: saved)
-                        showExportPicker = false
-                        let name = saved.lastPathComponent
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            exportErfolgText = "„\(name)“ wurde gespeichert."
-                        }
-                    } onCancel: {
-                        showExportPicker = false
+            }) { item in
+                BackupExportDocumentPicker(
+                    fileURL: item.url,
+                    directoryURL: exportPickerStartFolder
+                ) { saved in
+                    store.rememberBackupFolder(containing: saved)
+                    exportPickerItem = nil
+                    let name = saved.lastPathComponent
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        exportErfolgText = "„\(name)“ wurde gespeichert."
                     }
+                } onCancel: {
+                    exportPickerItem = nil
                 }
+                .ignoresSafeArea()
             }
             // Mehr-Menü in der Leiste: Sichern/Wiederherstellen direkt anspringen
             .onAppear { verarbeiteSettingsAktion() }
