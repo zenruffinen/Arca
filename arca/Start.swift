@@ -1173,11 +1173,11 @@ struct HomeView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(width: 30, height: 30)
+                    .frame(width: 32, height: 32)
                     .clipShape(Circle())
                     .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 0.5))
                     // Glas-Puck rundherum (gleiche Größe wie der Notfall-Knopf: 36)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 37, height: 37)
                     .glassEffect(.regular.interactive(), in: Circle())
                     // diagonaler Reflex → 3D-Tiefe wie die anderen Glas-Elemente
                     .overlay(
@@ -2032,23 +2032,25 @@ struct HomeFavoriteCard: View {
         Button(action: onTap) {
             // Sanft getönte Karten wie in der Skizze — die Typ-Farbe trägt
             // Hintergrund-Hauch, Icon und (bei „fest") Rand + Plakette
-            HStack(spacing: 9) {
+            HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(tint)
-                    .frame(width: 26, height: 26)
-                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                    .frame(width: 30, height: 30)
+                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 9))
                 Text(item.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
-            .padding(9)
-            .frame(width: breite, height: 52, alignment: .leading)
-            // Ganz Glas, kein Rahmen — „fest" zeigt allein die Plakette
-            .glassEffect(.regular.tint(tint.opacity(0.09)), in: RoundedRectangle(cornerRadius: 14))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            // Genau wie „Zuletzt geöffnet" (Breite 172), aber warme Gold-Glasfarbe
+            .frame(width: 172, alignment: .leading)
+            .glassEffect(.regular.tint(Color(red: 0.95, green: 0.72, blue: 0.32).opacity(0.16)),
+                         in: RoundedRectangle(cornerRadius: 12))
             .overlay(alignment: .topTrailing) {
                 if item.pinned {
                     // Glastropfen statt Farb-Plakette
