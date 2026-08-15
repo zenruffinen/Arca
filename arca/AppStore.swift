@@ -1026,7 +1026,8 @@ final class AppStore: ObservableObject {
         load()
         isLoadingData = false
         entferneDoppelteKategorien()   // bestehende Doppelnamen einmalig zusammenführen
-        seedeDemodatenWennErststart()  // nur beim allerersten, leeren Start
+        // Demo-Seeding vorübergehend DEAKTIVIERT (Fehler: räumt sich selbst weg).
+        // seedeDemodatenWennErststart()
         ladeZuletztGeoeffnet()
         speichereNachfusion()
         persistFreshInstallDefaults()
