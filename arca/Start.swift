@@ -1413,11 +1413,6 @@ struct HomeView: View {
                                 .padding(.top, 2)
                                 .padding(.bottom, 8)
                             }
-                            Text("angepinnt für den schnellen Zugriff")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .padding(.leading, 32)
-                                .padding(.top, -4)
                         }
                     }
                     .transition(.scale.combined(with: .opacity))
