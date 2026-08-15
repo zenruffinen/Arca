@@ -338,6 +338,7 @@ struct SettingsView: View {
     @State private var importMerge = true
     @State private var exportShareItem: ShareURLItem? = nil
     @State private var exportErfolgText: String? = nil
+    @State private var exportLaeuft = false
 
     // Import flow
     @State private var showImportPicker = false
@@ -560,28 +561,36 @@ struct SettingsView: View {
         let password = exportPassword
         let passwordConfirm = exportPasswordConfirm
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            guard password.count >= AppStore.minBackupPasswordLength else {
-                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
-                return
-            }
-            guard password == passwordConfirm else {
-                exportPasswordError = "Passwörter stimmen nicht überein."
-                return
-            }
+        // Prüfungen sofort (Main-Thread) — schneller Fehler ohne Spinner
+        guard password.count >= AppStore.minBackupPasswordLength else {
+            exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+            return
+        }
+        guard password == passwordConfirm else {
+            exportPasswordError = "Passwörter stimmen nicht überein."
+            return
+        }
 
-            switch store.exportData(password: password) {
-            case .success(let url):
-                showExportPasswordSheet = false
-                // Warten bis das Passwort-Blatt wirklich zu ist — sonst schluckt
-                // iOS das Teilen-Blatt (0,6 s wie beim Import; 0,35 s war zu knapp).
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    exportShareItem = ShareURLItem(url: url, isArcaBackup: true)
+        // Das Erstellen (Verschlüsseln + Archivieren) läuft im Hintergrund —
+        // sonst blockiert die UI, bis der Datei-Manager aufgeht („hängt").
+        exportLaeuft = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let ergebnis = store.exportData(password: password)
+            DispatchQueue.main.async {
+                exportLaeuft = false
+                switch ergebnis {
+                case .success(let url):
+                    showExportPasswordSheet = false
+                    // Warten bis das Passwort-Blatt wirklich zu ist — sonst schluckt
+                    // iOS das Teilen-Blatt (0,6 s wie beim Import; 0,35 s war zu knapp).
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        exportShareItem = ShareURLItem(url: url, isArcaBackup: true)
+                    }
+                case .failure(.passwordTooShort):
+                    exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
+                case .failure(.archiveFailed):
+                    exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
                 }
-            case .failure(.passwordTooShort):
-                exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
-            case .failure(.archiveFailed):
-                exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
             }
         }
     }
@@ -932,21 +941,37 @@ struct SettingsView: View {
                                     .font(.subheadline)
                             }
                         }
+                        if exportLaeuft {
+                            Section {
+                                HStack(spacing: 12) {
+                                    ProgressView()
+                                    Text("Backup wird erstellt … das kann bei vielen Dateien einen Moment dauern.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
                     .navigationTitle("Daten sichern")
                     .navigationBarTitleDisplayMode(.inline)
+                    .interactiveDismissDisabled(exportLaeuft)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Abbrechen") {
                                 exportPasswordFieldFocused = false
                                 showExportPasswordSheet = false
                             }
+                            .disabled(exportLaeuft)
                         }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Sichern") {
-                                performBackupExport()
+                            if exportLaeuft {
+                                ProgressView()
+                            } else {
+                                Button("Sichern") {
+                                    performBackupExport()
+                                }
+                                .disabled(exportPassword.isEmpty)
                             }
-                            .disabled(exportPassword.isEmpty)
                         }
                     }
                 }
