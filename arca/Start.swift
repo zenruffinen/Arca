@@ -1363,8 +1363,11 @@ struct HomeView: View {
 
                     // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
                             ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
+                            Text("für schnellen Zugriff")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
                             Spacer()
                         }
                         .padding(.horizontal, 20)
