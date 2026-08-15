@@ -133,6 +133,47 @@ struct BackupImportDocumentPicker: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - Backup Export Document Picker (echter Dateien-Browser, „Neuer Ordner")
+
+/// Speichert das Backup über Apples Dateien-Browser — mit Ordner-Navigation
+/// und „Neuer Ordner". Startet im zuletzt genutzten Backup-Ordner.
+struct BackupExportDocumentPicker: UIViewControllerRepresentable {
+    var fileURL: URL
+    var directoryURL: URL?
+    var onComplete: (URL) -> Void
+    var onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forExporting: [fileURL], asCopy: true)
+        picker.directoryURL = directoryURL
+        picker.shouldShowFileExtensions = true
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ picker: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onComplete: onComplete, onCancel: onCancel)
+    }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onComplete: (URL) -> Void
+        let onCancel: () -> Void
+        init(onComplete: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
+            self.onComplete = onComplete
+            self.onCancel = onCancel
+        }
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { onCancel(); return }
+            onComplete(url)
+        }
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onCancel()
+        }
+    }
+}
+
 // MARK: - Stat Row (für Statistik in Settings)
 
 struct StatRow: View {
@@ -351,6 +392,9 @@ struct SettingsView: View {
     @State private var showReleaseNotes = false
     @State private var showImportConfirm = false
     @State private var importPickerStartFolder: URL? = nil
+    @State private var showExportPicker = false
+    @State private var exportPickerURL: URL? = nil
+    @State private var exportPickerStartFolder: URL? = nil
 
     private var feedbackURL: URL? {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0"
@@ -581,10 +625,12 @@ struct SettingsView: View {
                 switch ergebnis {
                 case .success(let url):
                     showExportPasswordSheet = false
-                    // Warten bis das Passwort-Blatt wirklich zu ist — sonst schluckt
-                    // iOS das Teilen-Blatt (0,6 s wie beim Import; 0,35 s war zu knapp).
+                    // Warten bis das Passwort-Blatt wirklich zu ist, dann den echten
+                    // Dateien-Browser öffnen (Ordner wählen / neuen Ordner anlegen).
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        exportShareItem = ShareURLItem(url: url, isArcaBackup: true)
+                        exportPickerURL = url
+                        exportPickerStartFolder = store.beginAccessingRememberedBackupFolder()
+                        showExportPicker = true
                     }
                 case .failure(.passwordTooShort):
                     exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
@@ -1052,6 +1098,28 @@ struct SettingsView: View {
                     beginBackupImport(from: url)
                 } onCancel: {
                     showImportPicker = false
+                }
+            }
+            // --- Export: echter Dateien-Browser (Ordner wählen / neu anlegen) ---
+            .sheet(isPresented: $showExportPicker, onDismiss: {
+                store.releaseRememberedBackupFolderAccess()
+                exportPickerStartFolder = nil
+                exportPickerURL = nil
+            }) {
+                if let url = exportPickerURL {
+                    BackupExportDocumentPicker(
+                        fileURL: url,
+                        directoryURL: exportPickerStartFolder
+                    ) { saved in
+                        store.rememberBackupFolder(containing: saved)
+                        showExportPicker = false
+                        let name = saved.lastPathComponent
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            exportErfolgText = "„\(name)“ wurde gespeichert."
+                        }
+                    } onCancel: {
+                        showExportPicker = false
+                    }
                 }
             }
             // Mehr-Menü in der Leiste: Sichern/Wiederherstellen direkt anspringen
