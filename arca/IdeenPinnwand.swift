@@ -25,6 +25,15 @@ struct IdeenPinnwand: View {
 
     private var ideen: [NoteEntry] { store.notes }
 
+    /// Oberer Sicherheitsabstand (Statusleiste/Notch) — die Pinnwand ignoriert
+    /// die Safe Area, deshalb holen wir ihn direkt vom Fenster.
+    private var randOben: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }?.safeAreaInsets.top ?? 47
+    }
+
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
@@ -96,9 +105,8 @@ struct IdeenPinnwand: View {
         .sheet(item: $bearbeite) { note in
             NoteDetailView(note: note)
                 .environmentObject(store)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationCornerRadius(28)
-                .presentationBackground(.ultraThinMaterial)
         }
     }
 
@@ -143,7 +151,7 @@ struct IdeenPinnwand: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 14)
+        .padding(.top, randOben + 8)   // unter die Statusleiste/Notch
     }
 
     /// Am Handy sitzt der Schließen-Knopf unten — daumenfreundlich.
