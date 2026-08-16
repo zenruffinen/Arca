@@ -313,7 +313,7 @@ private struct ZettelKarte: View {
         .frame(width: breite, alignment: .topLeading)
         .frame(minHeight: 96, alignment: .topLeading)
         .padding(11)
-        .padding(.top, 6)
+        .padding(.top, 16)   // Platz für die Reißzwecke — kein Kollidieren mit dem Text
         // Papierner Verlauf statt flacher Fläche
         .background(
             LinearGradient(colors: [papier.bg.opacity(0.97), papier.bg],
