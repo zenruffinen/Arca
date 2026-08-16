@@ -138,6 +138,10 @@ struct NoteEntry: Identifiable, Codable, Hashable {
     var colorTag: Int = 0   // Index in NoteColor.palette (0–5)
     var isQuickIdea: Bool = false  // Blitzidee via Action Button
     var geaendertAm: Date = Date()
+    /// Angehängte Fotos (Dateinamen im filesDirectory) — das Korkblatt.
+    var fotos: [String] = []
+    /// Verknüpfte Arca-Dokumente (IDs).
+    var verknuepfteDokumente: [UUID] = []
 
     init(id: UUID = UUID(),
          title: String,
@@ -146,7 +150,9 @@ struct NoteEntry: Identifiable, Codable, Hashable {
          isFavorite: Bool = false,
          dateCreated: Date = Date(),
          colorTag: Int = 0,
-         isQuickIdea: Bool = false) {
+         isQuickIdea: Bool = false,
+         fotos: [String] = [],
+         verknuepfteDokumente: [UUID] = []) {
         self.id = id
         self.title = title
         self.text = text
@@ -155,6 +161,8 @@ struct NoteEntry: Identifiable, Codable, Hashable {
         self.dateCreated = dateCreated
         self.colorTag = colorTag
         self.isQuickIdea = isQuickIdea
+        self.fotos = fotos
+        self.verknuepfteDokumente = verknuepfteDokumente
     }
 
     // Custom Decoder: alte Notizen bleiben kompatibel
@@ -170,6 +178,8 @@ struct NoteEntry: Identifiable, Codable, Hashable {
         colorTag     = try c.decodeIfPresent(Int.self,    forKey: .colorTag)     ?? 0
         isQuickIdea  = try c.decodeIfPresent(Bool.self,   forKey: .isQuickIdea)  ?? false
         geaendertAm  = try c.decodeIfPresent(Date.self,   forKey: .geaendertAm)  ?? dateCreated
+        fotos        = try c.decodeIfPresent([String].self, forKey: .fotos)      ?? []
+        verknuepfteDokumente = try c.decodeIfPresent([UUID].self, forKey: .verknuepfteDokumente) ?? []
     }
 }
 

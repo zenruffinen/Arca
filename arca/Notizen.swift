@@ -9,6 +9,8 @@
 //
 
 import SwiftUI
+import PhotosUI
+import QuickLook
 
 // MARK: - Passwords
 
@@ -370,9 +372,17 @@ struct NoteDetailView: View {
     @State private var shareItem: ShareURLItem? = nil
     @StateObject private var speech = SpeechManager()
     @State private var isChecking = false
+    @State private var fotoAuswahl: PhotosPickerItem? = nil
+    @State private var zeigeDokumentWahl = false
+    @State private var vorschauURL: URL? = nil
 
     private var displayColor: NoteColor {
         NoteColor.for_(isEditing ? editColor : note.colorTag)
+    }
+
+    /// Immer der aktuelle Stand aus dem Store (Anhänge ändern sich live).
+    private var aktuelleNotiz: NoteEntry {
+        store.notes.first(where: { $0.id == note.id }) ?? note
     }
 
     var body: some View {
@@ -435,27 +445,109 @@ struct NoteDetailView: View {
                     }
                     .animation(.easeInOut(duration: 0.25), value: editColor)
                 } else {
+                    // Das Korkblatt: eine ganze Seite in Arca-Creme-Glas.
+                    let n = aktuelleNotiz
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 18) {
+                            // Kopf
                             HStack(alignment: .top, spacing: 10) {
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(displayColor.accent)
                                     .frame(width: 5, height: 28)
-                                Text(note.title.isEmpty ? "Ohne Titel" : note.title)
+                                Text(n.title.isEmpty ? "Ohne Titel" : n.title)
                                     .font(.title2.bold())
                             }
-                            Text(note.dateCreated.formatted(date: .abbreviated, time: .shortened))
+                            Text(n.dateCreated.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Divider()
-                            Text(note.text.isEmpty ? "Kein Inhalt" : note.text)
-                                .font(.body)
-                                .foregroundStyle(note.text.isEmpty ? .secondary : .primary)
-                            Spacer()
+
+                            // Transkript / Text als Anfang der Seite
+                            if !n.text.isEmpty {
+                                Text(n.text)
+                                    .font(.body)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+
+                            if !n.fotos.isEmpty || !n.verknuepfteDokumente.isEmpty {
+                                Divider().opacity(0.4)
+                            }
+
+                            // Fotos (Fluss-Raster)
+                            if !n.fotos.isEmpty {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 10)], spacing: 10) {
+                                    ForEach(n.fotos, id: \.self) { name in
+                                        let url = store.documentURL(for: name)
+                                        Button { vorschauURL = url } label: {
+                                            DocThumbnail(url: url, type: .image, gross: true)
+                                                .frame(height: 104)
+                                                .frame(maxWidth: .infinity)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.5), lineWidth: 0.5))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .contextMenu {
+                                            Button(role: .destructive) {
+                                                store.entferneFotoVonNotiz(name, notiz: note.id)
+                                            } label: { Label("Foto entfernen", systemImage: "trash") }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Verknüpfte Dokumente
+                            ForEach(n.verknuepfteDokumente, id: \.self) { docID in
+                                if let doc = store.documents.first(where: { $0.id == docID }) {
+                                    Button {
+                                        _ = store.ensureFileDownloaded(doc.filename)
+                                        vorschauURL = store.documentURL(for: doc.filename)
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(doc.title).font(.system(size: 15, weight: .medium)).foregroundStyle(.primary).lineLimit(1)
+                                                Text(doc.type.rawValue).font(.caption).foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        .padding(10)
+                                        .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.6)), in: RoundedRectangle(cornerRadius: 12))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            store.loeseDokumentVerknuepfung(docID, notiz: note.id)
+                                        } label: { Label("Verknüpfung lösen", systemImage: "link.badge.plus") }
+                                    }
+                                }
+                            }
+
+                            // Hinzufügen: Foto · Dokument
+                            HStack(spacing: 10) {
+                                PhotosPicker(selection: $fotoAuswahl, matching: .images, photoLibrary: .shared()) {
+                                    Label("Foto", systemImage: "photo")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .padding(.horizontal, 14).padding(.vertical, 9)
+                                        .glassEffect(.regular.tint(displayColor.accent.opacity(0.18)), in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                Button { zeigeDokumentWahl = true } label: {
+                                    Label("Dokument", systemImage: "doc.text")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .padding(.horizontal, 14).padding(.vertical, 9)
+                                        .glassEffect(.regular.tint(displayColor.accent.opacity(0.18)), in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                Spacer()
+                            }
+                            .padding(.top, 4)
+
+                            Spacer(minLength: 20)
                         }
-                        .padding()
+                        .padding(20)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .background(displayColor.bg.opacity(0.18))
+                    .background(ArcaWarm.hintergrund)
                 }
             }
             .navigationTitle(isEditing ? "Bearbeiten" : "Idee")
@@ -474,6 +566,8 @@ struct NoteDetailView: View {
                     if isEditing {
                         Button("Speichern") {
                             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            // aktuellen Stand holen (Anhänge könnten sich geändert haben)
+                            let aktuell = store.notes.first(where: { $0.id == note.id }) ?? note
                             let updated = NoteEntry(
                                 id: note.id,
                                 title: editTitle,
@@ -482,7 +576,9 @@ struct NoteDetailView: View {
                                 isFavorite: note.isFavorite,
                                 dateCreated: note.dateCreated,
                                 colorTag: editColor,
-                                isQuickIdea: false
+                                isQuickIdea: false,
+                                fotos: aktuell.fotos,
+                                verknuepfteDokumente: aktuell.verknuepfteDokumente
                             )
                             store.updateNote(updated)
                             isEditing = false
@@ -548,9 +644,68 @@ struct NoteDetailView: View {
                     .padding()
                 }
             }
+            // Foto ans Korkblatt heften
+            .onChange(of: fotoAuswahl) { _, neu in
+                guard let neu else { return }
+                Task {
+                    if let data = try? await neu.loadTransferable(type: Data.self),
+                       let ui = UIImage(data: data),
+                       let jpg = ui.arcaSkaliert(maxKante: 1600) {
+                        store.haengeFotoAnNotiz(note.id, bildData: jpg)
+                    }
+                    fotoAuswahl = nil
+                }
+            }
+            // Bestehendes Dokument verknüpfen
+            .sheet(isPresented: $zeigeDokumentWahl) {
+                NavigationStack {
+                    List {
+                        let frei = store.documents.filter { !aktuelleNotiz.verknuepfteDokumente.contains($0.id) }
+                        if frei.isEmpty {
+                            Text("Keine weiteren Dokumente zum Anhängen.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(frei) { doc in
+                                Button {
+                                    store.verknuepfeDokument(doc.id, mitNotiz: note.id)
+                                    zeigeDokumentWahl = false
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
+                                        Text(doc.title).foregroundStyle(.primary)
+                                        Spacer()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Dokument anhängen")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Abbrechen") { zeigeDokumentWahl = false }
+                        }
+                    }
+                }
+            }
+            .quickLookPreview($vorschauURL)
         }
     }
 
+}
+
+// MARK: - Foto skalieren (für das Korkblatt)
+
+extension UIImage {
+    /// Verkleinert auf eine maximale Kantenlänge (Seitenverhältnis bleibt), als JPEG.
+    func arcaSkaliert(maxKante: CGFloat = 1600) -> Data? {
+        let groesste = max(size.width, size.height)
+        let faktor = groesste > maxKante ? maxKante / groesste : 1
+        let ziel = CGSize(width: size.width * faktor, height: size.height * faktor)
+        let renderer = UIGraphicsImageRenderer(size: ziel)
+        let bild = renderer.image { _ in draw(in: CGRect(origin: .zero, size: ziel)) }
+        return bild.jpegData(compressionQuality: 0.82)
+    }
 }
 
 // MARK: - Spell Check Helper

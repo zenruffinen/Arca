@@ -2330,6 +2330,33 @@ final class AppStore: ObservableObject {
         }
     }
 
+    // MARK: - Notiz-Anhänge (das Korkblatt: Fotos + verknüpfte Dokumente)
+
+    func haengeFotoAnNotiz(_ noteID: UUID, bildData: Data) {
+        let name = "notiz_\(UUID().uuidString).jpg"
+        try? bildData.write(to: documentURL(for: name))
+        if let i = notes.firstIndex(where: { $0.id == noteID }) {
+            notes[i].fotos.append(name)
+        }
+    }
+    func entferneFotoVonNotiz(_ name: String, notiz noteID: UUID) {
+        if let i = notes.firstIndex(where: { $0.id == noteID }) {
+            notes[i].fotos.removeAll { $0 == name }
+        }
+        try? FileManager.default.removeItem(at: documentURL(for: name))
+    }
+    func verknuepfeDokument(_ docID: UUID, mitNotiz noteID: UUID) {
+        if let i = notes.firstIndex(where: { $0.id == noteID }),
+           !notes[i].verknuepfteDokumente.contains(docID) {
+            notes[i].verknuepfteDokumente.append(docID)
+        }
+    }
+    func loeseDokumentVerknuepfung(_ docID: UUID, notiz noteID: UUID) {
+        if let i = notes.firstIndex(where: { $0.id == noteID }) {
+            notes[i].verknuepfteDokumente.removeAll { $0 == docID }
+        }
+    }
+
     func addQuickIdea(title: String, text: String) {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanText  = text.trimmingCharacters(in: .whitespacesAndNewlines)
