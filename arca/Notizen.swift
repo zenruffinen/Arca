@@ -188,9 +188,8 @@ struct NotesView: View {
             }
             .sheet(item: $selectedNote) { note in
                 NoteDetailView(note: note)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationCornerRadius(28)
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
         }

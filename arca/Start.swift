@@ -1608,9 +1608,8 @@ struct HomeView: View {
         .sheet(item: $quickAccessNote) { note in
             NoteDetailView(note: note)
                 .environmentObject(store)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationCornerRadius(28)
-                .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $quickAccessVault) { entry in
             NavigationStack {
