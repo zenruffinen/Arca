@@ -248,22 +248,27 @@ struct IdeenPinnwand: View {
 private struct KorkWand: View {
     var body: some View {
         ZStack {
+            // Warme Creme-Bühne — passt zur Glas-Welt der App
             LinearGradient(
-                colors: [Color(red: 0.99, green: 0.93, blue: 0.66),
-                         Color(red: 0.96, green: 0.86, blue: 0.52)],
-                startPoint: .topLeading, endPoint: .bottomTrailing)
-            // Feine Tupfer für Kork-Anmutung
+                colors: [Color(red: 0.985, green: 0.965, blue: 0.935),
+                         Color(red: 0.955, green: 0.925, blue: 0.875)],
+                startPoint: .top, endPoint: .bottom)
+            // sanfte warme Vignette für Tiefe
+            RadialGradient(
+                colors: [.clear, Color(red: 0.72, green: 0.58, blue: 0.38).opacity(0.12)],
+                center: .center, startRadius: 220, endRadius: 640)
+            // feine papierne Tupfer
             GeometryReader { geo in
-                let s: CGFloat = 26
+                let s: CGFloat = 30
                 let cols = Int(geo.size.width / s) + 1
                 let rows = Int(geo.size.height / s) + 1
                 ForEach(0..<(cols * rows), id: \.self) { i in
                     let c = i % cols, r = i / cols
                     Circle()
-                        .fill(Color(red: 0.6, green: 0.45, blue: 0.15)
-                            .opacity((c + r).isMultiple(of: 2) ? 0.05 : 0.03))
+                        .fill(Color(red: 0.55, green: 0.42, blue: 0.24)
+                            .opacity((c + r).isMultiple(of: 2) ? 0.035 : 0.02))
                         .frame(width: 3, height: 3)
-                        .position(x: CGFloat(c) * s + 6, y: CGFloat(r) * s + 6)
+                        .position(x: CGFloat(c) * s + 8, y: CGFloat(r) * s + 8)
                 }
             }
         }
@@ -271,10 +276,12 @@ private struct KorkWand: View {
     }
 }
 
-/// Ein einzelner Ideen-Zettel mit Reißzwecke.
+/// Ein einzelner Ideen-Zettel mit plastischer Reißzwecke.
 private struct ZettelKarte: View {
     let note: NoteEntry
     let breite: CGFloat
+
+    private var papier: NoteColor { NoteColor.for_(note.colorTag) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -285,25 +292,70 @@ private struct ZettelKarte: View {
             }
             Text(note.text.isEmpty ? "…" : note.text)
                 .font(.system(size: 11))
-                .foregroundStyle(.black.opacity(0.7))
+                .foregroundStyle(.black.opacity(0.72))
                 .lineLimit(5)
+            // Anhänge-Andeutung (Foto/Dokument) — zeigt: die Idee ist ein Blatt
+            if !note.fotos.isEmpty || !note.verknuepfteDokumente.isEmpty {
+                HStack(spacing: 8) {
+                    if !note.fotos.isEmpty {
+                        Label("\(note.fotos.count)", systemImage: "photo")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    if !note.verknuepfteDokumente.isEmpty {
+                        Label("\(note.verknuepfteDokumente.count)", systemImage: "doc.text")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(.black.opacity(0.45))
+                .padding(.top, 2)
+            }
         }
         .frame(width: breite, alignment: .topLeading)
         .frame(minHeight: 96, alignment: .topLeading)
         .padding(11)
-        .padding(.top, 4)
-        .background(NoteColor.for_(note.colorTag).bg)
+        .padding(.top, 6)
+        // Papierner Verlauf statt flacher Fläche
+        .background(
+            LinearGradient(colors: [papier.bg.opacity(0.97), papier.bg],
+                           startPoint: .top, endPoint: .bottom)
+        )
+        // Sanfter Lichtschein oben (wie Licht auf Papier)
         .overlay(alignment: .top) {
-            // Reißzwecke
-            Circle()
-                .fill(RadialGradient(colors: [.white.opacity(0.9), Color.red, Color(red: 0.6, green: 0, blue: 0)],
-                                     center: .init(x: 0.35, y: 0.3), startRadius: 0, endRadius: 8))
-                .frame(width: 13, height: 13)
-                .shadow(color: .black.opacity(0.3), radius: 1.5, x: 0, y: 1.5)
-                .offset(y: -5)
+            LinearGradient(colors: [.white.opacity(0.35), .clear],
+                           startPoint: .top, endPoint: .center)
+                .allowsHitTesting(false)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.08), lineWidth: 0.7))
-        .contentShape(RoundedRectangle(cornerRadius: 4))
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .strokeBorder(.black.opacity(0.06), lineWidth: 0.7))
+        // Plastische Reißzwecke — ganz auf dem Zettel, oben mittig
+        .overlay(alignment: .top) { reisszwecke.offset(y: 10) }
+        .contentShape(RoundedRectangle(cornerRadius: 5))
+    }
+
+    /// Glasige, plastische Reißzwecke mit Glanzpunkt und Schlagschatten.
+    private var reisszwecke: some View {
+        ZStack {
+            Ellipse()
+                .fill(.black.opacity(0.16))
+                .frame(width: 15, height: 5)
+                .offset(y: 8)
+                .blur(radius: 1.5)
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(red: 1.0, green: 0.56, blue: 0.52),
+                             Color(red: 0.86, green: 0.14, blue: 0.12),
+                             Color(red: 0.52, green: 0.03, blue: 0.03)],
+                    center: .init(x: 0.34, y: 0.30), startRadius: 0, endRadius: 10))
+                .frame(width: 16, height: 16)
+                .overlay(
+                    Circle().fill(.white.opacity(0.9))
+                        .frame(width: 4, height: 4)
+                        .offset(x: -2.6, y: -3)
+                        .blur(radius: 0.4)
+                )
+                .overlay(Circle().strokeBorder(.black.opacity(0.15), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.35), radius: 2, x: 0, y: 2)
+        }
     }
 }
