@@ -105,6 +105,8 @@ struct HomeView: View {
     @Binding var selectedSection: ArcaSection
     @State private var profilAuswahl: PhotosPickerItem? = nil
     @State private var showAlleFavoriten = false
+    @State private var zeigeNeueWand = false
+    @State private var neuerWandName = ""
     @State private var sichtbareDokKarte: String? = nil
     @State private var dokScrollPos = ScrollPosition()
     @State private var dokFrac: Double = 0
@@ -238,7 +240,7 @@ struct HomeView: View {
                     // Verwaltung direkt auf dem Start: verschieben,
                     // umbenennen, favorisieren, löschen
                     .contextMenu {
-                        ArcaMenue.favorit(ist: doc.isFavorite) {
+                        ArcaMenue.favorit(ist: store.istAngepinnt(kind: .document, refID: doc.id)) {
                             store.toggleFavorite(kind: .document, id: doc.id)
                             UINotificationFeedbackGenerator().notificationOccurred(.success)
                         }
@@ -344,6 +346,36 @@ struct HomeView: View {
 
     /// Notiz → Aufgabenliste: Titel wird Listenname, jede Textzeile
     /// ein Punkt; die Notiz gilt danach als einsortiert und verschwindet.
+    /// Die Wände, die man wählen kann — Tresor und Pult tauchen nie auf.
+    private var sichtbareWaende: [PinnBoard] {
+        store.pinnBoards
+            .filter { ($0.art == .wand || $0.art == .ideen) && !$0.archiviert }
+            .sorted { $0.reihenfolge < $1.reihenfolge }
+    }
+
+    /// Was auf der Wand hängt, in Kurzform — „2 Dok · 1 Idee". Bei einem
+    /// Vorhaben zählt der Stand, nicht die nackte Anzahl.
+    private func wandBilanz(_ id: UUID) -> String {
+        let drauf = store.anschlaege.filter { $0.boardID == id && $0.kind != .vault }
+        guard !drauf.isEmpty else { return "leer" }
+        var teile: [String] = []
+        let dok = drauf.filter { $0.kind == .document }.count
+        let listen = drauf.filter { $0.kind == .list }.count
+        let ideen = drauf.filter { $0.kind == .note }.count
+        if dok > 0 { teile.append("\(dok) Dok") }
+        if listen > 0 { teile.append("\(listen) Liste\(listen == 1 ? "" : "n")") }
+        if ideen > 0 { teile.append("\(ideen) Idee\(ideen == 1 ? "" : "n")") }
+        return teile.joined(separator: " · ")
+    }
+
+    private func oeffneWand(_ id: UUID) {
+        UserDefaults.standard.set(id.uuidString, forKey: "letzteWandID")
+        store.homeStreamFilter = .notizen
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            store.zeigeIdeenPinnwand = true
+        }
+    }
+
     private func wandleNotizInAufgaben(_ item: FavoriteItem) {
         guard let note = store.notes.first(where: { $0.id == item.id }) else { return }
         let titel = note.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -489,10 +521,8 @@ struct HomeView: View {
     /// Ist der Eintrag hinter einer Strom-Zeile bereits Favorit?
     private func istFavorit(_ item: FavoriteItem) -> Bool {
         switch item.kind {
-        case .document: return store.documents.first(where: { $0.id == item.id })?.isFavorite ?? false
-        case .note:     return store.notes.first(where: { $0.id == item.id })?.isFavorite ?? false
-        case .list:     return store.lists.first(where: { $0.id == item.id })?.isFavorite ?? false
-        case .vault:    return store.vaultItems.first(where: { $0.id == item.id })?.isFavorite ?? false
+        case .document, .note, .list, .vault:
+            return store.istAngepinnt(kind: item.kind, refID: item.id)
         }
     }
 
@@ -1146,6 +1176,44 @@ struct HomeView: View {
 
                 // Die Suche liegt jetzt unten in der Leiste (obere Lupe entfernt 14.08.)
 
+                // Sicherung fällig? Nur dann steht das Schild hier — als
+                // Zeichen statt als Banderole, das spart die halbe Reihe.
+                if backupErinnerungFaellig {
+                    Button {
+                        store.pendingSettingsAktion = "export"
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            selectedSection = .settings
+                        }
+                    } label: {
+                        Image(systemName: "shield.lefthalf.filled.badge.checkmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                            .frame(width: 36, height: 36)
+                            .glassEffect(.regular, in: Circle())
+                            .overlay(alignment: .topTrailing) {
+                                Circle()
+                                    .fill(ArcaWarm.terrakotta)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 1, y: -1)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(backupErinnerungText)
+                    .contextMenu {
+                        Button {
+                            store.pendingSettingsAktion = "export"
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                selectedSection = .settings
+                            }
+                        } label: { Label("Jetzt sichern", systemImage: "arrow.down.doc") }
+                        Button {
+                            UserDefaults.standard.set(
+                                Date().addingTimeInterval(7 * 86400), forKey: "arcaBackupSnooze")
+                            withAnimation { backupSnoozeSignal += 1 }
+                        } label: { Label("Später erinnern", systemImage: "clock") }
+                    }
+                }
+
                 // Notfall immer griffbereit: Notrufnummern + Karten sperren
                 Button {
                     store.zeigeNotfall = true
@@ -1260,23 +1328,24 @@ struct HomeView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // ── Bühne: großer Gruß, darunter der Kalender — beim Suchen
-            //    klappen beide weg und machen den Ergebnissen Platz ──
+            // ── Gruß und Kalender. Aus der großen Bühne ist am 26.08. eine
+            //    schmale Glasleiste geworden: der Start soll ohne Scrollen
+            //    auf eine Seite passen. ──
             if !isSearching {
-                ArcaHeroCard(name: userName) {
-                    store.pendingQuickCapture = true
-                } onDictate: {
-                    store.quickCaptureAutoRecord = true
-                    store.pendingQuickCapture = true
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 10)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-
+                // Der Gruß ist am 26.08. ganz gewichen: das Profilbild oben
+                // rechts sagt schon, wessen Arca das ist. Der Kalender
+                // beginnt die Seite.
                 HomeCalendarCard()
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 12)
                     .transition(.opacity.combined(with: .move(edge: .top)))
+
+                // Gruß und Kalender sind ein Stück — „Hallo Hans, heute ist
+                // Folgendes dran". Der Glasstrich schließt sie ab und trennt
+                // sie von allem, was darunter kommt.
+                ArcaGlasStrich()
+                    .padding(.horizontal, 34)
+                    .padding(.bottom, 16)
             }
 
             // ── Die Suche kommt nur auf Ruf der Lupe ──
@@ -1315,117 +1384,76 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
 
-                    // ── Backup-Erinnerung: dezent, aber unübersehbar ──
-                    if backupErinnerungFaellig {
-                        HStack(spacing: 10) {
-                            Image(systemName: "shield.lefthalf.filled.badge.checkmark")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(ArcaWarm.terrakotta)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(backupErinnerungText)
-                                    .font(.system(size: 13, weight: .semibold))
-                                Text("Ein verschlüsseltes Backup dauert eine Minute.")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 8)
-                            Button {
-                                store.pendingSettingsAktion = "export"
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    selectedSection = .settings
-                                }
-                            } label: {
-                                Text("Sichern")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 7)
-                                    .background(ArcaWarm.terrakotta, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            Button {
-                                UserDefaults.standard.set(
-                                    Date().addingTimeInterval(7 * 86400), forKey: "arcaBackupSnooze")
-                                withAnimation { backupSnoozeSignal += 1 }
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(12)
-                        .glassEffect(.regular.tint(ArcaWarm.terrakotta.opacity(0.08)),
-                                     in: RoundedRectangle(cornerRadius: 14))
-                        .padding(.horizontal, 20)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    // ── Favoriten: alle Typen gemischt, festgepinnte zuerst ──
+                    // ── Wände: das Herz der Seite, deshalb ganz oben und groß.
+                    //    Sie sitzen dicht über der Bereichsleiste — von dort geht
+                    //    es weiter in Dokumente, Ideen, Aufgaben, Tresor. ──
+                    //
+                    // Sie haben die Favoriten-Reihe abgelöst: angepinnt IST
+                    // Favorit, und was angepinnt ist, hängt an einer Wand.
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            ArcaSectionTitle(title: "Favoriten", icon: "ArcaStar")
-                            Text("für schnellen Zugriff")
+                            ArcaSectionTitle(title: "Wände", icon: "ArcaStar")
+                            Text("alles zu einer Sache")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                             Spacer()
                         }
                         .padding(.horizontal, 20)
-                        if store.favoriteItems.isEmpty {
-                            // Leerzustand: zeigen, dass es die Reihe gibt — und wie man sie füllt
-                            HStack(spacing: 10) {
-                                Image(systemName: "star")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(ArcaWarm.terrakotta)
-                                Text("Halte einen Eintrag gedrückt und wähle „Zu Favoriten“ — er erscheint dann hier.")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
-                            .padding(.horizontal, 20)
+                        if sichtbareWaende.isEmpty {
+                            ArcaPlatzhalter(text: "Noch keine Wand — leg in der Pinnwand eine an.",
+                                            symbol: "pin")
+                                .padding(.horizontal, 20)
+                                .frame(height: 152)
                         } else {
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(store.favoriteItems) { fav in
-                                        let doc = fav.kind == .document
-                                            ? store.documents.first(where: { $0.id == fav.id })
-                                            : nil
-                                        HomeFavoriteCard(
-                                            item: fav,
-                                            previewURL: doc.map { store.documentURL(for: $0.filename) },
-                                            docType: doc?.type ?? .pdf,
-                                            breite: favoritenKartenBreite
-                                        ) {
-                                            openFavorite(fav)
-                                        } onTogglePin: {
-                                            store.toggleFavoritePin(kind: fav.kind, id: fav.id)
-                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                        } onRemove: {
-                                            store.toggleFavorite(kind: fav.kind, id: fav.id)
+                                HStack(spacing: 10) {
+                                    // Fester Platz ganz vorn — wie „Unsortiert"
+                                    // bei den Gruppen. Er bleibt, egal wie viele
+                                    // Wände dazukommen.
+                                    NeueWandKachel {
+                                        neuerWandName = ""
+                                        zeigeNeueWand = true
+                                    }
+                                    ForEach(sichtbareWaende) { b in
+                                        WandMappe(board: b, bilanz: wandBilanz(b.id)) {
+                                            oeffneWand(b.id)
                                         }
                                     }
                                 }
                                 .padding(.horizontal, 20)
-                                // Nur wenig Luft (Abstand wie bei „Zuletzt geöffnet");
-                                // die „fest"-Plakette sitzt jetzt knapper an der Karte
                                 .padding(.top, 2)
-                                .padding(.bottom, 8)
                             }
+                            .frame(height: 152)
                         }
                     }
                     .transition(.scale.combined(with: .opacity))
                     .id("seitenAnfang")
 
-                    // ── Zuletzt geöffnet (zwischen Favoriten und Filter-Blasen) ──
-                    if !store.zuletztGeoeffneteItems.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                ArcaSectionTitle(title: "Zuletzt geöffnet", icon: "ArcaClock")
-                                Spacer()
-                            }
-                            .padding(.horizontal, 20)
+                    // Die Wände sind abgeschlossen — darunter beginnen die
+                    // Bereiche. Derselbe Glasstrich wie unter dem Kalender,
+                    // dicht an den Wänden: er gehört zu ihnen, nicht zu dem,
+                    // was folgt.
+                    ArcaGlasStrich()
+                        .padding(.horizontal, 34)
+                        .padding(.top, -10)
+
+                    // ── Zuletzt: leise, unter den Wänden ──
+                    //
+                    // Der Platz steht fest, auch wenn nichts drin ist. Ein
+                    // Bereich, der mal da ist und mal nicht, lässt die ganze
+                    // Seite springen — und man sucht ihn beim nächsten Mal.
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            ArcaSectionTitle(title: "Zuletzt", icon: "ArcaClock")
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        if store.zuletztGeoeffneteItems.isEmpty {
+                            ArcaPlatzhalter(text: "Was du zuletzt geöffnet hast, liegt hier bereit.",
+                                            symbol: "clock")
+                                .padding(.horizontal, 20)
+                                .frame(height: 58)
+                        } else {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(store.zuletztGeoeffneteItems.prefix(10)) { item in
@@ -1434,11 +1462,10 @@ struct HomeView: View {
                                 }
                                 .padding(.horizontal, 20)
                             }
+                            .frame(height: 58)
                         }
-                        .padding(.top, -8)
-                        .padding(.bottom, -11)   // ~3 mm unter „Zuletzt geöffnet" gewinnen
                     }
-
+                    .padding(.bottom, -6)
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
                     VStack(alignment: .leading, spacing: 10) {
@@ -1565,6 +1592,16 @@ struct HomeView: View {
                 symbolZiel = nil
             }
             .environmentObject(store)
+        }
+        .alert("Neue Wand", isPresented: $zeigeNeueWand) {
+            TextField("Name, z. B. „Italien im Mai\u{201C}", text: $neuerWandName)
+            Button("Anlegen") {
+                let b = store.neuesBoard(name: neuerWandName)
+                oeffneWand(b.id)
+            }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Eine Mappe zu einer Sache — Dokumente, Ideen und Aufgaben an einem Ort.")
         }
         .sheet(isPresented: $showAlleFavoriten) {
             NavigationStack {
@@ -3000,3 +3037,157 @@ extension UIImage {
     }
 }
 
+
+/// Eine Wand auf dem Start: ihr Zettel-Zeichen mit dem Namen darauf.
+/// Antippen öffnet die echte Korkwand.
+struct WandMappe: View {
+    @EnvironmentObject var store: AppStore
+    let board: PinnBoard
+    let bilanz: String
+    let tippe: () -> Void
+
+    private var neigung: Double {
+        let s = board.id.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return Double(s % 7 - 3) * 1.1
+    }
+
+    var body: some View {
+        Button(action: tippe) {
+            VStack(spacing: 6) {
+                WandSymbolBild(symbol: board.symbol, kante: 116,
+                               beschriftung: board.name)
+                    // Leichte Schieflage aus der ID — auf jedem Gerät gleich,
+                    // und die Reihe sieht angeheftet aus statt ausgerichtet.
+                    .rotationEffect(.degrees(neigung))
+                Text(bilanz)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(width: 124)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Wand \(board.name), \(bilanz)")
+        // Zeichen und Belag lassen sich direkt hier wechseln — man sieht
+        // die Wände ja auf dieser Seite, also entscheidet man auch hier.
+        .contextMenu {
+            Menu {
+                ForEach(WandSymbol.allCases) { s in
+                    Button {
+                        store.setzeSymbol(board.id, s)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        if s == board.symbol { Label(s.label, systemImage: "checkmark") }
+                        else { Text(s.label) }
+                    }
+                }
+            } label: { Label("Zeichen wählen", systemImage: "square.on.square") }
+            Menu {
+                ForEach(WandStil.allCases) { s in
+                    Button {
+                        store.setzeStil(board.id, s)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        if s == board.stil { Label(s.label, systemImage: "checkmark") }
+                        else { Text(s.label) }
+                    }
+                }
+            } label: { Label("Belag wählen", systemImage: "paintpalette") }
+            Divider()
+            Button { tippe() } label: { Label("Wand öffnen", systemImage: "arrow.up.forward") }
+        }
+    }
+}
+
+/// Ein feiner Strich aus Glas: in der Mitte hell, zu den Enden hin
+/// auslaufend, mit einem Lichtreflex darüber.
+struct ArcaGlasStrich: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.clear,
+                         Color.primary.opacity(0.10),
+                         Color.primary.opacity(0.14),
+                         Color.primary.opacity(0.10),
+                         .clear],
+                startPoint: .leading, endPoint: .trailing)
+                .frame(height: 1)
+            LinearGradient(
+                colors: [.clear, .white.opacity(0.75), .clear],
+                startPoint: .leading, endPoint: .trailing)
+                .frame(height: 1)
+                .offset(y: 1)
+                .blur(radius: 0.5)
+        }
+        .frame(height: 2)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Ein leerer, aber sichtbarer Bereich. Die Fläche bleibt reserviert —
+/// eine Seite, auf der Bereiche verschwinden, wirkt jedes Mal anders,
+/// und man sucht beim nächsten Öffnen, was gestern noch da war.
+struct ArcaPlatzhalter: View {
+    let text: String
+    var symbol: String = "square.dashed"
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(ArcaWarm.terrakotta.opacity(0.55))
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(ArcaWarm.terrakotta.opacity(0.20),
+                              style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
+        }
+    }
+}
+
+/// Der feste Platz am Anfang der Wände-Reihe: hier entsteht eine neue Wand.
+/// Er bleibt stehen, egal wie viele Wände dazukommen — wie „Unsortiert"
+/// bei den Gruppen, an dem man sich orientiert.
+struct NeueWandKachel: View {
+    let tippe: () -> Void
+
+    var body: some View {
+        Button(action: tippe) {
+            VStack(spacing: 5) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(ArcaWarm.terrakotta.opacity(0.10))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(ArcaWarm.terrakotta.opacity(0.35),
+                                      style: StrokeStyle(lineWidth: 1.4, dash: [6, 5]))
+                    VStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                        Text("Neue\nWand")
+                            .font(.system(size: 12.5, weight: .bold))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(ArcaWarm.terrakotta)
+                    }
+                }
+                .frame(width: 106, height: 116)
+                Text(" ")
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .frame(width: 124)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Neue Wand anlegen")
+    }
+}

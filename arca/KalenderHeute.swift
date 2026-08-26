@@ -87,7 +87,9 @@ struct HomeCalendarCard: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(kalender.termine.prefix(3), id: \.eventIdentifier) { termin in
+                // Zwei Termine stehen fest im Blick — alles Weitere zählt
+                // das Plus. So bleibt die Karte immer gleich hoch.
+                ForEach(kalender.termine.prefix(2), id: \.eventIdentifier) { termin in
                     HStack(spacing: 10) {
                         Text(termin.startDate.formatted(date: .omitted, time: .shortened))
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -100,10 +102,20 @@ struct HomeCalendarCard: View {
                         Spacer(minLength: 0)
                     }
                 }
-                if kalender.termine.count > 3 {
-                    Text("+\(kalender.termine.count - 3) weitere")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                if kalender.termine.count > 2 {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .heavy))
+                        Text("\(kalender.termine.count - 2)")
+                            .font(.system(size: 11, weight: .bold))
+                            .monospacedDigit()
+                        Text(kalender.termine.count - 2 == 1 ? "Termin" : "Termine")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(ArcaWarm.terrakotta.opacity(0.10), in: Capsule())
                 }
             }
         }
