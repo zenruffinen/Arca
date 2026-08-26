@@ -97,11 +97,9 @@ struct VaultView: View {
             .listRowInsets(EdgeInsets(top: 2, leading: 28, bottom: 2, trailing: 26))
             .contextMenu {
                 if item.art != .karte {
-                    ArcaMenue.favorit(ist: item.isFavorite) {
-                        if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
-                            store.vaultItems[idx].isFavorite.toggle()
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }
+                    ArcaMenue.favorit(ist: store.istAngepinnt(kind: .vault, refID: item.id)) {
+                        store.toggleFavorite(kind: .vault, id: item.id)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
                     Divider()
                 }
@@ -122,13 +120,12 @@ struct VaultView: View {
             .swipeActions(edge: .leading) {
                 if item.art != .karte {
                     Button {
-                        if let idx = store.vaultItems.firstIndex(where: { $0.id == item.id }) {
-                            store.vaultItems[idx].isFavorite.toggle()
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }
+                        store.toggleFavorite(kind: .vault, id: item.id)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     } label: {
-                        Label(item.isFavorite ? "Aus Favoriten" : "Favorit",
-                              systemImage: item.isFavorite ? "star.slash" : "star.fill")
+                        let dran = store.istAngepinnt(kind: .vault, refID: item.id)
+                        Label(dran ? "Aus Favoriten" : "Favorit",
+                              systemImage: dran ? "star.slash" : "star.fill")
                     }
                     .tint(.orange)
                 }
@@ -157,7 +154,8 @@ struct VaultView: View {
         case "weak":     items.sort { $0.password.count < $1.password.count }
         default:         items.sort { $0.dateCreated > $1.dateCreated }
         }
-        items.sort { $0.isFavorite && !$1.isFavorite }
+        items.sort { store.istAngepinnt(kind: .vault, refID: $0.id)
+                    && !store.istAngepinnt(kind: .vault, refID: $1.id) }
         return items
     }
 
@@ -1092,6 +1090,7 @@ struct KartenMiniBild: View {
 }
 
 struct VaultRow: View {
+    @EnvironmentObject var store: AppStore
     let item: VaultEntry
     @Binding var copiedItemID: UUID?
 
@@ -1119,7 +1118,7 @@ struct VaultRow: View {
                 .lineLimit(1)
 
             // Favorit
-            if item.isFavorite {
+            if store.istAngepinnt(kind: .vault, refID: item.id) {
                 Image(systemName: "star.fill")
                     .font(.system(size: 9))
                     .foregroundStyle(.orange.opacity(0.8))

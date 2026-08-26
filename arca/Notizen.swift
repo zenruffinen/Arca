@@ -244,7 +244,7 @@ struct NotesView: View {
                         .listRowSeparatorTint(Color.primary.opacity(0.06))
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
                         .contextMenu {
-                            ArcaMenue.favorit(ist: note.isFavorite) {
+                            ArcaMenue.favorit(ist: store.istAngepinnt(kind: .note, refID: note.id)) {
                                 store.toggleFavorite(kind: .note, id: note.id)
                                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                             }

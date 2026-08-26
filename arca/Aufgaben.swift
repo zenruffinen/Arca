@@ -191,11 +191,9 @@ struct ListsView: View {
                             .listRowSeparatorTint(Color.primary.opacity(0.06))
                             .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 12))
                             .contextMenu {
-                                ArcaMenue.favorit(ist: list.isFavorite) {
-                                    if let idx = store.lists.firstIndex(where: { $0.id == list.id }) {
-                                        store.lists[idx].isFavorite.toggle()
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    }
+                                ArcaMenue.favorit(ist: store.istAngepinnt(kind: .list, refID: list.id)) {
+                                    store.toggleFavorite(kind: .list, id: list.id)
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
                                 Divider()
                                 ArcaMenue.umbenennen {
@@ -236,13 +234,12 @@ struct ListsView: View {
                                 } label: { Label("Eintrag", systemImage: "plus") }
                                 .tint(.green)
                                 Button {
-                                    if let idx = store.lists.firstIndex(where: { $0.id == list.id }) {
-                                        store.lists[idx].isFavorite.toggle()
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    }
+                                    store.toggleFavorite(kind: .list, id: list.id)
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 } label: {
-                                    Label(list.isFavorite ? "Aus Favoriten" : "Favorit",
-                                          systemImage: list.isFavorite ? "star.slash" : "star.fill")
+                                    let dran = store.istAngepinnt(kind: .list, refID: list.id)
+                                    Label(dran ? "Aus Favoriten" : "Favorit",
+                                          systemImage: dran ? "star.slash" : "star.fill")
                                 }
                                 .tint(.orange)
                                 Button {
@@ -397,6 +394,7 @@ struct QuickAddEntrySheet: View {
 // MARK: - ListRow
 
 struct ListRow: View {
+    @EnvironmentObject var store: AppStore
     let list: ListEntry
 
     var body: some View {
@@ -408,7 +406,7 @@ struct ListRow: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-            if list.isFavorite {
+            if store.istAngepinnt(kind: .list, refID: list.id) {
                 Image(systemName: "star.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.orange)

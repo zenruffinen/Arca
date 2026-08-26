@@ -472,8 +472,9 @@ struct DocumentsView: View {
                     store.toggleFavorite(kind: .document, id: doc.id)
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                 } label: {
-                    Label(doc.isFavorite ? "Entfernen" : "Favorit",
-                          systemImage: doc.isFavorite ? "star.slash" : "star.fill")
+                    let dran = store.istAngepinnt(kind: .document, refID: doc.id)
+                    Label(dran ? "Entfernen" : "Favorit",
+                          systemImage: dran ? "star.slash" : "star.fill")
                 }
                 .tint(.orange)
                 Button {
@@ -485,7 +486,7 @@ struct DocumentsView: View {
         }
         .contextMenu {
           if doc.category != "Top Secret" {
-            ArcaMenue.favorit(ist: doc.isFavorite) {
+            ArcaMenue.favorit(ist: store.istAngepinnt(kind: .document, refID: doc.id)) {
                 store.toggleFavorite(kind: .document, id: doc.id)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
@@ -563,7 +564,8 @@ struct DocumentsView: View {
                     let rein = doc.category != "Top Secret"
                     store.documents[idx].category = rein ? "Top Secret" : "Unsortiert"
                     store.documents[idx].subcategory = ""
-                    if rein { store.documents[idx].isFavorite = false }
+                    // Top Secret hängt an keiner Wand — überall abnehmen.
+                    if rein { store.abpinnenUeberall(refID: doc.id) }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                 }
             } label: {
