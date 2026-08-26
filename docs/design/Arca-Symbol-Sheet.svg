@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1800" viewBox="0 0 1800 1800">
+  <rect width="1800" height="1800" fill="#FAF6EF"/>
+  <text x="90" y="92" fill="#3B302B" font-family="Avenir Next,Helvetica,sans-serif" font-size="42" font-weight="700">ARCA · SYMBOLFAMILIE</text>
+  <text x="90" y="137" fill="#8E7D73" font-family="Avenir Next,Helvetica,sans-serif" font-size="22">Rundbogen-DNA · Terrakotta · 24 × 24 Raster · Runde Linien</text>
+  <defs>
+    <style>
+      .tile{fill:#FFFDF9;stroke:#EADFD5;stroke-width:2}.icon{fill:none;stroke:#C76640;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.label{fill:#5C4A41;font:600 20px 'Avenir Next',Helvetica,sans-serif;text-anchor:middle;letter-spacing:.4px}
+    </style>
+  </defs>
+
+  <!-- Row 1 -->
+  <g transform="translate(90 190)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M3.5 9.5h17v9.25a1.75 1.75 0 0 1-1.75 1.75H5.25a1.75 1.75 0 0 1-1.75-1.75zM5 9.5V7.7A2.2 2.2 0 0 1 7.2 5.5h9.6A2.2 2.2 0 0 1 19 7.7v1.8M2.5 9.5h19M9 13h6M8 5.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">ABLAGE</text></g>
+  <g transform="translate(420 190)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M10.6 13.4 20 4m-3.2 3.2 2 2m-4.4.4 2 2M11 14a5.25 5.25 0 1 1-1-1M4.2 16.8a2.8 2.8 0 0 1 5.6 0"/></g><text class="label" x="150" y="266">SCHLÜSSEL</text></g>
+  <g transform="translate(750 190)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M13.8 2.8 5.4 13.1h5.8l-1 8.1 8.4-10.3h-5.8zM6.9 10.4a5.1 5.1 0 0 1 10.2 0"/></g><text class="label" x="150" y="266">BLITZIDEE</text></g>
+  <g transform="translate(1080 190)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M5 3.5h8.2L19 9.3v11.2H5zM13 3.5v6h6M8.5 14h7M8.5 17.5h5M8 9.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">DOKUMENT</text></g>
+  <g transform="translate(1410 190)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M5 3.5h14v17H5zM8 8l1.2 1.2L11.5 7M13.5 8.5h3M8 14l1.2 1.2 2.3-2.2M13.5 14.5h3M8 3.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">AUFGABEN</text></g>
+
+  <!-- Row 2 -->
+  <g transform="translate(90 520)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M4.5 4.5h15v12l-4 4h-11zM15.5 20.5v-4h4M8 10h8M8 13.5h5M8 7a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">NOTIZ</text></g>
+  <g transform="translate(420 520)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M3 6h6l2 2h10v11.5H3zM3 9.5h18M8 9.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">ORDNER</text></g>
+  <g transform="translate(750 520)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3M12 14v3"/></g><text class="label" x="150" y="266">SCHUTZ</text></g>
+  <g transform="translate(1080 520)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><circle cx="12" cy="12" r="8.5"/><path d="m8.2 12 2.4 2.4 5.2-5.2M8 6.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">ERLEDIGT</text></g>
+  <g transform="translate(1410 520)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 5 5M6 7.5a5 5 0 0 1 8 0"/></g><text class="label" x="150" y="266">SUCHE</text></g>
+
+  <!-- Row 3 -->
+  <g transform="translate(90 850)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M12 3.5c4 0 7 3.1 7 7.2 0 5.2-7 10-7 10s-7-4.8-7-10c0-4.1 3-7.2 7-7.2z"/><circle cx="12" cy="10.5" r="2.3"/><path d="M8 7.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">ORT</text></g>
+  <g transform="translate(420 850)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M4 6.5h16v12H4zM4 9.5h16M7 4v5M17 4v5M8 14h3M8 17h7M8 9.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">KALENDER</text></g>
+  <g transform="translate(750 850)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M12 20.5s-8-4.7-8-11A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 8 3.5c0 6.3-8 11-8 11zM8 8.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">FAVORIT</text></g>
+  <g transform="translate(1080 850)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M4 18V8.5L12 4l8 4.5V18M7 18v-7h10v7M3 20h18M8 8.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">ZUHAUSE</text></g>
+  <g transform="translate(1410 850)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M4 5h16v14H4zM4 8.5h16M7 12h4M7 15.5h7M8 8.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">KARTE</text></g>
+
+  <!-- Row 4 -->
+  <g transform="translate(90 1180)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M4 7.5h16v10H4zM8 17.5v2M16 17.5v2M7 11h.01M17 11h.01M8 7.5a4 4 0 0 1 8 0M3 20h18"/></g><text class="label" x="150" y="266">REISE</text></g>
+  <g transform="translate(420 1180)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M12 3.5 20 7v5c0 5-3.4 7.8-8 9-4.6-1.2-8-4-8-9V7zM8 8a4 4 0 0 1 8 0M9 12h6M12 9v6"/></g><text class="label" x="150" y="266">GESUNDHEIT</text></g>
+  <g transform="translate(750 1180)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3M8 4a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">RECHNUNG</text></g>
+  <g transform="translate(1080 1180)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4M8 5.5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">EINSTELLUNG</text></g>
+  <g transform="translate(1410 1180)"><rect class="tile" width="300" height="300" rx="38"/><g class="icon" transform="translate(66 42) scale(7)"><path d="M5 5h14v14H5zM8 8h3v3H8zM15 8h1M15 11h1M8 15h1M11 15h5M8 5a4 4 0 0 1 8 0"/></g><text class="label" x="150" y="266">SCANNER</text></g>
+</svg>

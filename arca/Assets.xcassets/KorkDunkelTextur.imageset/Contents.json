@@ -1,0 +1,13 @@
+{
+  "images": [
+    {
+      "filename": "KorkDunkelTextur.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
