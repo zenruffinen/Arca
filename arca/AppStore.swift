@@ -294,6 +294,27 @@ final class AppStore: ObservableObject {
     @Published var pinnwandLayout: [String: [Double]] = [:] {
         didSet { guard !isLoadingData else { return }; saveJSON(pinnwandLayout, key: "pinnwandLayout") }
     }
+    /// Die Wände: „Meine Wand", die Ideen, Themen-Boards, Pult und Tresor.
+    @Published var pinnBoards: [PinnBoard] = [] {
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(pinnBoards, oldValue) {
+                stempeltGerade = true; pinnBoards = neu; stempeltGerade = false
+            }
+            saveJSON(pinnBoards, key: "pinnBoards")
+        }
+    }
+    /// Was an den Wänden hängt. Löst Favoriten, Schreibtisch und
+    /// Ideen-Layout ab — angepinnt IST Favorit.
+    @Published var anschlaege: [Anschlag] = [] {
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(anschlaege, oldValue) {
+                stempeltGerade = true; anschlaege = neu; stempeltGerade = false
+            }
+            saveJSON(anschlaege, key: "anschlaege")
+        }
+    }
     @Published var lists: [ListEntry] = [] {
         didSet {
             guard !isLoadingData, !stempeltGerade else { return }
@@ -318,6 +339,10 @@ final class AppStore: ObservableObject {
     @Published var fokusKategorie: String? = nil
     @Published var pendingSection: ArcaSection? = nil
     @Published var pendingQuickCapture: Bool = false
+    /// Wurde etwas von einer Wand aus angelegt? Dann hängt es hinterher
+    /// genau dort — und auf dem Platz, an dem der Finger lag. Nicht
+    /// gespeichert, gilt nur für den einen Vorgang.
+    var wandZiel: (board: UUID, platz: [Double]?)? = nil
     /// Blitzidee per „halten": Diktat startet sofort, ohne extra Tipp aufs Mikro
     @Published var quickCaptureAutoRecord: Bool = false
     /// Erfassen vom Start: Zielsektion öffnet direkt ihr „Neu"-Blatt
@@ -370,10 +395,9 @@ final class AppStore: ObservableObject {
                 return FavoriteItem(id: l.id, kind: .list, title: l.title,
                                     subtitle: "Aufgabe · \(relativ(wann))", pinned: false, date: wann)
             }
-            if let v = vaultItems.first(where: { $0.id == id }) {
-                return FavoriteItem(id: v.id, kind: .vault, title: v.title,
-                                    subtitle: "Tresor · \(relativ(wann))", pinned: false, date: wann)
-            }
+            // Tresor-Einträge erscheinen hier NICHT. Der Start ist die
+            // Seite, die jeder Schulterblick mitliest — dieselbe Regel wie
+            // bei den Wänden: ein Tresor zeigt keine Vorschau.
             return nil
         }
     }
@@ -805,6 +829,12 @@ final class AppStore: ObservableObject {
         if let f = lies([DeskItem].self, "deskItems", in: fork) {
             schreib(fusioniere(lies([DeskItem].self, "deskItems", in: dataDirectory) ?? [], f), "deskItems")
         }
+        if let f = lies([PinnBoard].self, "pinnBoards", in: fork) {
+            schreib(fusioniere(lies([PinnBoard].self, "pinnBoards", in: dataDirectory) ?? [], f), "pinnBoards")
+        }
+        if let f = lies([Anschlag].self, "anschlaege", in: fork) {
+            schreib(fusioniere(lies([Anschlag].self, "anschlaege", in: dataDirectory) ?? [], f), "anschlaege")
+        }
         // Grabsteine vereinen (spätere Löschzeit gewinnt)
         if let f = lies([UUID: Date].self, "grabsteine", in: fork) {
             let k = lies([UUID: Date].self, "grabsteine", in: dataDirectory) ?? [:]
@@ -917,7 +947,7 @@ final class AppStore: ObservableObject {
     private let synchronisierteSchluessel = [
         "vaultItems", "documents", "notes", "lists", "deskItems", "deskStil",
         "documentCategories", "categoryColors", "categoryIcons", "documentSubcategories",
-        "grabsteine", "homeFolderQuickView", "pinnwandLayout"
+        "grabsteine", "homeFolderQuickView", "pinnwandLayout", "pinnBoards", "anschlaege"
     ]
 
     private func dateiStand(_ key: String) -> Date? {
@@ -974,6 +1004,8 @@ final class AppStore: ObservableObject {
         if faellig.contains("categoryIcons") { saveCategoryIcons() }
         if faellig.contains("documentSubcategories") { saveDocumentSubcategories() }
         if faellig.contains("pinnwandLayout") { saveJSON(pinnwandLayout, key: "pinnwandLayout") }
+        if faellig.contains("pinnBoards") { saveJSON(pinnBoards, key: "pinnBoards") }
+        if faellig.contains("anschlaege") { saveJSON(anschlaege, key: "anschlaege") }
     }
 
     private func saveJSON<T: Encodable>(_ value: T, key: String) {
@@ -1917,6 +1949,7 @@ final class AppStore: ObservableObject {
     func addDocument(title: String, type: DocumentType, filename: String, category: String = "Unsortiert", subcategory: String = "", ocrText: String = "") {
         let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category, subcategory: subcategory, ocrText: ocrText)
         documents.append(entry)
+        haengeAufWand(.document, entry.id)
     }
 
     /// Existierende Kategorie, die diesem Namen entspricht (case-insensitiv, getrimmt).
@@ -2246,6 +2279,14 @@ final class AppStore: ObservableObject {
             deskItems = loeseKonflikte(
                 fusioniereUndMerke(deskItems, decoded, schluessel: "deskItems"), key: "deskItems")
         }
+        if let decoded = loadJSON([PinnBoard].self, key: "pinnBoards") {
+            pinnBoards = loeseKonflikte(
+                fusioniereUndMerke(pinnBoards, decoded, schluessel: "pinnBoards"), key: "pinnBoards")
+        }
+        if let decoded = loadJSON([Anschlag].self, key: "anschlaege") {
+            anschlaege = loeseKonflikte(
+                fusioniereUndMerke(anschlaege, decoded, schluessel: "anschlaege"), key: "anschlaege")
+        }
         if let decoded = loadJSON(DeskFlaechenStil.self, key: "deskStil") {
             deskStil = decoded
         }
@@ -2307,15 +2348,21 @@ final class AppStore: ObservableObject {
         }
         if importCategoryName == "Import" { importCategoryName = "Unsortiert" }
         migrateQuickAccessToFavorites()
+        migriereAufAnschlaege()
+        materialisiereIdeenWand()
         updateWidgetData()
     }
 
     // MARK: - Listen
 
-    func addList(title: String, colorTag: Int = 0) {
+    @discardableResult
+    func addList(title: String, colorTag: Int = 0) -> UUID? {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        lists.append(ListEntry(title: trimmed, colorTag: colorTag))
+        guard !trimmed.isEmpty else { return nil }
+        let neu = ListEntry(title: trimmed, colorTag: colorTag)
+        lists.append(neu)
+        haengeAufWand(.list, neu.id)
+        return neu.id
     }
 
     func updateList(_ entry: ListEntry) {
@@ -2361,7 +2408,19 @@ final class AppStore: ObservableObject {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanText  = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanTitle.isEmpty || !cleanText.isEmpty else { return }
-        notes.insert(NoteEntry(title: cleanTitle, text: cleanText, isQuickIdea: true), at: 0)
+        let neu = NoteEntry(title: cleanTitle, text: cleanText, isQuickIdea: true)
+        notes.insert(neu, at: 0)
+        haengeAufWand(.note, neu.id)
+    }
+
+    /// Was von einer Wand aus angelegt wurde, hängt hinterher dort.
+    private func haengeAufWand(_ kind: FavoriteKind, _ refID: UUID) {
+        guard let ziel = wandZiel else { return }
+        let a = anpinnen(kind: kind, refID: refID, auf: ziel.board)
+        if let p = ziel.platz, p.count == 2 {
+            merkePlatz(anschlagID: a.id, x: p[0], y: p[1])
+        }
+        wandZiel = nil
     }
 
     func addNote(title: String, text: String, colorTag: Int = 0) {
@@ -2381,26 +2440,102 @@ final class AppStore: ObservableObject {
 
     /// Die Favoriten-Reihe auf dem Start: alle Typen gemischt,
     /// festgepinnte zuerst, danach die jüngsten vorn.
+    // MARK: - Die Wand: anpinnen statt Favorit
+    //
+    // Favoriten, Schreibtisch und Ideen-Pinnwand meinten immer dasselbe:
+    // „das will ich vorne haben". Ab hier gibt es dafür EINEN Begriff —
+    // den Anschlag an einer Wand. `isFavorite` in den Modellen ist damit
+    // nur noch Altlast für die Migration; gelesen wird es nicht mehr.
+
+    /// Die Standard-Wand, auf der alles landet, was ohne Nachfrage
+    /// angepinnt wird. Tresor-Einträge gehen auf ihre eigene, unsichtbare
+    /// Wand — Passwörter hängen nie öffentlich.
+    func standardBoard(fuer kind: FavoriteKind) -> UUID {
+        kind == .vault ? SystemBoard.tresor : SystemBoard.meineWand
+    }
+
+    /// Anschläge einer Wand — ohne die, deren Original es nicht mehr gibt.
+    func anschlaege(auf boardID: UUID) -> [Anschlag] {
+        anschlaege.filter { $0.boardID == boardID && originalExistiert($0) }
+    }
+
+    func originalExistiert(_ a: Anschlag) -> Bool {
+        switch a.kind {
+        case .document: return documents.contains { $0.id == a.refID }
+        case .note:     return notes.contains { $0.id == a.refID }
+        case .list:     return lists.contains { $0.id == a.refID }
+        case .vault:    return vaultItems.contains { $0.id == a.refID }
+        }
+    }
+
+    func istAngepinnt(kind: FavoriteKind, refID: UUID, auf boardID: UUID? = nil) -> Bool {
+        let board = boardID ?? standardBoard(fuer: kind)
+        return anschlaege.contains { $0.boardID == board && $0.kindRaw == kind.rawValue && $0.refID == refID }
+    }
+
+    @discardableResult
+    func anpinnen(kind: FavoriteKind, refID: UUID, auf boardID: UUID? = nil,
+                  festVorn: Bool = false) -> Anschlag {
+        let board = boardID ?? standardBoard(fuer: kind)
+        if let vorhanden = anschlaege.first(where: {
+            $0.boardID == board && $0.kindRaw == kind.rawValue && $0.refID == refID }) {
+            return vorhanden
+        }
+        // Neigung würfeln, aber aus der ID — dann sieht der Zettel auf
+        // jedem Gerät gleich schief aus.
+        let saat = refID.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        let neu = Anschlag(boardID: board, kind: kind, refID: refID,
+                           drehung: Double(saat % 7 - 3) * 1.4,
+                           festVorn: festVorn)
+        anschlaege.append(neu)
+        return neu
+    }
+
+    func abpinnen(kind: FavoriteKind, refID: UUID, von boardID: UUID? = nil) {
+        let board = boardID ?? standardBoard(fuer: kind)
+        anschlaege.removeAll { $0.boardID == board && $0.kindRaw == kind.rawValue && $0.refID == refID }
+    }
+
+    /// Alle Anschläge eines Originals — für „ganz von der Wand nehmen"
+    /// und fürs Aufräumen nach dem Löschen.
+    func abpinnenUeberall(refID: UUID) {
+        anschlaege.removeAll { $0.refID == refID }
+    }
+
+    /// Platz auf der Wand merken (relative Koordinaten, 0…1).
+    func merkePlatz(anschlagID: UUID, x: Double, y: Double) {
+        guard let i = anschlaege.firstIndex(where: { $0.id == anschlagID }) else { return }
+        anschlaege[i].x = min(max(x, 0), 1)
+        anschlaege[i].y = min(max(y, 0), 1)
+        anschlaege[i].platziert = true
+    }
+
+    // MARK: Die Startreihe (aus Anschlägen gebaut)
+
     var favoriteItems: [FavoriteItem] {
         var all: [FavoriteItem] = []
-        for d in documents where d.isFavorite {
-            all.append(FavoriteItem(id: d.id, kind: .document, title: d.title,
-                                    subtitle: d.type.rawValue, pinned: d.favoritePinned, date: d.dateAdded))
-        }
-        for n in notes where n.isFavorite {
-            all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
-                                    subtitle: n.isQuickIdea ? "Blitzidee" : "Idee",
-                                    pinned: n.favoritePinned, date: n.dateCreated))
-        }
-        for l in lists where l.isFavorite {
-            let open = l.items.filter { !$0.isDone }.count
-            all.append(FavoriteItem(id: l.id, kind: .list, title: l.title,
-                                    subtitle: open > 0 ? "\(open) offen" : "Erledigt",
-                                    pinned: l.favoritePinned, date: l.dateCreated))
-        }
-        for v in vaultItems where v.isFavorite && v.art != .karte {
-            all.append(FavoriteItem(id: v.id, kind: .vault, title: v.title,
-                                    subtitle: "Face ID", pinned: v.favoritePinned, date: v.dateCreated))
+        for a in anschlaege where a.boardID == SystemBoard.meineWand || a.boardID == SystemBoard.tresor {
+            switch a.kind {
+            case .document:
+                guard let d = documents.first(where: { $0.id == a.refID }) else { continue }
+                all.append(FavoriteItem(id: d.id, kind: .document, title: d.title,
+                                        subtitle: d.type.rawValue, pinned: a.festVorn, date: d.dateAdded))
+            case .note:
+                guard let n = notes.first(where: { $0.id == a.refID }) else { continue }
+                all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
+                                        subtitle: n.isQuickIdea ? "Blitzidee" : "Idee",
+                                        pinned: a.festVorn, date: n.dateCreated))
+            case .list:
+                guard let l = lists.first(where: { $0.id == a.refID }) else { continue }
+                let open = l.items.filter { !$0.isDone }.count
+                all.append(FavoriteItem(id: l.id, kind: .list, title: l.title,
+                                        subtitle: open > 0 ? "\(open) offen" : "Erledigt",
+                                        pinned: a.festVorn, date: l.dateCreated))
+            case .vault:
+                guard let v = vaultItems.first(where: { $0.id == a.refID }), v.art != .karte else { continue }
+                all.append(FavoriteItem(id: v.id, kind: .vault, title: v.title,
+                                        subtitle: "Face ID", pinned: a.festVorn, date: v.dateCreated))
+            }
         }
         return all.sorted { a, b in
             if a.pinned != b.pinned { return a.pinned }
@@ -2408,42 +2543,176 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Alter Name, neue Mechanik — der Stern in der Oberfläche pinnt an.
     func toggleFavorite(kind: FavoriteKind, id: UUID) {
-        switch kind {
-        case .document:
-            if let i = documents.firstIndex(where: { $0.id == id }) {
-                documents[i].isFavorite.toggle()
-                if !documents[i].isFavorite { documents[i].favoritePinned = false }
-            }
-        case .note:
-            if let i = notes.firstIndex(where: { $0.id == id }) {
-                notes[i].isFavorite.toggle()
-                if !notes[i].isFavorite { notes[i].favoritePinned = false }
-            }
-        case .list:
-            if let i = lists.firstIndex(where: { $0.id == id }) {
-                lists[i].isFavorite.toggle()
-                if !lists[i].isFavorite { lists[i].favoritePinned = false }
-            }
-        case .vault:
-            if let i = vaultItems.firstIndex(where: { $0.id == id }) {
-                vaultItems[i].isFavorite.toggle()
-                if !vaultItems[i].isFavorite { vaultItems[i].favoritePinned = false }
-            }
+        if istAngepinnt(kind: kind, refID: id) {
+            abpinnen(kind: kind, refID: id)
+        } else {
+            anpinnen(kind: kind, refID: id)
         }
     }
 
     func toggleFavoritePin(kind: FavoriteKind, id: UUID) {
-        switch kind {
-        case .document:
-            if let i = documents.firstIndex(where: { $0.id == id }) { documents[i].favoritePinned.toggle() }
-        case .note:
-            if let i = notes.firstIndex(where: { $0.id == id }) { notes[i].favoritePinned.toggle() }
-        case .list:
-            if let i = lists.firstIndex(where: { $0.id == id }) { lists[i].favoritePinned.toggle() }
-        case .vault:
-            if let i = vaultItems.firstIndex(where: { $0.id == id }) { vaultItems[i].favoritePinned.toggle() }
+        let board = standardBoard(fuer: kind)
+        guard let i = anschlaege.firstIndex(where: {
+            $0.boardID == board && $0.kindRaw == kind.rawValue && $0.refID == id }) else { return }
+        anschlaege[i].festVorn.toggle()
+    }
+
+    // MARK: Wände verwalten
+
+    @discardableResult
+    func neuesBoard(name: String, stil: WandStil = .korkNatur) -> PinnBoard {
+        let sauber = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hoechste = pinnBoards.filter { $0.art == .wand || $0.art == .ideen }
+            .map(\.reihenfolge).max() ?? 0
+        let board = PinnBoard(name: sauber.isEmpty ? "Neue Wand" : sauber,
+                              art: .wand, stil: stil, reihenfolge: hoechste + 1)
+        pinnBoards.append(board)
+        return board
+    }
+
+    func benenneBoard(_ id: UUID, auf name: String) {
+        let sauber = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sauber.isEmpty, let i = pinnBoards.firstIndex(where: { $0.id == id }) else { return }
+        pinnBoards[i].name = sauber
+    }
+
+    func setzeStil(_ id: UUID, _ stil: WandStil) {
+        guard let i = pinnBoards.firstIndex(where: { $0.id == id }) else { return }
+        pinnBoards[i].stilRaw = stil.rawValue
+    }
+
+    func setzeSymbol(_ id: UUID, _ symbol: WandSymbol) {
+        guard let i = pinnBoards.firstIndex(where: { $0.id == id }) else { return }
+        pinnBoards[i].symbolRaw = symbol.rawValue
+    }
+
+    func archiviereBoard(_ id: UUID, _ an: Bool = true) {
+        guard let i = pinnBoards.firstIndex(where: { $0.id == id }) else { return }
+        pinnBoards[i].archiviert = an
+    }
+
+    /// Eine Wand abreißen. Die Anschläge fallen mit — die Originale nicht.
+    func loescheBoard(_ id: UUID) {
+        anschlaege.removeAll { $0.boardID == id }
+        pinnBoards.removeAll { $0.id == id }
+    }
+
+    // MARK: Migration auf die Wand
+
+    /// Einmalig: Favoriten und das alte Ideen-Layout werden Anschläge.
+    /// Läuft auf jedem Gerät für sich — die Anschlag-IDs sind aus
+    /// (Wand, Art, Original) abgeleitet, deshalb kommen alle Geräte auf
+    /// dasselbe Ergebnis und der Sync führt nichts doppelt zusammen.
+    private func migriereAufAnschlaege() {
+        // Die festen Wände anlegen, falls sie fehlen (auch nach einem Sync
+        // von einem Gerät, das sie noch nicht kannte).
+        let bekannt = Set(pinnBoards.map(\.id))
+        let fehlende = SystemBoard.vorgaben.filter { !bekannt.contains($0.id) }
+        if !fehlende.isEmpty {
+            pinnBoards.append(contentsOf: fehlende)
+            // Die Migration läuft mitten im Laden — da schweigt das didSet.
+            // Also übers Nachfusions-Fach speichern lassen.
+            nachfusionSpeichern.insert("pinnBoards")
         }
+
+        guard !UserDefaults.standard.bool(forKey: "anschlaegeMigriert") else {
+            raeumeToteAnschlaegeAuf()
+            return
+        }
+        // Nicht migrieren, solange die Bestände noch aus iCloud tröpfeln —
+        // sonst wandert nur die Hälfte und der Rest gilt als abgepinnt.
+        guard !hasPendingCloudDataDownloads() else { return }
+
+        var neue: [Anschlag] = []
+        func pinne(_ kind: FavoriteKind, _ refID: UUID, fest: Bool, datum: Date) {
+            let board = standardBoard(fuer: kind)
+            let id = Anschlag.abgeleiteteID(board: board, kind: kind, ref: refID)
+            // Ein Grabstein heißt: auf einem anderen Gerät schon abgepinnt.
+            // Dann darf das alte `isFavorite` ihn nicht wiederbeleben.
+            guard grabsteine[id] == nil,
+                  !anschlaege.contains(where: { $0.id == id }),
+                  !neue.contains(where: { $0.id == id }) else { return }
+            let saat = refID.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+            var a = Anschlag(boardID: board, kind: kind, refID: refID,
+                             drehung: Double(saat % 7 - 3) * 1.4, festVorn: fest)
+            a.geaendertAm = datum
+            neue.append(a)
+        }
+        for d in documents  where d.isFavorite { pinne(.document, d.id, fest: d.favoritePinned, datum: d.geaendertAm) }
+        for n in notes      where n.isFavorite { pinne(.note,     n.id, fest: n.favoritePinned, datum: n.geaendertAm) }
+        for l in lists      where l.isFavorite { pinne(.list,     l.id, fest: l.favoritePinned, datum: l.geaendertAm) }
+        for v in vaultItems where v.isFavorite { pinne(.vault,    v.id, fest: v.favoritePinned, datum: v.geaendertAm) }
+
+        // Das alte Ideen-Layout: absolute Punkte gab es nur in Gerätemaßen.
+        // Wir rechnen sie an einer angenommenen Wandgröße auf 0…1 um —
+        // ungefähr richtig ist besser als ein Haufen auf der Startposition.
+        let angenommeneBreite = 390.0, angenommeneHoehe = 780.0
+        for (idText, xy) in pinnwandLayout where xy.count == 2 {
+            guard let refID = UUID(uuidString: idText),
+                  notes.contains(where: { $0.id == refID }) else { continue }
+            let id = Anschlag.abgeleiteteID(board: SystemBoard.ideen, kind: .note, ref: refID)
+            guard grabsteine[id] == nil,
+                  !anschlaege.contains(where: { $0.id == id }),
+                  !neue.contains(where: { $0.id == id }) else { continue }
+            let saat = refID.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+            neue.append(Anschlag(boardID: SystemBoard.ideen, kind: .note, refID: refID,
+                                 x: min(max(xy[0] / angenommeneBreite, 0), 1),
+                                 y: min(max(xy[1] / angenommeneHoehe, 0), 1),
+                                 drehung: Double(saat % 7 - 3) * 1.4,
+                                 platziert: true))
+        }
+
+        if !neue.isEmpty {
+            anschlaege.append(contentsOf: neue)
+            nachfusionSpeichern.insert("anschlaege")
+        }
+        UserDefaults.standard.set(true, forKey: "anschlaegeMigriert")
+    }
+
+    /// Die Ideen-Wand hat ihre Zettel früher nur gespiegelt — sie hingen
+    /// ohne eigenen Anschlag da. Jetzt ist sie eine Wand wie jede andere,
+    /// also bekommt jede Idee einen echten Anschlag. Ohne das verschwänden
+    /// beim Umbau alle Zettel, die nie verschoben wurden.
+    private func materialisiereIdeenWand() {
+        guard !UserDefaults.standard.bool(forKey: "ideenWandMaterialisiert") else { return }
+        guard !hasPendingCloudDataDownloads() else { return }
+        guard !notes.isEmpty || pinnBoards.contains(where: { $0.id == SystemBoard.ideen }) else { return }
+
+        let schonDa = Set(anschlaege.filter { $0.boardID == SystemBoard.ideen }.map(\.refID))
+        var neue: [Anschlag] = []
+        for n in notes where !schonDa.contains(n.id) {
+            let id = Anschlag.abgeleiteteID(board: SystemBoard.ideen, kind: .note, ref: n.id)
+            guard grabsteine[id] == nil else { continue }
+            let saat = n.id.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+            var a = Anschlag(boardID: SystemBoard.ideen, kind: .note, refID: n.id,
+                             drehung: Double(saat % 7 - 3) * 1.4)
+            a.geaendertAm = n.geaendertAm
+            neue.append(a)
+        }
+        if !neue.isEmpty {
+            anschlaege.append(contentsOf: neue)
+            nachfusionSpeichern.insert("anschlaege")
+        }
+        // Aus dem Spiegel wird eine gewöhnliche Wand.
+        if let i = pinnBoards.firstIndex(where: { $0.id == SystemBoard.ideen }),
+           pinnBoards[i].art == .ideen {
+            pinnBoards[i].artRaw = BoardArt.wand.rawValue
+            nachfusionSpeichern.insert("pinnBoards")
+        }
+        UserDefaults.standard.set(true, forKey: "ideenWandMaterialisiert")
+    }
+
+    /// Anschläge wegräumen, deren Original nachweislich gelöscht wurde.
+    /// Nur bei echtem Grabstein — ein noch nicht geladener Bestand darf
+    /// niemals als „gelöscht" durchgehen.
+    private func raeumeToteAnschlaegeAuf() {
+        let tot = anschlaege.filter { grabsteine[$0.refID] != nil }
+        guard !tot.isEmpty else { return }
+        let ids = Set(tot.map(\.id))
+        anschlaege.removeAll { ids.contains($0.id) }
+        nachfusionSpeichern.insert("anschlaege")
     }
 
     /// Der alte Einzel-Schnellzugriff wird einmalig zum festgepinnten
