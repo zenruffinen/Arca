@@ -51,6 +51,8 @@ struct IdeenPinnwand: View {
     /// Wo der Finger lag, als lang gedrückt wurde — dort landet das Neue.
     @State private var tippOrt: CGPoint? = nil
     @State private var wandGroesse: CGSize = .zero
+    /// Aus welcher Richtung die nächste Wand hereinkommt (+1 rechts, -1 links).
+    @State private var blaetterRichtung = 1
 
     private let zettelBreite: CGFloat = 150
 
@@ -105,8 +107,24 @@ struct IdeenPinnwand: View {
                                 zeigeHinzufuegen = true
                             }
                     )
+                    // Wischen wechselt die Wand. Mindestweg 24, damit der
+                    // Langdruck darüber unangetastet bleibt — ein Erkenner,
+                    // der sofort greift, schluckt ihn (siehe oben).
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 24)
+                            .onEnded { wert in
+                                let w = wert.translation.width
+                                guard abs(w) > 60, abs(w) > abs(wert.translation.height) * 1.4
+                                else { return }
+                                blaettere(w < 0 ? 1 : -1)
+                            }
+                    )
 
                 let alle = stuecke
+                // Die Wand als Ganzes wechselt: die Marken schieben in
+                // Wischrichtung heraus, die neuen kommen von der anderen
+                // Seite herein. Der Belag darunter bleibt liegen.
+                ZStack(alignment: .topLeading) {
                 ForEach(Array(alle.enumerated()), id: \.element.id) { idx, stueck in
                     MarkeAnsicht(stueck: stueck, breite: zettelBreite)
                         .environmentObject(store)
@@ -145,6 +163,13 @@ struct IdeenPinnwand: View {
                         )
                         .onTapGesture { oeffne(stueck) }
                 }
+                }
+                .id(boardID)
+                .transition(.asymmetric(
+                    insertion: .move(edge: blaetterRichtung > 0 ? .trailing : .leading)
+                        .combined(with: .opacity),
+                    removal: .move(edge: blaetterRichtung > 0 ? .leading : .trailing)
+                        .combined(with: .opacity)))
 
                 // Der Papierkorb — hier knüllt man Ideen hinein,
                 // auf anderen Wänden nimmt man Dinge nur ab.
@@ -362,6 +387,24 @@ struct IdeenPinnwand: View {
 
     /// Der gemerkte Platz in relativen Koordinaten — oder nichts, wenn
     /// das Neue über den Kopf statt über die Wand angelegt wurde.
+    /// Eine Wand weiter oder zurück. An den Enden bleibt es stehen —
+    /// ein Rundlauf verwirrt mehr, als er nützt.
+    private func blaettere(_ richtung: Int) {
+        let waende = waehlbareBoards
+        guard let jetzt = waende.firstIndex(where: { $0.id == boardID }) else { return }
+        let ziel = jetzt + richtung
+        guard waende.indices.contains(ziel) else {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            return
+        }
+        blaetterRichtung = richtung
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.85)) {
+            boardID = waende[ziel].id
+        }
+        letzteWandID = waende[ziel].id.uuidString
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     private func relativerPlatz() -> [Double]? {
         guard let ort = tippOrt, wandGroesse.width > 0, wandGroesse.height > 0 else { return nil }
         let g = begrenze(ort, in: wandGroesse)
@@ -433,7 +476,13 @@ struct IdeenPinnwand: View {
                 ForEach(waehlbareBoards) { b in
                     let aktiv = b.id == boardID
                     Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                        // Auch der Tipp auf einen Reiter schiebt in die
+                        // richtige Richtung — sonst fühlen sich Wischen und
+                        // Tippen wie zwei verschiedene Sachen an.
+                        let jetzt = waehlbareBoards.firstIndex { $0.id == boardID } ?? 0
+                        let ziel = waehlbareBoards.firstIndex { $0.id == b.id } ?? 0
+                        blaetterRichtung = ziel >= jetzt ? 1 : -1
+                        withAnimation(.spring(response: 0.36, dampingFraction: 0.85)) {
                             boardID = b.id
                         }
                         letzteWandID = b.id.uuidString
