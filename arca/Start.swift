@@ -442,7 +442,10 @@ struct HomeView: View {
             if let i = store.lists.firstIndex(where: { $0.id == item.id }) { store.lists[i].title = neu }
         case .vault:
             if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) { store.vaultItems[i].title = neu }
-        case .document: break
+        case .document:
+            // Stand bis 27.08. auf `break`: das Menue bot Umbenennen an,
+            // der Name wurde getippt, gespeichert – und nichts geschah.
+            if let i = store.documents.firstIndex(where: { $0.id == item.id }) { store.documents[i].title = neu }
         }
     }
 

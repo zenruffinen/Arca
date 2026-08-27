@@ -501,6 +501,8 @@ struct DocumentsView: View {
             } label: { Label("Löschen", systemImage: "trash") }
         }
         .swipeActions(edge: .leading) {
+            // Anpinnen bleibt in Top Secret gesperrt — der Titel stuende
+            // sonst offen auf dem Start. Umbenennen zeigt nichts her.
             if doc.category != "Top Secret" {
                 Button {
                     store.toggleFavorite(kind: .document, id: doc.id)
@@ -511,23 +513,25 @@ struct DocumentsView: View {
                           systemImage: dran ? "star.slash" : "star.fill")
                 }
                 .tint(.orange)
-                Button {
-                    renameText = doc.title
-                    renamingDoc = doc
-                } label: { Label("Umbenennen", systemImage: "pencil") }
-                .tint(.blue)
             }
+            Button {
+                renameText = doc.title
+                renamingDoc = doc
+            } label: { Label("Umbenennen", systemImage: "pencil") }
+            .tint(.blue)
         }
         .contextMenu {
+          // Umbenennen geht ueberall, auch in Top Secret: ein neuer Name
+          // gibt nichts preis. Gesperrt bleibt nur, was nach draussen wirkt.
+          ArcaMenue.umbenennen {
+              renameText = doc.title
+              renamingDoc = doc
+          }
           if doc.category != "Top Secret" {
+            Divider()
             ArcaMenue.favorit(ist: store.istAngepinnt(kind: .document, refID: doc.id)) {
                 store.toggleFavorite(kind: .document, id: doc.id)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
-            }
-            Divider()
-            ArcaMenue.umbenennen {
-                renameText = doc.title
-                renamingDoc = doc
             }
             Menu {
                 ForEach(store.documentCategories, id: \.self) { targetCategory in

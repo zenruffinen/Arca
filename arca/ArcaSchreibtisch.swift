@@ -360,7 +360,9 @@ struct ArcaDeskRail: View {
                 store.lists[idx].title = name
             }
         case .vault:
-            break
+            if let idx = store.vaultItems.firstIndex(where: { $0.id == item.refID }) {
+                store.vaultItems[idx].title = name
+            }
         }
     }
 
