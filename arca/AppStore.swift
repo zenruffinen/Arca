@@ -474,6 +474,12 @@ final class AppStore: ObservableObject {
     private var cloudSyncPollTimer: Timer?
     private var cloudSyncStartedAt: Date?
 
+    /// Wohin Neues zuerst fällt. Normalerweise „Unsortiert" — es sei denn,
+    /// eine eigene Eingangs-Gruppe ist eingestellt und existiert auch noch.
+    var eingangsKategorie: String {
+        documentCategories.contains(importCategoryName) ? importCategoryName : "Unsortiert"
+    }
+
     var importCategoryName: String {
         get { UserDefaults.standard.string(forKey: "importCategoryName") ?? "Import" }
         set { UserDefaults.standard.set(newValue, forKey: "importCategoryName") }

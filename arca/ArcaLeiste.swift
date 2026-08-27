@@ -250,6 +250,17 @@ struct ArcaTabBar: View {
     }
 
     /// Was der Plus anlegt, hängt vom Ort ab (wie bisher im ArcaPlusKnopf).
+    /// Beim Hinzufügen von Dokumenten steht im Hintergrund nur der
+    /// Eingang — so sieht man den Stapel wachsen, statt ihn nachher zu
+    /// suchen. Nach dem Wechsel gesetzt, weil ContingView den Fokus
+    /// beim Bereichswechsel absichtlich leert.
+    private func zeigeNurEingang() {
+        let eingang = store.eingangsKategorie
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.2)) { store.fokusKategorie = eingang }
+        }
+    }
+
     private func legeKontextbezogenAn() {
         switch selected {
         case .home, .spaceHub:
@@ -257,6 +268,7 @@ struct ArcaTabBar: View {
             case .dokumente:
                 store.pendingNewEntry = .documents
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .documents }
+                zeigeNurEingang()
             case .notizen:
                 store.pendingQuickCapture = true
             case .tasks:
@@ -266,7 +278,9 @@ struct ArcaTabBar: View {
                 store.pendingNewEntry = .vault
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .vault }
             }
-        case .documents: store.pendingNewEntry = .documents
+        case .documents:
+            store.pendingNewEntry = .documents
+            zeigeNurEingang()
         case .lists:     store.pendingNewEntry = .lists
         case .vault:     store.pendingNewEntry = .vault
         case .notes:     store.pendingQuickCapture = true
@@ -307,6 +321,17 @@ struct ArcaPlusKnopf: View {
     /// Was der Plus anlegt, hängt vom Ort ab: auf dem Start entscheidet
     /// der aktive Filter-Chip, in den Bereichen der Bereich selbst.
     /// Notizen = Blitzidee (das ist Arcas Notiz-Erfassung).
+    /// Beim Hinzufügen von Dokumenten steht im Hintergrund nur der
+    /// Eingang — so sieht man den Stapel wachsen, statt ihn nachher zu
+    /// suchen. Nach dem Wechsel gesetzt, weil ContingView den Fokus
+    /// beim Bereichswechsel absichtlich leert.
+    private func zeigeNurEingang() {
+        let eingang = store.eingangsKategorie
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.2)) { store.fokusKategorie = eingang }
+        }
+    }
+
     private func legeKontextbezogenAn() {
         switch selected {
         case .home, .spaceHub:
@@ -314,6 +339,7 @@ struct ArcaPlusKnopf: View {
             case .dokumente:
                 store.pendingNewEntry = .documents
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .documents }
+                zeigeNurEingang()
             case .notizen:
                 store.pendingQuickCapture = true
             case .tasks:
@@ -323,7 +349,9 @@ struct ArcaPlusKnopf: View {
                 store.pendingNewEntry = .vault
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selected = .vault }
             }
-        case .documents: store.pendingNewEntry = .documents
+        case .documents:
+            store.pendingNewEntry = .documents
+            zeigeNurEingang()
         case .lists:     store.pendingNewEntry = .lists
         case .vault:     store.pendingNewEntry = .vault
         case .notes:     store.pendingQuickCapture = true
