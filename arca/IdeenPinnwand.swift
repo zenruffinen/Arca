@@ -95,6 +95,7 @@ struct IdeenPinnwand: View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
                 KorkWand(stil: stil)
+                    .blur(radius: zeigeHinzufuegen ? 5 : 0)
                     .contentShape(Rectangle())
                     // Lang auf die freie Wand drücken: hier kommt Neues hin.
                     // Erst der Druck, dann der Ort — als eine Geste, sonst
@@ -106,7 +107,7 @@ struct IdeenPinnwand: View {
                                 guard case .second(true, let zug) = wert else { return }
                                 tippOrt = zug?.startLocation
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                                withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
                                     zeigeHinzufuegen = true
                                 }
                             }
@@ -169,6 +170,7 @@ struct IdeenPinnwand: View {
                 }
                 }
                 .id(boardID)
+                .blur(radius: zeigeHinzufuegen ? 5 : 0)
                 .transition(.asymmetric(
                     insertion: .move(edge: blaetterRichtung > 0 ? .trailing : .leading)
                         .combined(with: .opacity),
@@ -183,22 +185,29 @@ struct IdeenPinnwand: View {
 
                 // Kopfzeile: Wand-Wähler · + Idee · (Vollbild)
                 kopf
+                    .blur(radius: zeigeHinzufuegen ? 5 : 0)
 
                 // Die Zugabe erscheint dort, wo der Finger lag — auf der
                 // Wand, nicht als Blatt vom unteren Bildschirmrand.
                 if zeigeHinzufuegen {
-                    Color.black.opacity(0.10)
+                    // Vignette: nimmt die Ränder zurück, damit das Panel trägt
+                    RadialGradient(colors: [.black.opacity(0.04), .black.opacity(0.34)],
+                                   center: .center,
+                                   startRadius: geo.size.width * 0.22,
+                                   endRadius: geo.size.height * 0.72)
                         .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.easeOut(duration: 0.16)) { zeigeHinzufuegen = false }
-                        }
-                    AnDieseWandKarte(wandName: board?.name ?? "Wand") { wahl in
-                        withAnimation(.easeOut(duration: 0.16)) { zeigeHinzufuegen = false }
-                        waehleZugabe(wahl)
-                    }
-                    .position(kartenOrt(in: geo.size))
-                    .transition(.scale(scale: 0.86, anchor: .center).combined(with: .opacity))
-                    .zIndex(200)
+                        .onTapGesture { schliesseZugabe() }
+                    AnDieseWandPanel(wandName: board?.name ?? "Wand",
+                                     breite: geo.size.width * 0.68,
+                                     hoehe: geo.size.height * 0.55,
+                                     waehle: { wahl in
+                                         schliesseZugabe()
+                                         waehleZugabe(wahl)
+                                     },
+                                     abbrechen: { schliesseZugabe() })
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                        .transition(.scale(scale: 0.95, anchor: .center).combined(with: .opacity))
+                        .zIndex(200)
                 }
 
                 // EXIT unten links — dort liegt der Daumen, wenn man das
@@ -358,9 +367,10 @@ struct IdeenPinnwand: View {
                 Spacer()
                 // Blitzidee — auf JEDER Wand, sie landet auf dieser hier
                 Button {
-                    store.quickCaptureAutoRecord = false
-                    store.wandZiel = (boardID, nil)
-                    store.pendingQuickCapture = true
+                    tippOrt = nil
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+                        zeigeHinzufuegen = true
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 15, weight: .bold))
@@ -393,6 +403,10 @@ struct IdeenPinnwand: View {
         .padding(.top, randOben + 8)   // unter die Statusleiste/Notch
     }
 
+    private func schliesseZugabe() {
+        withAnimation(.spring(response: 0.26, dampingFraction: 0.9)) { zeigeHinzufuegen = false }
+    }
+
     private func waehleZugabe(_ wahl: WandZugabe) {
         switch wahl {
         case .blitzidee:
@@ -410,16 +424,6 @@ struct IdeenPinnwand: View {
         case .vorhandenes:
             zeigeAnpinnen = true
         }
-    }
-
-    /// Die Karte sitzt beim Finger — bleibt aber ganz auf der Wand,
-    /// auch wenn man an den Rand gedrückt hat.
-    private func kartenOrt(in size: CGSize) -> CGPoint {
-        let breite: CGFloat = 226, hoehe: CGFloat = 234
-        let ort = tippOrt ?? CGPoint(x: size.width / 2, y: size.height / 2)
-        return CGPoint(x: min(max(ort.x, breite / 2 + 12), size.width - breite / 2 - 12),
-                       y: min(max(ort.y, randOben + hoehe / 2 + 74),
-                              size.height - hoehe / 2 - 30))
     }
 
     /// Der gemerkte Platz in relativen Koordinaten — oder nichts, wenn
@@ -1478,17 +1482,17 @@ enum WandZugabe: String, CaseIterable, Identifiable {
     var titel: String {
         switch self {
         case .blitzidee:     return "Blitzidee"
-        case .aufgabenliste: return "Aufgabenliste"
-        case .dokument:      return "Dokument · Scan"
-        case .vorhandenes:   return "Vorhandenes"
+        case .aufgabenliste: return "Aufgaben"
+        case .dokument:      return "Dokument"
+        case .vorhandenes:   return "Aus Arca"
         }
     }
     var unterzeile: String {
         switch self {
-        case .blitzidee:     return "Ein Gedanke, sofort"
-        case .aufgabenliste: return "Was zu tun ist"
-        case .dokument:      return "Scannen oder holen"
-        case .vorhandenes:   return "Schon in Arca"
+        case .blitzidee:     return "Ein Gedanke sofort festhalten"
+        case .aufgabenliste: return "Was erledigt werden soll"
+        case .dokument:      return "Scannen oder importieren"
+        case .vorhandenes:   return "Vorhandene Inhalte hinzufügen"
         }
     }
     var symbol: String {
@@ -1499,86 +1503,237 @@ enum WandZugabe: String, CaseIterable, Identifiable {
         case .vorhandenes:   return "pin.fill"
         }
     }
+    /// Gedeckte, warme Farben — nichts Gesättigtes.
     var farbe: Color {
         switch self {
-        case .blitzidee:     return ArcaWarm.ideenGelb
-        case .aufgabenliste: return NoteColor.for_(3).accent
-        case .dokument:      return NoteColor.for_(5).accent
-        case .vorhandenes:   return ArcaWarm.terrakotta
+        case .blitzidee:     return Color(red: 0.80, green: 0.62, blue: 0.26)   // Bernstein
+        case .aufgabenliste: return Color(red: 0.44, green: 0.57, blue: 0.43)   // Salbei
+        case .dokument:      return Color(red: 0.70, green: 0.47, blue: 0.34)   // Kupfer
+        case .vorhandenes:   return Color(red: 0.78, green: 0.45, blue: 0.30)   // Terrakotta
         }
     }
 }
 
+// MARK: - „An diese Wand" — schwebendes Panel
+//
+// Kein Blatt vom Bildschirmrand, sondern ein Fenster, das über der Wand
+// hängt: Champagner-Glas, warmer Lichtsaum, Karten, die einzeln
+// schweben. Die Wand dahinter bleibt sichtbar, nur weich.
 
-/// Die Zugabe-Karte: klein, papiern, schwebt dort, wo der Finger lag.
-/// Ein Blatt vom unteren Bildschirmrand wäre die Sprache des Telefons —
-/// auf einem Brett erscheint etwas an der Stelle, die man berührt hat.
-struct AnDieseWandKarte: View {
+struct AnDieseWandPanel: View {
     let wandName: String
+    let breite: CGFloat
+    let hoehe: CGFloat
     let waehle: (WandZugabe) -> Void
+    let abbrechen: () -> Void
+
+    @State private var da = false
+
+    private var kartenBreite: CGFloat { (breite - 2 * 18 - 12) / 2 }
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(wandName.uppercased())
-                .font(.system(size: 8.5, weight: .heavy))
-                .tracking(1.1)
-                .foregroundStyle(ArcaWarm.terrakotta.opacity(0.85))
-                .lineLimit(1)
-                .padding(.top, 11)
-                .padding(.bottom, 8)
-                .padding(.horizontal, 14)
+            griff.padding(.top, 12)
 
-            ForEach(Array(WandZugabe.allCases.enumerated()), id: \.element.id) { i, zugabe in
-                if i > 0 {
-                    Rectangle()
-                        .fill(Color.primary.opacity(0.06))
-                        .frame(height: 0.6)
-                        .padding(.leading, 46)
+            Text("An diese Wand")
+                .font(.system(size: 22, weight: .bold, design: .default))
+                .foregroundStyle(Color(red: 0.20, green: 0.16, blue: 0.11))
+                .padding(.top, 10)
+
+            wandKapsel.padding(.top, 8)
+
+            LazyVGrid(columns: [GridItem(.fixed(kartenBreite), spacing: 12),
+                                GridItem(.fixed(kartenBreite), spacing: 12)],
+                      spacing: 12) {
+                ForEach(Array(WandZugabe.allCases.enumerated()), id: \.element.id) { i, zugabe in
+                    karte(zugabe)
+                        // Gestaffelt: jede Karte 0,03 s nach der vorigen
+                        .opacity(da ? 1 : 0)
+                        .scaleEffect(da ? 1 : 0.94)
+                        .animation(.spring(response: 0.34, dampingFraction: 0.86)
+                            .delay(Double(i) * 0.03), value: da)
                 }
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    waehle(zugabe)
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: zugabe.symbol)
-                            .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundStyle(zugabe.farbe)
-                            .frame(width: 24, height: 24)
-                            .background(zugabe.farbe.opacity(0.15),
-                                        in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(zugabe.titel)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            Text(zugabe.unterzeile)
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(.secondary)
-                        }
-                        .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
             }
-            .padding(.bottom, 5)
+            .padding(.top, 14)
+
+            Spacer(minLength: 8)
+
+            abbrechenKnopf.padding(.bottom, 16)
         }
-        .frame(width: 226)
-        .background(
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .fill(ArcaWarm.karte)
-        )
+        .frame(width: breite, height: hoehe)
+        .background(glas)
+        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        // Heller, dünner Rand — kein schwerer Rahmen
         .overlay(
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .strokeBorder(.white.opacity(0.5), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [.white.opacity(0.85), .white.opacity(0.18),
+                                            .white.opacity(0.55)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1)
         )
-        .overlay(alignment: .top) {
-            // Ein Reißnagel hält auch dieses Blättchen — es hängt ja
-            // an derselben Wand wie alles andere.
-            Reisszwecke().offset(y: -7)
+        // Lichtsaum: das Panel schwebt und leuchtet leicht auf die Wand
+        .shadow(color: Color(red: 1.0, green: 0.88, blue: 0.68).opacity(0.45), radius: 26)
+        // Umgebungsschatten und ein knapper Kontaktschatten darunter
+        .shadow(color: .black.opacity(0.30), radius: 40, x: 0, y: 24)
+        .shadow(color: .black.opacity(0.16), radius: 7, x: 0, y: 4)
+        .scaleEffect(da ? 1 : 0.95)
+        .opacity(da ? 1 : 0)
+        .animation(.spring(response: 0.30, dampingFraction: 0.86), value: da)
+        .onAppear { da = true }
+    }
+
+    // MARK: Bestandteile
+
+    private var griff: some View {
+        Capsule()
+            .fill(Color(red: 0.35, green: 0.29, blue: 0.22).opacity(0.22))
+            .frame(width: 34, height: 4)
+    }
+
+    private var wandKapsel: some View {
+        Text(wandName)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(LinearGradient(
+                        colors: [Color(red: 0.85, green: 0.50, blue: 0.33),
+                                 Color(red: 0.72, green: 0.38, blue: 0.24)],
+                        startPoint: .top, endPoint: .bottom))
+                    .overlay(
+                        Capsule().fill(LinearGradient(
+                            colors: [.white.opacity(0.42), .clear],
+                            startPoint: .top, endPoint: .center))
+                    )
+            )
+            .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.8))
+            .shadow(color: Color(red: 0.6, green: 0.3, blue: 0.15).opacity(0.35),
+                    radius: 6, x: 0, y: 3)
+    }
+
+    /// Warmes Champagner-Glas: nicht weiß, nicht grau — eine Spur beige.
+    private var glas: some View {
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            LinearGradient(colors: [Color(red: 0.99, green: 0.94, blue: 0.85).opacity(0.34),
+                                    Color(red: 0.94, green: 0.86, blue: 0.74).opacity(0.24)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            // inneres Leuchten aus der Mitte
+            RadialGradient(colors: [.white.opacity(0.22), .clear],
+                           center: .init(x: 0.5, y: 0.32),
+                           startRadius: 2, endRadius: breite * 0.85)
+            // feine Spiegelung oben links
+            LinearGradient(colors: [.white.opacity(0.28), .clear, .clear],
+                           startPoint: .topLeading, endPoint: .center)
         }
-        .shadow(color: .black.opacity(0.28), radius: 14, x: 0, y: 8)
+    }
+
+    private func karte(_ zugabe: WandZugabe) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            waehle(zugabe)
+        } label: {
+            VStack(spacing: 9) {
+                kristallKnopf(zugabe)
+                VStack(spacing: 2) {
+                    Text(zugabe.titel)
+                        .font(.system(size: 14.5, weight: .bold))
+                        .foregroundStyle(Color(red: 0.20, green: 0.16, blue: 0.11))
+                    Text(zugabe.unterzeile)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color(red: 0.26, green: 0.21, blue: 0.15).opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                }
+                .padding(.horizontal, 6)
+            }
+            .frame(width: kartenBreite, height: 132)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [.white.opacity(0.26), Color(red: 0.97, green: 0.91, blue: 0.81).opacity(0.12)],
+                            startPoint: .top, endPoint: .bottom))
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(.white.opacity(0.65), lineWidth: 0.9)
+            )
+            .shadow(color: .black.opacity(0.13), radius: 9, x: 0, y: 5)
+        }
+        .buttonStyle(SanfterDruck())
+    }
+
+    /// Rundes Kristall-Knöpfchen: Glasfläche, Glanzlicht, weicher Schein.
+    private func kristallKnopf(_ zugabe: WandZugabe) -> some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient(colors: [.white.opacity(0.92), .white.opacity(0.42)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+            Circle()
+                .fill(RadialGradient(colors: [zugabe.farbe.opacity(0.22), .clear],
+                                     center: .center, startRadius: 2, endRadius: 30))
+            Image(systemName: zugabe.symbol)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(
+                    LinearGradient(colors: [zugabe.farbe.opacity(0.95), zugabe.farbe.opacity(0.72)],
+                                   startPoint: .top, endPoint: .bottom))
+                .shadow(color: zugabe.farbe.opacity(0.35), radius: 3, x: 0, y: 2)
+            // Glanzlicht oben
+            Ellipse()
+                .fill(LinearGradient(colors: [.white.opacity(0.75), .clear],
+                                     startPoint: .top, endPoint: .bottom))
+                .frame(width: 30, height: 14)
+                .offset(y: -14)
+                .blur(radius: 1)
+        }
+        .frame(width: 58, height: 58)
+        .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: 1))
+        .shadow(color: zugabe.farbe.opacity(0.30), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 2)
+    }
+
+    private var abbrechenKnopf: some View {
+        Button(action: abbrechen) {
+            HStack(spacing: 10) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(Color(red: 0.34, green: 0.28, blue: 0.22))
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(.white.opacity(0.7)))
+                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 0.8))
+                Text("Abbrechen")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.30, green: 0.25, blue: 0.19))
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, 22)
+            .padding(.vertical, 9)
+            .background(
+                Capsule().fill(.ultraThinMaterial)
+                    .overlay(Capsule().fill(.white.opacity(0.28)))
+            )
+            .overlay(Capsule().strokeBorder(.white.opacity(0.7), lineWidth: 0.9))
+            .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(SanfterDruck())
+    }
+}
+
+/// Beim Drücken hebt sich die Karte leicht und wird heller — kein Hüpfen.
+private struct SanfterDruck: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .brightness(configuration.isPressed ? 0.05 : 0)
+            .offset(y: configuration.isPressed ? -4 : 0)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }
