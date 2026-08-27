@@ -235,24 +235,25 @@ struct IdeenPinnwand: View {
         } message: {
             Text("Eine Mappe zu einer Sache — Dokumente, Ideen und Aufgaben an einem Ort.")
         }
-        .confirmationDialog("An diese Wand", isPresented: $zeigeHinzufuegen, titleVisibility: .visible) {
-            Button("Blitzidee") {
-                store.wandZiel = (boardID, relativerPlatz())
-                store.quickCaptureAutoRecord = false
-                store.pendingQuickCapture = true
+        .sheet(isPresented: $zeigeHinzufuegen) {
+            AnDieseWandBlatt(wandName: board?.name ?? "Wand") { wahl in
+                switch wahl {
+                case .blitzidee:
+                    store.wandZiel = (boardID, relativerPlatz())
+                    store.quickCaptureAutoRecord = false
+                    store.pendingQuickCapture = true
+                case .aufgabenliste:
+                    listenName = ""
+                    neueListe = true
+                case .dokument:
+                    store.wandZiel = (boardID, relativerPlatz())
+                    store.pendingSection = .documents
+                    store.pendingNewEntry = .documents
+                    store.zeigeIdeenPinnwand = false
+                case .vorhandenes:
+                    zeigeAnpinnen = true
+                }
             }
-            Button("Aufgabenliste") {
-                listenName = ""
-                neueListe = true
-            }
-            Button("Dokument oder Scan") {
-                store.wandZiel = (boardID, relativerPlatz())
-                store.pendingSection = .documents
-                store.pendingNewEntry = .documents
-                store.zeigeIdeenPinnwand = false
-            }
-            Button("Vorhandenes anpinnen") { zeigeAnpinnen = true }
-            Button("Abbrechen", role: .cancel) { }
         }
         .alert("Neue Aufgabenliste", isPresented: $neueListe) {
             TextField("Wofür?", text: $listenName)
@@ -1432,5 +1433,126 @@ struct ExitKnopf: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Wand schließen")
+    }
+}
+
+// MARK: - „An diese Wand" im Arca-Stil
+//
+// Vorher ein System-Dialog mit vier grauen Knöpfen — der fiel aus der
+// Glas- und Papierwelt heraus. Jetzt dieselbe Sprache wie „Neues
+// Dokument": Kacheln mit farbigem Symbolfeld auf Glas.
+
+enum WandZugabe: String, CaseIterable, Identifiable {
+    case blitzidee, aufgabenliste, dokument, vorhandenes
+    var id: String { rawValue }
+
+    var titel: String {
+        switch self {
+        case .blitzidee:     return "Blitzidee"
+        case .aufgabenliste: return "Aufgabenliste"
+        case .dokument:      return "Dokument · Scan"
+        case .vorhandenes:   return "Vorhandenes"
+        }
+    }
+    var unterzeile: String {
+        switch self {
+        case .blitzidee:     return "Ein Gedanke, sofort"
+        case .aufgabenliste: return "Was zu tun ist"
+        case .dokument:      return "Scannen oder holen"
+        case .vorhandenes:   return "Schon in Arca"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .blitzidee:     return "lightbulb.fill"
+        case .aufgabenliste: return "checkmark.square.fill"
+        case .dokument:      return "doc.viewfinder"
+        case .vorhandenes:   return "pin.fill"
+        }
+    }
+    var farbe: Color {
+        switch self {
+        case .blitzidee:     return ArcaWarm.ideenGelb
+        case .aufgabenliste: return NoteColor.for_(3).accent
+        case .dokument:      return NoteColor.for_(5).accent
+        case .vorhandenes:   return ArcaWarm.terrakotta
+        }
+    }
+}
+
+struct AnDieseWandBlatt: View {
+    let wandName: String
+    let waehle: (WandZugabe) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 14) {
+            VStack(spacing: 3) {
+                Text("An diese Wand")
+                    .font(.system(size: 19, weight: .bold))
+                Text(wandName)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(ArcaWarm.terrakotta)
+            }
+            .padding(.top, 20)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(WandZugabe.allCases) { zugabe in
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        dismiss()
+                        // Erst schließen, dann handeln — sonst kämpfen zwei
+                        // Blätter um dieselbe Bühne.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            waehle(zugabe)
+                        }
+                    } label: {
+                        VStack(spacing: 9) {
+                            Image(systemName: zugabe.symbol)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(zugabe.farbe)
+                                .frame(width: 46, height: 46)
+                                .background(zugabe.farbe.opacity(0.14),
+                                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            VStack(spacing: 2) {
+                                Text(zugabe.titel)
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(.primary)
+                                Text(zugabe.unterzeile)
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.6)),
+                                     in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(.black.opacity(0.06), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            Button { dismiss() } label: {
+                Text("Abbrechen")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+
+            Spacer(minLength: 0)
+        }
+        .background(ArcaWarm.hintergrund)
+        .presentationDetents([.height(360)])
+        .presentationCornerRadius(28)
+        .presentationDragIndicator(.visible)
     }
 }
