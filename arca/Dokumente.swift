@@ -336,7 +336,7 @@ struct DocumentsView: View {
             .sheet(isPresented: $showCategoryManager) {
                 DocumentCategoryManagerView()
             }
-            .quickLookPreview($previewURL)
+            .arcaVorschau($previewURL)
             .fullScreenCover(isPresented: Binding(
                 get: { previewImageURL != nil },
                 set: { if !$0 { previewImageURL = nil } }
@@ -1777,5 +1777,75 @@ private extension View {
     @ViewBuilder
     func wennDraggbar(_ aktiv: Bool, _ wert: String) -> some View {
         if aktiv { self.onDrag { NSItemProvider(object: wert as NSString) } } else { self }
+    }
+}
+
+// MARK: - Arca-Vorschau (QuickLook ohne Formular-Ausfüllen)
+//
+// Der SwiftUI-Kurzweg `.quickLookPreview` laesst den Bearbeitungsmodus
+// nicht setzen. QuickLook bietet dann bei PDFs mit Formularfeldern von
+// sich aus das automatische Ausfuellen an. Mit `editingMode = .disabled`
+// bleibt die Vorschau eine Vorschau.
+//
+// Verloren geht dadurch nichts: Bearbeitete Fassungen haette Arca ohnehin
+// nie gespeichert — `previewController(_:didSaveEditedCopyOf:at:)` gibt es
+// nirgends.
+
+struct ArcaVorschau: UIViewControllerRepresentable {
+    let url: URL
+    let schliessen: () -> Void
+
+    func makeUIViewController(context: Context) -> UINavigationController {
+        let ql = QLPreviewController()
+        ql.dataSource = context.coordinator
+        ql.delegate = context.coordinator
+        ql.navigationItem.rightBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .done,
+            target: context.coordinator,
+            action: #selector(ArcaVorschau.Coordinator.fertig))
+        let nav = UINavigationController(rootViewController: ql)
+        nav.navigationBar.prefersLargeTitles = false
+        return nav
+    }
+
+    func updateUIViewController(_ vc: UINavigationController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(url: url, schliessen: schliessen) }
+
+    class Coordinator: NSObject, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
+        let url: URL
+        let schliessen: () -> Void
+        init(url: URL, schliessen: @escaping () -> Void) {
+            self.url = url; self.schliessen = schliessen
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+
+        func previewController(_ controller: QLPreviewController,
+                               previewItemAt index: Int) -> any QLPreviewItem { url as NSURL }
+
+        /// Der eigentliche Punkt: keine Bearbeitung, also auch kein
+        /// Angebot, Formulare automatisch auszufuellen.
+        func previewController(_ controller: QLPreviewController,
+                               editingModeFor previewItem: any QLPreviewItem) -> QLPreviewItemEditingMode {
+            .disabled
+        }
+
+        @objc func fertig() { schliessen() }
+    }
+}
+
+extension View {
+    /// Vorschau einer Datei — ohne Formular-Ausfuellen. Ersetzt
+    /// `.quickLookPreview`, damit der Bearbeitungsmodus setzbar bleibt.
+    func arcaVorschau(_ url: Binding<URL?>) -> some View {
+        fullScreenCover(isPresented: Binding(
+            get: { url.wrappedValue != nil },
+            set: { if !$0 { url.wrappedValue = nil } })) {
+            if let u = url.wrappedValue {
+                ArcaVorschau(url: u) { url.wrappedValue = nil }
+                    .ignoresSafeArea()
+            }
+        }
     }
 }

@@ -299,7 +299,7 @@ struct ArcaDeskRail: View {
                 UserDefaults.standard.removeObject(forKey: "arcaDeskTitel_" + seite)
             }
         }
-        .quickLookPreview($previewURL)
+        .arcaVorschau($previewURL)
         // Umbenennen wirkt auf das Original — überall, auf allen Geräten
         .alert("Umbenennen", isPresented: Binding(
             get: { umbenennenItem != nil },

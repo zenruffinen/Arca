@@ -91,7 +91,7 @@ struct AufraeumModus: View {
                     geladen = true
                 }
             }
-            .quickLookPreview($previewURL)
+            .arcaVorschau($previewURL)
             .alert("Wirklich löschen?", isPresented: Binding(
                 get: { loeschKandidat != nil },
                 set: { if !$0 { loeschKandidat = nil } }

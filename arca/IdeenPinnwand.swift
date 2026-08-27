@@ -277,7 +277,7 @@ struct IdeenPinnwand: View {
             .presentationDetents([.medium, .large])
             .presentationCornerRadius(28)
         }
-        .quickLookPreview($vorschauURL)
+        .arcaVorschau($vorschauURL)
         .fullScreenCover(isPresented: Binding(
             get: { bildURL != nil },
             set: { if !$0 { bildURL = nil } })) {
@@ -932,44 +932,52 @@ private struct DokumentMarke: View {
 
     // MARK: Blatt — für PDF, Text und Mail
 
+    /// Ein Blatt mit der **echten ersten Seite** darauf. Vorher war es ein
+    /// leerer Bogen mit Titel — und ohne Höhenbegrenzung, weshalb es die
+    /// ganze Wand füllte. Feste Maße, damit eine Marke eine Marke bleibt.
     private var blatt: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(docTypeColor(doc.type))
-                Text(doc.type.rawValue.uppercased())
-                    .font(.system(size: 8.5, weight: .heavy))
-                    .tracking(0.7)
-                    .foregroundStyle(.black.opacity(0.35))
-            }
-            Text(doc.title)
-                .font(.system(size: 12.5, weight: .bold))
-                .foregroundStyle(.black.opacity(0.82))
-                .lineLimit(3)
-            Spacer(minLength: 0)
-            Text(doc.category)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.black.opacity(0.32))
-                .lineLimit(1)
-        }
-        .frame(width: breite, alignment: .topLeading)
-        .frame(minHeight: 104, alignment: .topLeading)
-        .padding(11)
-        .padding(.top, 12)
-        .background(
-            ZStack {
-                LinearGradient(colors: [.white, Color(white: 0.97)],
-                               startPoint: .top, endPoint: .bottom)
-                // die Linien eines Briefbogens, ganz zart
-                VStack(spacing: 13) {
-                    ForEach(0..<7, id: \.self) { _ in
-                        Rectangle().fill(Color(red: 0.35, green: 0.45, blue: 0.7).opacity(0.05))
-                            .frame(height: 0.7)
+        VStack(spacing: 0) {
+            DocThumbnail(url: datei, type: doc.type, gross: true)
+                .frame(width: breite - 18, height: 118)
+                .clipped()
+                .background(Color(white: 0.97))
+                .overlay(alignment: .topLeading) {
+                    // Kleine Fahne, damit man den Typ ohne Lesen erkennt
+                    HStack(spacing: 3) {
+                        Image(systemName: symbol)
+                            .font(.system(size: 8, weight: .bold))
+                        Text(doc.type.rawValue.uppercased())
+                            .font(.system(size: 7.5, weight: .heavy))
+                            .tracking(0.5)
                     }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2.5)
+                    .background(docTypeColor(doc.type).opacity(0.92), in: Capsule())
+                    .padding(5)
                 }
-                .padding(.top, 34)
+                .overlay(RoundedRectangle(cornerRadius: 2)
+                    .strokeBorder(.black.opacity(0.07), lineWidth: 0.6))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(doc.title)
+                    .font(.system(size: 11.5, weight: .bold))
+                    .foregroundStyle(.black.opacity(0.82))
+                    .lineLimit(2)
+                Text(doc.category)
+                    .font(.system(size: 8.5, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.32))
+                    .lineLimit(1)
             }
+            .frame(width: breite - 18, alignment: .leading)
+            .padding(.top, 6)
+            .padding(.bottom, 2)
+        }
+        .frame(width: breite, height: 176)
+        .padding(.top, 10)
+        .background(
+            LinearGradient(colors: [.white, Color(white: 0.97)],
+                           startPoint: .top, endPoint: .bottom)
         )
         .clipShape(BlattMitEselsohr(ohr: 16))
         .overlay(BlattMitEselsohr(ohr: 16).stroke(.black.opacity(0.07), lineWidth: 0.7))
