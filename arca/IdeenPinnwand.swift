@@ -206,6 +206,11 @@ struct IdeenPinnwand: View {
                 .presentationDetents([.large])
                 .presentationCornerRadius(28)
         }
+        .onDisappear {
+            // Wer „Dokument oder Scan" abbricht, soll sein naechstes Dokument
+            // nicht ungefragt an dieser Wand wiederfinden.
+            if store.zeigeIdeenPinnwand == false { store.wandZiel = nil }
+        }
         .onAppear {
             if let s = UUID(uuidString: letzteWandID),
                store.pinnBoards.contains(where: { $0.id == s && !$0.archiviert }) {

@@ -125,19 +125,56 @@ struct ArcaTabBar: View {
             // Der erhöhte zentrale Knopf sitzt im Bogen
             zentralKnopf
                 .offset(y: -14)
+
+            // Der Besen sitzt DANEBEN, nicht anstelle des Plus. Das Plus ist
+            // die häufigste Handlung — es darf nie den Platz wechseln, schon
+            // gar nicht ausgerechnet dann, wenn viel zu tun ist.
+            if unsortiertAnzahl > 0 {
+                besenKnopf
+                    .offset(x: -54, y: -26)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 26)
     }
 
-    // MARK: Zentraler Knopf — Plus, wird zum Besen wenn Unordnung herrscht
+    // MARK: Der Besen — kleiner Nachbar des Plus, nur bei Unordnung
+
+    private var besenKnopf: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            store.zeigeAufraeumen = true
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(ArcaWarm.karte)
+                    .frame(width: 38, height: 38)
+                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.4))
+                    .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
+                ArcaIcon(name: "ArcaBroom", groesse: 18)
+                    .foregroundStyle(ArcaWarm.terrakotta)
+            }
+            .overlay(alignment: .topTrailing) {
+                Text("\(unsortiertAnzahl)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(minWidth: 17, minHeight: 17)
+                    .padding(.horizontal, 2)
+                    .background(Color.red, in: Capsule())
+                    .offset(x: 5, y: -3)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Aufräumen — \(unsortiertAnzahl) unsortiert")
+    }
+
+    // MARK: Zentraler Knopf — immer das Plus
 
     private var zentralKnopf: some View {
-        let aufraeumen = unsortiertAnzahl > 0
-        return Button {
+        Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            if aufraeumen { store.zeigeAufraeumen = true }
-            else { legeKontextbezogenAn() }
+            legeKontextbezogenAn()
         } label: {
             VStack(spacing: 4) {
                 ZStack {
@@ -145,42 +182,27 @@ struct ArcaTabBar: View {
                         .fill(ArcaWarm.terrakotta)
                         .frame(width: 56, height: 56)
                         .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 7, x: 0, y: 3)
-                    if aufraeumen {
-                        ArcaIcon(name: "ArcaBroom", groesse: 25).foregroundStyle(.white)
-                    } else {
-                        Image(systemName: "plus")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
-                // Plakette: Aufräum-Zähler ODER Kontext-Symbol des Plus
+                // Plakette: was das Plus im Moment anlegen würde
                 .overlay(alignment: .topTrailing) {
-                    if aufraeumen {
-                        Text("\(unsortiertAnzahl)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(minWidth: 18, minHeight: 18)
-                            .padding(.horizontal, 2)
-                            .background(Color.red, in: Capsule())
-                            .offset(x: 6, y: -4)
-                    } else {
-                        ArcaIcon(name: kontextIcon, groesse: 11)
-                            .foregroundStyle(ArcaWarm.terrakotta)
-                            .frame(width: 22, height: 22)
-                            .background(ArcaWarm.karte, in: Circle())
-                            .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.2))
-                            .offset(x: 7, y: -5)
-                            .id(kontextIcon)
-                    }
+                    ArcaIcon(name: kontextIcon, groesse: 11)
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .frame(width: 22, height: 22)
+                        .background(ArcaWarm.karte, in: Circle())
+                        .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.4), lineWidth: 1.2))
+                        .offset(x: 7, y: -5)
+                        .id(kontextIcon)
                 }
-                Text(aufraeumen ? "Aufräumen" : "Neu")
+                Text("Neu")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(aufraeumen ? ArcaWarm.terrakotta : Color.secondary)
+                    .foregroundStyle(Color.secondary)
             }
         }
         .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.25), value: aufraeumen)
-        .accessibilityLabel(aufraeumen ? "Aufräumen — \(unsortiertAnzahl) unsortiert" : "Neu anlegen")
+        .accessibilityLabel("Neu anlegen")
     }
 
     // MARK: Leisten-Item mit Label (Icon oben, Text unten)
