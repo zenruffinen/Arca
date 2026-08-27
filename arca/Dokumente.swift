@@ -1326,7 +1326,10 @@ struct DocThumbnail: View {
             fileAt: url,
             size: gross ? CGSize(width: 320, height: 420) : CGSize(width: 42, height: 50),
             scale: displayScale,
-            representationTypes: .thumbnail
+            // .all statt .thumbnail: kann QuickLook keine Seite rendern,
+            // liefert es wenigstens eine Darstellung — vorher kam nichts
+            // und die Marke blieb leer.
+            representationTypes: .all
         )
         QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
             guard var img = rep?.uiImage else { return }

@@ -54,7 +54,9 @@ struct IdeenPinnwand: View {
     /// Aus welcher Richtung die nächste Wand hereinkommt (+1 rechts, -1 links).
     @State private var blaetterRichtung = 1
 
-    private let zettelBreite: CGFloat = 150
+    // Schmaler als früher (150): auf eine Wand gehören mehrere Sachen,
+    // sonst ist sie ein Bilderrahmen statt eines Bretts.
+    private let zettelBreite: CGFloat = 112
 
     /// Oberer Sicherheitsabstand (Statusleiste/Notch) — die Pinnwand ignoriert
     /// die Safe Area, deshalb holen wir ihn direkt vom Fenster.
@@ -903,11 +905,11 @@ private struct DokumentMarke: View {
     private var polaroid: some View {
         VStack(spacing: 0) {
             DocThumbnail(url: datei, type: doc.type, gross: true)
-                .frame(width: breite - 16, height: breite - 16)
+                .frame(width: breite - 14, height: breite - 14)
                 .clipped()
                 .background(Color.black.opacity(0.06))
             Text(doc.title)
-                .font(.system(size: 11.5, weight: .medium, design: .serif))
+                .font(.system(size: 9.5, weight: .medium, design: .serif))
                 .foregroundStyle(.black.opacity(0.7))
                 .lineLimit(1)
                 .frame(width: breite - 16, alignment: .center)
@@ -938,43 +940,43 @@ private struct DokumentMarke: View {
     private var blatt: some View {
         VStack(spacing: 0) {
             DocThumbnail(url: datei, type: doc.type, gross: true)
-                .frame(width: breite - 18, height: 118)
+                .frame(width: breite - 16, height: 86)
                 .clipped()
                 .background(Color(white: 0.97))
                 .overlay(alignment: .topLeading) {
                     // Kleine Fahne, damit man den Typ ohne Lesen erkennt
-                    HStack(spacing: 3) {
+                    HStack(spacing: 2.5) {
                         Image(systemName: symbol)
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 7, weight: .bold))
                         Text(doc.type.rawValue.uppercased())
-                            .font(.system(size: 7.5, weight: .heavy))
-                            .tracking(0.5)
+                            .font(.system(size: 6.5, weight: .heavy))
+                            .tracking(0.4)
                     }
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2.5)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
                     .background(docTypeColor(doc.type).opacity(0.92), in: Capsule())
                     .padding(5)
                 }
                 .overlay(RoundedRectangle(cornerRadius: 2)
                     .strokeBorder(.black.opacity(0.07), lineWidth: 0.6))
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(doc.title)
-                    .font(.system(size: 11.5, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.black.opacity(0.82))
                     .lineLimit(2)
                 Text(doc.category)
-                    .font(.system(size: 8.5, weight: .semibold))
+                    .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.32))
                     .lineLimit(1)
             }
-            .frame(width: breite - 18, alignment: .leading)
-            .padding(.top, 6)
+            .frame(width: breite - 16, alignment: .leading)
+            .padding(.top, 4)
             .padding(.bottom, 2)
         }
-        .frame(width: breite, height: 176)
-        .padding(.top, 10)
+        .frame(width: breite, height: 136)
+        .padding(.top, 8)
         .background(
             LinearGradient(colors: [.white, Color(white: 0.97)],
                            startPoint: .top, endPoint: .bottom)
