@@ -106,7 +106,9 @@ struct IdeenPinnwand: View {
                                 guard case .second(true, let zug) = wert else { return }
                                 tippOrt = zug?.startLocation
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                zeigeHinzufuegen = true
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                                    zeigeHinzufuegen = true
+                                }
                             }
                     )
                     // Wischen wechselt die Wand. Mindestweg 24, damit der
@@ -182,6 +184,23 @@ struct IdeenPinnwand: View {
                 // Kopfzeile: Wand-Wähler · + Idee · (Vollbild)
                 kopf
 
+                // Die Zugabe erscheint dort, wo der Finger lag — auf der
+                // Wand, nicht als Blatt vom unteren Bildschirmrand.
+                if zeigeHinzufuegen {
+                    Color.black.opacity(0.10)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.easeOut(duration: 0.16)) { zeigeHinzufuegen = false }
+                        }
+                    AnDieseWandKarte(wandName: board?.name ?? "Wand") { wahl in
+                        withAnimation(.easeOut(duration: 0.16)) { zeigeHinzufuegen = false }
+                        waehleZugabe(wahl)
+                    }
+                    .position(kartenOrt(in: geo.size))
+                    .transition(.scale(scale: 0.86, anchor: .center).combined(with: .opacity))
+                    .zIndex(200)
+                }
+
                 // EXIT unten links — dort liegt der Daumen, wenn man das
                 // Telefon hält. Oben rechts müsste man umgreifen.
                 VStack {
@@ -235,26 +254,7 @@ struct IdeenPinnwand: View {
         } message: {
             Text("Eine Mappe zu einer Sache — Dokumente, Ideen und Aufgaben an einem Ort.")
         }
-        .sheet(isPresented: $zeigeHinzufuegen) {
-            AnDieseWandBlatt(wandName: board?.name ?? "Wand") { wahl in
-                switch wahl {
-                case .blitzidee:
-                    store.wandZiel = (boardID, relativerPlatz())
-                    store.quickCaptureAutoRecord = false
-                    store.pendingQuickCapture = true
-                case .aufgabenliste:
-                    listenName = ""
-                    neueListe = true
-                case .dokument:
-                    store.wandZiel = (boardID, relativerPlatz())
-                    store.pendingSection = .documents
-                    store.pendingNewEntry = .documents
-                    store.zeigeIdeenPinnwand = false
-                case .vorhandenes:
-                    zeigeAnpinnen = true
-                }
-            }
-        }
+
         .alert("Neue Aufgabenliste", isPresented: $neueListe) {
             TextField("Wofür?", text: $listenName)
             Button("Anlegen") {
@@ -391,6 +391,35 @@ struct IdeenPinnwand: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, randOben + 8)   // unter die Statusleiste/Notch
+    }
+
+    private func waehleZugabe(_ wahl: WandZugabe) {
+        switch wahl {
+        case .blitzidee:
+            store.wandZiel = (boardID, relativerPlatz())
+            store.quickCaptureAutoRecord = false
+            store.pendingQuickCapture = true
+        case .aufgabenliste:
+            listenName = ""
+            neueListe = true
+        case .dokument:
+            store.wandZiel = (boardID, relativerPlatz())
+            store.pendingSection = .documents
+            store.pendingNewEntry = .documents
+            store.zeigeIdeenPinnwand = false
+        case .vorhandenes:
+            zeigeAnpinnen = true
+        }
+    }
+
+    /// Die Karte sitzt beim Finger — bleibt aber ganz auf der Wand,
+    /// auch wenn man an den Rand gedrückt hat.
+    private func kartenOrt(in size: CGSize) -> CGPoint {
+        let breite: CGFloat = 226, hoehe: CGFloat = 234
+        let ort = tippOrt ?? CGPoint(x: size.width / 2, y: size.height / 2)
+        return CGPoint(x: min(max(ort.x, breite / 2 + 12), size.width - breite / 2 - 12),
+                       y: min(max(ort.y, randOben + hoehe / 2 + 74),
+                              size.height - hoehe / 2 - 30))
     }
 
     /// Der gemerkte Platz in relativen Koordinaten — oder nichts, wenn
@@ -1480,79 +1509,76 @@ enum WandZugabe: String, CaseIterable, Identifiable {
     }
 }
 
-struct AnDieseWandBlatt: View {
+
+/// Die Zugabe-Karte: klein, papiern, schwebt dort, wo der Finger lag.
+/// Ein Blatt vom unteren Bildschirmrand wäre die Sprache des Telefons —
+/// auf einem Brett erscheint etwas an der Stelle, die man berührt hat.
+struct AnDieseWandKarte: View {
     let wandName: String
     let waehle: (WandZugabe) -> Void
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 14) {
-            VStack(spacing: 3) {
-                Text("An diese Wand")
-                    .font(.system(size: 19, weight: .bold))
-                Text(wandName)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(ArcaWarm.terrakotta)
-            }
-            .padding(.top, 20)
+        VStack(spacing: 0) {
+            Text(wandName.uppercased())
+                .font(.system(size: 8.5, weight: .heavy))
+                .tracking(1.1)
+                .foregroundStyle(ArcaWarm.terrakotta.opacity(0.85))
+                .lineLimit(1)
+                .padding(.top, 11)
+                .padding(.bottom, 8)
+                .padding(.horizontal, 14)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(WandZugabe.allCases) { zugabe in
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        dismiss()
-                        // Erst schließen, dann handeln — sonst kämpfen zwei
-                        // Blätter um dieselbe Bühne.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            waehle(zugabe)
-                        }
-                    } label: {
-                        VStack(spacing: 9) {
-                            Image(systemName: zugabe.symbol)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(zugabe.farbe)
-                                .frame(width: 46, height: 46)
-                                .background(zugabe.farbe.opacity(0.14),
-                                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            VStack(spacing: 2) {
-                                Text(zugabe.titel)
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(.primary)
-                                Text(zugabe.unterzeile)
-                                    .font(.system(size: 10.5))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .glassEffect(.regular.tint(ArcaWarm.creme.opacity(0.6)),
-                                     in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(.black.opacity(0.06), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
+            ForEach(Array(WandZugabe.allCases.enumerated()), id: \.element.id) { i, zugabe in
+                if i > 0 {
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.06))
+                        .frame(height: 0.6)
+                        .padding(.leading, 46)
                 }
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    waehle(zugabe)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: zugabe.symbol)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(zugabe.farbe)
+                            .frame(width: 24, height: 24)
+                            .background(zugabe.farbe.opacity(0.15),
+                                        in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(zugabe.titel)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text(zugabe.unterzeile)
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(.secondary)
+                        }
+                        .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
-
-            Button { dismiss() } label: {
-                Text("Abbrechen")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 20)
-
-            Spacer(minLength: 0)
+            .padding(.bottom, 5)
         }
-        .background(ArcaWarm.hintergrund)
-        .presentationDetents([.height(360)])
-        .presentationCornerRadius(28)
-        .presentationDragIndicator(.visible)
+        .frame(width: 226)
+        .background(
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(ArcaWarm.karte)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .strokeBorder(.white.opacity(0.5), lineWidth: 0.8)
+        )
+        .overlay(alignment: .top) {
+            // Ein Reißnagel hält auch dieses Blättchen — es hängt ja
+            // an derselben Wand wie alles andere.
+            Reisszwecke().offset(y: -7)
+        }
+        .shadow(color: .black.opacity(0.28), radius: 14, x: 0, y: 8)
     }
 }
