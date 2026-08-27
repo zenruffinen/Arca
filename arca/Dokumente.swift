@@ -98,6 +98,10 @@ struct DocumentsView: View {
     @State private var filePickerTypes: [UTType] = [.pdf]
     @State private var filePickerDocType: DocumentType = .pdf
     @State private var showCategoryManager = false
+    // Mehrfachauswahl: mehrere Dokumente greifen und gemeinsam umlegen
+    @State private var auswahlModus = false
+    @State private var ausgewaehlt: Set<UUID> = []
+    @State private var zeigeVerschieben = false
     @State private var renamingDoc: DocumentEntry? = nil
     @State private var renameText = ""
 
@@ -211,6 +215,18 @@ struct DocumentsView: View {
                 .padding(.bottom, 4)
 
                 documentsList
+            }
+            .overlay(alignment: .bottom) {
+                if auswahlModus && !ausgewaehlt.isEmpty { auswahlLeiste }
+            }
+            .confirmationDialog("Verschieben nach", isPresented: $zeigeVerschieben,
+                                titleVisibility: .visible) {
+                ForEach(store.documentCategories.filter {
+                    $0 != store.fokusKategorie && $0 != "Top Secret"
+                }, id: \.self) { ziel in
+                    Button(ziel) { verschiebeAuswahl(nach: ziel) }
+                }
+                Button("Abbrechen", role: .cancel) { }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -432,10 +448,18 @@ struct DocumentsView: View {
 
     @ViewBuilder
     private func documentRow(_ doc: DocumentEntry, indented: Bool = false) -> some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(docTypeColor(doc.type))
-                .frame(width: 8, height: 8)
+        let gewaehlt = ausgewaehlt.contains(doc.id)
+        return HStack(spacing: 12) {
+            if auswahlModus {
+                Image(systemName: gewaehlt ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 19))
+                    .foregroundStyle(gewaehlt ? ArcaWarm.terrakotta : Color.secondary.opacity(0.5))
+                    .transition(.scale.combined(with: .opacity))
+            } else {
+                Circle()
+                    .fill(docTypeColor(doc.type))
+                    .frame(width: 8, height: 8)
+            }
             DocThumbnail(url: store.documentURL(for: doc.filename), type: doc.type)
             Text(doc.title)
                 .font(.system(size: 15, weight: .medium))
@@ -445,9 +469,19 @@ struct DocumentsView: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
-        .onTapGesture { openDocument(doc) }
-        // Ziehbar: in andere Gruppen oder auf den Schreibtisch
-        .onDrag { NSItemProvider(object: doc.id.uuidString as NSString) }
+        .onTapGesture {
+            if auswahlModus {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    if gewaehlt { ausgewaehlt.remove(doc.id) } else { ausgewaehlt.insert(doc.id) }
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } else {
+                openDocument(doc)
+            }
+        }
+        // Ziehbar: in andere Gruppen oder auf den Schreibtisch.
+        // Im Auswahlmodus nicht — sonst zieht man beim Ankreuzen los.
+        .wennDraggbar(!auswahlModus, doc.id.uuidString)
         .foregroundStyle(.primary)
         // Mail-Stil: eingerückter Block mit runden Ecken + Liquid Glass (wie die Passwort-Zeilen)
         .listRowBackground(
@@ -581,10 +615,74 @@ struct DocumentsView: View {
         }
     }
 
+    /// Was mit der Auswahl geschehen soll. Liegt unten, wo der Daumen ist.
+    private var auswahlLeiste: some View {
+        HStack(spacing: 12) {
+            Text("\(ausgewaehlt.count)")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(ArcaWarm.terrakotta)
+                .monospacedDigit()
+                .frame(minWidth: 22)
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { ausgewaehlt.removeAll() }
+            } label: {
+                Text("Aufheben")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 6)
+            Button {
+                zeigeVerschieben = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Verschieben")
+                        .font(.system(size: 14, weight: .bold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(ArcaWarm.terrakotta, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.black.opacity(0.08), lineWidth: 1))
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        .padding(.horizontal, 16)
+        // Über der Leiste bleiben, nicht auf ihr sitzen
+        .padding(.bottom, 78)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    /// Alle gewählten Dokumente in eine andere Gruppe legen. Untergruppen
+    /// fallen dabei weg — sie gehören zur alten Gruppe.
+    private func verschiebeAuswahl(nach ziel: String) {
+        let ids = ausgewaehlt
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            for id in ids {
+                guard let i = store.documents.firstIndex(where: { $0.id == id }) else { continue }
+                store.documents[i].category = ziel
+                store.documents[i].subcategory = ""
+            }
+            ausgewaehlt.removeAll()
+            auswahlModus = false
+        }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
     private var documentsList: some View {
         ScrollViewReader { proxy in
         List {
             if store.fokusKategorie != nil {
+                HStack {
                 Button {
                     withAnimation { store.fokusKategorie = nil }
                 } label: {
@@ -597,6 +695,21 @@ struct DocumentsView: View {
                     .foregroundStyle(ArcaWarm.terrakotta)
                 }
                 .buttonStyle(.plain)
+                Spacer()
+                // Mehrere greifen und gemeinsam umlegen — vor allem im
+                // Eingang, wo nach dem Ablegen ein Stapel liegt.
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        auswahlModus.toggle()
+                        if !auswahlModus { ausgewaehlt.removeAll() }
+                    }
+                } label: {
+                    Text(auswahlModus ? "Fertig" : "Auswählen")
+                        .font(.system(size: 14, weight: auswahlModus ? .bold : .semibold))
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                }
+                .buttonStyle(.plain)
+                }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
@@ -1653,3 +1766,12 @@ struct TextDocumentInputView: View {
     }
 }
 
+
+private extension View {
+    /// Ziehen nur, wenn erlaubt — im Auswahlmodus würde man beim
+    /// Ankreuzen sonst versehentlich losziehen.
+    @ViewBuilder
+    func wennDraggbar(_ aktiv: Bool, _ wert: String) -> some View {
+        if aktiv { self.onDrag { NSItemProvider(object: wert as NSString) } } else { self }
+    }
+}
