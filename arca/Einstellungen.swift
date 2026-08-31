@@ -352,6 +352,10 @@ struct FeedbackLinkRow: View {
 struct SettingsView: View {
     @EnvironmentObject var store: AppStore
     @AppStorage("arcaUserName") private var userName: String = ""
+    /// Auf welcher Seite die Wand-Vorschau neben dem Rad steht. Das Rad
+    /// wird mit dem Daumen gedreht — der kommt von der Seite, auf der die
+    /// Hand liegt. Deshalb eine Einstellung und keine Festlegung.
+    @AppStorage("wandVorschauRechts") private var wandVorschauRechts: Bool = false
 
     /// Vom Mehr-Menü der Leiste angestoßen: Sichern oder Wiederherstellen
     /// öffnet direkt das passende Blatt.
@@ -705,6 +709,28 @@ struct SettingsView: View {
                                 Text("Für die Begrüßung auf dem Start")
                                     .font(.system(size: 11))
                                     .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
+
+                        zeilenTrenner
+                        HStack(spacing: 12) {
+                            zeilenIcon(wandVorschauRechts ? "rectangle.righthalf.filled"
+                                                          : "rectangle.lefthalf.filled",
+                                       ArcaWarm.terrakotta)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Wand-Vorschau")
+                                    .font(.system(size: 15, weight: .medium))
+                                Text("Auf welcher Seite die Wand neben dem Rad steht")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                Picker("", selection: $wandVorschauRechts) {
+                                    Text("Links").tag(false)
+                                    Text("Rechts").tag(true)
+                                }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
+                                .padding(.top, 2)
                             }
                         }
                         .padding(.horizontal, 14).padding(.vertical, 12)

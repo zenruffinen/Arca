@@ -21,12 +21,8 @@ struct ContentView: View {
     @EnvironmentObject var store: AppStore
     var isUnlocked: Bool = true
     @State private var selectedSection: ArcaSection = .home
-    @State private var screenHeight: CGFloat = 852   // vernünftiger Fallback, wird sofort überschrieben
     @State private var showRecoveryHint = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    // Reihenfolge der wischbaren Tabs
-    private let swipeSections: [ArcaSection] = [.home, .settings]
 
     var body: some View {
         Group {
@@ -220,6 +216,11 @@ struct ContentView: View {
             Group {
                 switch selectedSection {
                 case .home:      HomeView(selectedSection: $selectedSection)
+                // Die Wände liegen neben dem Start, nicht darüber: die
+                // Leiste bleibt stehen, kein Exit-Knopf, zurück wird
+                // gewischt.
+                case .waende:    IdeenPinnwand(alsSeite: true,
+                                               nachHome: { wechsleZu(.home) })
                 case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
                 case .vault:     VaultView()
                 case .documents: DocumentsView(isUnlocked: isUnlocked)
@@ -234,33 +235,36 @@ struct ContentView: View {
             .background(ArcaWarm.hintergrund.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 104) }
 
+            // Am Rand steht ein Lichtgrat: dort geht die Seite weiter.
+            // Kein Pfeil, keine Punkte — dieselbe Glassprache wie der
+            // waagerechte Strich zwischen den Sektionen.
+            if selectedSection == .home {
+                ArcaSeitenKante(richtung: .rechts) { wechsleZu(.waende) }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                    .padding(.bottom, 104)
+                    .allowsHitTesting(true)
+                    .transition(.opacity)
+            } else if selectedSection == .waende {
+                ArcaSeitenKante(richtung: .links) { wechsleZu(.home) }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .padding(.bottom, 104)
+                    .transition(.opacity)
+            }
+
             ArcaTabBar(selected: $selectedSection)
         }
         .ignoresSafeArea(edges: .bottom)
-        .background(
-            GeometryReader { geo in
-                Color.clear.onAppear { screenHeight = geo.size.height }
-                    .onChange(of: geo.size.height) { _, newHeight in screenHeight = newHeight }
-            }
-        )
-        .gesture(
-            DragGesture(minimumDistance: 20, coordinateSpace: .global)
-                .onEnded { value in
-                    // Nur reagieren wenn Wisch auf der Tab-Leiste selbst startete —
-                    // sonst frisst die Geste das Wischen auf den untersten Listenzeilen
-                    guard value.startLocation.y > screenHeight - 90 else { return }
-                    // Klar horizontale Bewegung
-                    guard abs(value.translation.width) > abs(value.translation.height) * 1.2 else { return }
-                    guard let idx = swipeSections.firstIndex(of: selectedSection) else { return }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        if value.translation.width < -20 {
-                            selectedSection = swipeSections[min(idx + 1, swipeSections.count - 1)]
-                        } else if value.translation.width > 20 {
-                            selectedSection = swipeSections[max(idx - 1, 0)]
-                        }
-                    }
-                }
-        )
+        // Auf dem Start wird NICHT quer gewischt.
+        //
+        // Das Rad ist selbst ein Querzieher: eine Umdrehung der Crown sind
+        // leicht 70 pt Weg — genau die Schwelle, an der die Seite umblättern
+        // würde. Zwei Gesten, eine Richtung, dieselbe Fläche: das geht nicht
+        // gut, und das Rad hat Vorrang.
+        //
+        // Zu den Wänden führen der Lichtgrat am rechten Rand (antippen) und
+        // die Wandvorschau selbst. Zurück wischt man auf der Wandseite über
+        // die erste Wand hinaus — dort ist Wischen die einzige Geste und
+        // stört niemanden.
         .fullScreenCover(isPresented: $store.zeigeAufraeumen) {
             AufraeumModus()
                 .environmentObject(store)
@@ -290,6 +294,8 @@ struct ContentView: View {
                     Group {
                         switch selectedSection {
                         case .home:      HomeView(selectedSection: $selectedSection)
+                        case .waende:    IdeenPinnwand(alsSeite: true,
+                                                       nachHome: { wechsleZu(.home) })
                         case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
                         case .vault:     VaultView()
                         case .documents: DocumentsView(isUnlocked: isUnlocked)

@@ -15,6 +15,9 @@ protocol ZeitGestempelt {
 
 enum ArcaSection: String, CaseIterable, Identifiable {
     case home = "Start"
+    /// Die Wände als eigene Seite — nicht mehr als Streifen auf dem Start.
+    /// Eine Wand lebt von Fläche; 116 pt Vorschau waren keine.
+    case waende = "Wände"
     case spaceHub = "Space"
     case vault = "Passwörter"
     case documents = "Dokumente"

@@ -29,6 +29,13 @@ private struct Wandstueck: Identifiable {
 }
 
 struct IdeenPinnwand: View {
+    /// Als eigene Seite neben dem Start (Leiste bleibt stehen, kein Exit)
+    /// statt als Overlay über allem. Der Inhalt ist derselbe.
+    var alsSeite: Bool = false
+    /// Rückweg zum Start. Wer an der ersten Wand steht und weiter nach
+    /// rechts wischt, landet wieder auf der Hauptseite — dieselbe Geste,
+    /// eine Station weiter. Keine Sonderregel, kein zweiter Knopf.
+    var nachHome: (() -> Void)? = nil
     @EnvironmentObject var store: AppStore
     @Environment(\.horizontalSizeClass) private var groessenKlasse
     @State private var bearbeite: NoteEntry? = nil
@@ -212,19 +219,23 @@ struct IdeenPinnwand: View {
 
                 // EXIT unten links — dort liegt der Daumen, wenn man das
                 // Telefon hält. Oben rechts müsste man umgreifen.
-                VStack {
-                    Spacer()
-                    HStack {
-                        ExitKnopf {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                store.zeigeIdeenPinnwand = false
-                            }
-                        }
+                // Als Seite gibt es ihn nicht: dort wischt man zurück,
+                // und die Leiste steht ohnehin da.
+                if !alsSeite {
+                    VStack {
                         Spacer()
+                        HStack {
+                            ExitKnopf {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    store.zeigeIdeenPinnwand = false
+                                }
+                            }
+                            Spacer()
+                        }
                     }
+                    .padding(.leading, 22)
+                    .padding(.bottom, 34)
                 }
-                .padding(.leading, 22)
-                .padding(.bottom, 34)
 
             }
             .onAppear { wandGroesse = geo.size }
@@ -435,6 +446,13 @@ struct IdeenPinnwand: View {
         guard let jetzt = waende.firstIndex(where: { $0.id == boardID }) else { return }
         let ziel = jetzt + richtung
         guard waende.indices.contains(ziel) else {
+            // Vor der ersten Wand liegt der Start — als Seite geht es
+            // dorthin zurück, statt nur anzustoßen.
+            if alsSeite, richtung < 0, let nachHome {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                nachHome()
+                return
+            }
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             return
         }
@@ -625,6 +643,126 @@ struct IdeenPinnwand: View {
                          y: Double(g.y) / Double(size.height))
     }
 
+}
+
+/// Eine Wand in klein — echte Vorschau, kein Symbol.
+///
+/// Derselbe Belag, dieselben Marken an ihren gemerkten Plätzen, nur im
+/// Maßstab. Sie ist der Kopf des Drehreglers auf dem Start: das Rad dreht,
+/// die Wand wechselt, man sieht sofort, wovon die Rede ist.
+///
+/// Das Seitenverhältnis kann nicht stimmen — die echte Wand ist ein hohes
+/// Telefonformat, die Vorschau eine Karte. Die Marken sitzen deshalb nach
+/// ihren relativen Koordinaten, skaliert werden sie über die Breite. Für
+/// eine Vorschau reicht das; sie soll wiedererkennbar sein, nicht exakt.
+struct WandVorschau: View {
+    @EnvironmentObject var store: AppStore
+    let board: PinnBoard
+    var breite: CGFloat = 82
+
+    /// Die echte Wand ist der ganze Bildschirm. Vorschau und Original
+    /// müssen dieselbe Form haben, sonst liegen die Marken zueinander
+    /// anders als in groß, obwohl ihre Koordinaten stimmen.
+    private var echteGroesse: CGSize {
+        let fenster = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }?.bounds
+        return CGSize(width: fenster?.width ?? 402, height: fenster?.height ?? 874)
+    }
+
+    /// Der Verkleinerungsfaktor — die Wand wird in Originalgröße gezeichnet
+    /// und als Ganzes geschrumpft.
+    ///
+    /// Das ist der Kern: Marken einfach schmaler zu setzen funktioniert
+    /// nicht, weil Schriftgrößen und Innenabstände in den Zettelkarten
+    /// feste Werte sind. Eine Karte, der man 23 pt Breite gibt, wächst
+    /// trotzdem über sie hinaus und ragt aus der Vorschau. Verkleinert man
+    /// dagegen das fertige Bild, skaliert alles mit — Schrift, Ränder,
+    /// Nadeln, Klebestreifen. Ein Foto der Wand, kein neu gesetztes Layout.
+    private var faktor: CGFloat { breite / echteGroesse.width }
+
+    var hoehe: CGFloat { (echteGroesse.height * faktor).rounded() }
+
+    /// Wie auf der großen Wand: Passwörter hängen nie sichtbar.
+    private var stuecke: [Wandstueck] {
+        store.anschlaege
+            .filter { $0.boardID == board.id && $0.kind != .vault && store.originalExistiert($0) }
+            .map { Wandstueck(id: $0.refID, kind: $0.kind, refID: $0.refID, anschlag: $0) }
+    }
+
+    /// Dieselbe Markenbreite wie auf der echten Wand — die Verkleinerung
+    /// besorgt der Faktor, nicht ein zweiter Satz Maße.
+    private let zettelBreite: CGFloat = 112
+
+    private func platz(_ stueck: Wandstueck, idx: Int, in groesse: CGSize) -> CGPoint {
+        if let a = stueck.anschlag, a.platziert {
+            return begrenze(CGPoint(x: CGFloat(a.x) * groesse.width,
+                                    y: CGFloat(a.y) * groesse.height), in: groesse)
+        }
+        // Noch nicht selbst gehängt: Raster mit etwas Wurf, wie in groß.
+        let spalten = max(1, Int((groesse.width - 40) / (zettelBreite + 24)))
+        let col = idx % spalten, row = idx / spalten
+        let s = stueck.refID.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        let jx = CGFloat(s % 21 - 10), jy = CGFloat((s / 3) % 21 - 10)
+        return begrenze(CGPoint(x: 100 + CGFloat(col) * (zettelBreite + 24) + jx,
+                                y: 180 + CGFloat(row) * 165 + jy), in: groesse)
+    }
+
+    private func neigung(_ stueck: Wandstueck) -> Double {
+        if let a = stueck.anschlag { return a.drehung }
+        let s = stueck.refID.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return Double(s % 7 - 3) * 1.4
+    }
+
+    /// Keine Marke darf am Rand abgeschnitten werden. Eine Marke ist rund
+    /// anderthalbmal so hoch wie breit — es reicht also nicht, die Mitte
+    /// zu begrenzen, der Rand muss die halbe Höhe freihalten.
+    private func begrenze(_ p: CGPoint, in groesse: CGSize) -> CGPoint {
+        let halbBreit = zettelBreite / 2 + 6
+        let halbHoch = zettelBreite * 0.75 + 6
+        return CGPoint(x: min(max(p.x, halbBreit), groesse.width - halbBreit),
+                       y: min(max(p.y, halbHoch), groesse.height - halbHoch))
+    }
+
+    var body: some View {
+        let gross = echteGroesse
+        ZStack(alignment: .topLeading) {
+            // klein: true — der Belag als fertiges Bild statt gekachelter
+            // Körnung mit Glanz und Schrauben. Auf 20 % geschrumpft wird
+            // aus der Kachelung Matsch und aus den Schrauben nichts; der
+            // kleine Modus ist genau für diesen Fall gebaut.
+            //
+            // Die Marken bleiben davon unberührt: die werden weiter in
+            // Originalgröße gezeichnet und als Ganzes verkleinert.
+            KorkWand(stil: board.stil, klein: true)
+                .frame(width: gross.width, height: gross.height)
+
+            ForEach(Array(stuecke.enumerated()), id: \.element.id) { idx, stueck in
+                MarkeAnsicht(stueck: stueck, breite: zettelBreite)
+                    .environmentObject(store)
+                    .rotationEffect(.degrees(neigung(stueck)))
+                    .position(platz(stueck, idx: idx, in: gross))
+            }
+        }
+        .frame(width: gross.width, height: gross.height)
+        // scaleEffect verkleinert nur die Zeichnung, nicht den Platz im
+        // Layout: die Wand belegt weiter die volle Größe. Ohne topLeading
+        // zentriert der äußere Rahmen sie — ihre linke obere Ecke, von der
+        // aus skaliert wird, läge dann weit außerhalb des Ausschnitts, und
+        // man sähe gar nichts. Skalierungspunkt und Rahmen brauchen
+        // denselben Ursprung.
+        .scaleEffect(faktor, anchor: .topLeading)
+        .frame(width: breite, height: hoehe, alignment: .topLeading)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.28), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Wand \(board.name)")
+    }
 }
 
 /// Wo die echten Korkbilder liegen. Aus Hans' Vorlage geschnitten:

@@ -285,6 +285,14 @@ struct ArcaTabBar: View {
         case .vault:     store.pendingNewEntry = .vault
         case .notes:     store.pendingQuickCapture = true
         case .settings:  store.pendingQuickCapture = true
+        // Auf der Wandseite hängt das Plus das Neue an die Wand, die
+        // gerade steht — nicht irgendwohin in den Bestand.
+        case .waende:
+            if let roh = UserDefaults.standard.string(forKey: "letzteWandID"),
+               let id = UUID(uuidString: roh) {
+                store.wandZiel = (id, nil)
+            }
+            store.pendingQuickCapture = true
         }
     }
 }
@@ -356,6 +364,14 @@ struct ArcaPlusKnopf: View {
         case .vault:     store.pendingNewEntry = .vault
         case .notes:     store.pendingQuickCapture = true
         case .settings:  store.pendingQuickCapture = true
+        // Auf der Wandseite hängt das Plus das Neue an die Wand, die
+        // gerade steht — nicht irgendwohin in den Bestand.
+        case .waende:
+            if let roh = UserDefaults.standard.string(forKey: "letzteWandID"),
+               let id = UUID(uuidString: roh) {
+                store.wandZiel = (id, nil)
+            }
+            store.pendingQuickCapture = true
         }
     }
 

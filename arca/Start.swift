@@ -105,12 +105,12 @@ struct HomeView: View {
     @Binding var selectedSection: ArcaSection
     @State private var profilAuswahl: PhotosPickerItem? = nil
     @State private var showAlleFavoriten = false
-    @State private var zeigeNeueWand = false
-    @State private var neuerWandName = ""
+    /// Wo das Wand-Rad gerade steht (0…1) — dieselbe Mechanik wie beim
+    /// Dokument-Karussell, nur dreht es Wände statt Gruppen.
+    @State private var wandFrac: Double = 0
     @State private var sichtbareDokKarte: String? = nil
     @State private var dokScrollPos = ScrollPosition()
     @State private var dokFrac: Double = 0
-    @State private var dokMaxX: CGFloat = 1
     // Tresor-Gruppen im Strom (einklappbar)
     @State private var homeBankkartenAuf = false
     @State private var homePasswoerterAuf = false
@@ -129,6 +129,8 @@ struct HomeView: View {
     @FocusState private var isSearchFocused: Bool
     @State private var sucheOffen = false
     @AppStorage("arcaUserName") private var userName: String = ""
+    /// Wand-Vorschau links oder rechts vom Rad — siehe Einstellungen.
+    @AppStorage("wandVorschauRechts") private var wandVorschauRechts: Bool = false
     @AppStorage("arcaUserNameAsked") private var userNameAsked: Bool = false
     @State private var showNamePrompt = false
     @State private var namePromptInput = ""
@@ -368,11 +370,23 @@ struct HomeView: View {
         return teile.joined(separator: " · ")
     }
 
+    /// Eine Wand weiter oder zurück — die Pfeile neben der Crown setzen
+    /// dieselbe Fraktion, die das Rad beim Drehen liefert.
+    private func dreheWand(zu ziel: Int, von anzahl: Int) {
+        let geklemmt = min(max(ziel, 0), anzahl - 1)
+        let frac = anzahl > 1 ? Double(geklemmt) / Double(anzahl - 1) : 0
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            wandFrac = frac
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
     private func oeffneWand(_ id: UUID) {
         UserDefaults.standard.set(id.uuidString, forKey: "letzteWandID")
         store.homeStreamFilter = .notizen
+        // Die Wände sind die Nachbarseite, kein Overlay mehr.
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            store.zeigeIdeenPinnwand = true
+            selectedSection = .waende
         }
     }
 
@@ -605,14 +619,15 @@ struct HomeView: View {
                     .padding(.vertical, 4)
                     .scrollTargetLayout()
                 }
-                .frame(height: 102)   // feste Höhe: Platz für die vergrößerte Kachel, kein Beschnitt oben
+                // Feste Höhe, damit die Seite nicht springt — der Wert kommt
+                // aus dem Kit und wächst mit der Kachel mit.
+                .frame(height: ARCASpacing.categoryRowHeight)
                 .contentMargins(.horizontal, 20, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
                     ScrollInfo(x: geo.contentOffset.x,
                                weite: max(1, geo.contentSize.width - geo.containerSize.width))
                 } action: { _, info in
-                    dokMaxX = info.weite
                     dokFrac = min(max(Double(info.x / info.weite), 0), 1)
                 }
 
@@ -620,7 +635,6 @@ struct HomeView: View {
                 if dokumentGruppen.count > 1 {
                     let namen = dokumentGruppen.map { $0.name }
                     let idx = min(max(Int((dokFrac * Double(namen.count - 1)).rounded()), 0), namen.count - 1)
-                    let radFarbe = categoryColor(namen[idx], overrides: store.categoryColors).accent
 
                     HStack(spacing: 6) {
                         ForEach(Array(namen.enumerated()), id: \.offset) { i, _ in
@@ -632,51 +646,13 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 0)
 
-                    VStack(spacing: 3) {
-                        HStack(spacing: 10) {
-                            // ‹ eine Kategorie zurück
-                            Button {
-                                let ziel = max(idx - 1, 0)
-                                let frac = namen.count > 1 ? Double(ziel) / Double(namen.count - 1) : 0
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    dokScrollPos.scrollTo(x: CGFloat(frac) * dokMaxX)
-                                }
-                                UISelectionFeedbackGenerator().selectionChanged()
-                            } label: { kronePfeil("chevron.left", radFarbe) }
-                            .buttonStyle(.plain)
-                            .disabled(idx == 0)
-                            .opacity(idx == 0 ? 0.35 : 1)
-
-                            ArcaDrehregler(breite: 168, hoehe: 40, tint: radFarbe,
-                                           fraction: dokFrac, anzahl: namen.count) { neueFrac in
-                                dokScrollPos.scrollTo(x: CGFloat(neueFrac) * dokMaxX)
-                            }
-
-                            // › eine Kategorie vor
-                            Button {
-                                let ziel = min(idx + 1, namen.count - 1)
-                                let frac = namen.count > 1 ? Double(ziel) / Double(namen.count - 1) : 0
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    dokScrollPos.scrollTo(x: CGFloat(frac) * dokMaxX)
-                                }
-                                UISelectionFeedbackGenerator().selectionChanged()
-                            } label: { kronePfeil("chevron.right", radFarbe) }
-                            .buttonStyle(.plain)
-                            .disabled(idx == namen.count - 1)
-                            .opacity(idx == namen.count - 1 ? 0.35 : 1)
-                        }
-                        HStack(spacing: 4) {
-                            Text("Arca virtual crown")
-                                .font(.system(size: 9, weight: .medium, design: .rounded))
-                                .italic()
-                                .foregroundStyle(.secondary)
-                            ArcaSmiley(farbe: radFarbe.opacity(0.85))
-                                .frame(width: 15, height: 11)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 4)
-                    .padding(.bottom, 4)
+                    // Hier stand ein zweites Rad. Es ist weg: die
+                    // Dokumentreihe schiebt der Finger direkt, ein Regler
+                    // daneben doppelt nur eine Geste, die es schon gibt.
+                    // Oben an der Wandvorschau ist die Crown dagegen der
+                    // einzige Weg — und ein Rad, das es nur einmal gibt,
+                    // bedeutet auch etwas. Die Punkte bleiben, sie zeigen
+                    // die Position.
                 }
             }
         }
@@ -1385,62 +1361,11 @@ struct HomeView: View {
             } else {
                 ScrollViewReader { leseProxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    // 14 statt 20: alles soll ohne Scrollen auf die Seite —
+                    // beide Räder inklusive.
+                    VStack(alignment: .leading, spacing: 14) {
 
-                    // ── Wände: das Herz der Seite, deshalb ganz oben und groß.
-                    //    Sie sitzen dicht über der Bereichsleiste — von dort geht
-                    //    es weiter in Dokumente, Ideen, Aufgaben, Tresor. ──
-                    //
-                    // Sie haben die Favoriten-Reihe abgelöst: angepinnt IST
-                    // Favorit, und was angepinnt ist, hängt an einer Wand.
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            ArcaSectionTitle(title: "Wände", icon: "ArcaStar")
-                            Text("alles zu einer Sache")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 20)
-                        if sichtbareWaende.isEmpty {
-                            ArcaPlatzhalter(text: "Noch keine Wand — leg in der Pinnwand eine an.",
-                                            symbol: "pin")
-                                .padding(.horizontal, 20)
-                                .frame(height: 152)
-                        } else {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    // Fester Platz ganz vorn — wie „Unsortiert"
-                                    // bei den Gruppen. Er bleibt, egal wie viele
-                                    // Wände dazukommen.
-                                    NeueWandKachel {
-                                        neuerWandName = ""
-                                        zeigeNeueWand = true
-                                    }
-                                    ForEach(sichtbareWaende) { b in
-                                        WandMappe(board: b, bilanz: wandBilanz(b.id)) {
-                                            oeffneWand(b.id)
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                                .padding(.top, 2)
-                            }
-                            .frame(height: 152)
-                        }
-                    }
-                    .transition(.scale.combined(with: .opacity))
-                    .id("seitenAnfang")
-
-                    // Die Wände sind abgeschlossen — darunter beginnen die
-                    // Bereiche. Derselbe Glasstrich wie unter dem Kalender,
-                    // dicht an den Wänden: er gehört zu ihnen, nicht zu dem,
-                    // was folgt.
-                    ArcaGlasStrich()
-                        .padding(.horizontal, 34)
-                        .padding(.top, -10)
-
-                    // ── Zuletzt: leise, unter den Wänden ──
+                    // ── Zuletzt: der leise Anfang der Seite ──
                     //
                     // Der Platz steht fest, auch wenn nichts drin ist. Ein
                     // Bereich, der mal da ist und mal nicht, lässt die ganze
@@ -1457,67 +1382,86 @@ struct HomeView: View {
                                 .padding(.horizontal, 20)
                                 .frame(height: 58)
                         } else {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(store.zuletztGeoeffneteItems.prefix(10)) { item in
-                                        ArcaZuletztKarte(item: item) { openFavorite(item) }
-                                    }
+                            // Nur die letzten zwei — dafür teilen sie sich die
+                            // ganze Breite. Eine Reihe, die quer scrollt und
+                            // dabei immer angeschnitten aussieht, war der
+                            // unruhigste Teil der Seite.
+                            HStack(spacing: 8) {
+                                ForEach(store.zuletztGeoeffneteItems.prefix(2)) { item in
+                                    ArcaZuletztKarte(fuellt: true, item: item) { openFavorite(item) }
                                 }
-                                .padding(.horizontal, 20)
                             }
+                            .padding(.horizontal, 20)
                             .frame(height: 58)
                         }
+
+                        // Der Lichtgrat schließt den Abschnitt ab — darunter
+                        // beginnt mit den Chips ein neuer Gedanke.
+                        ArcaGlasStrich()
+                            .padding(.horizontal, 20)
+                            .padding(.top, 2)
                     }
-                    .padding(.bottom, -6)
+                    .id("seitenAnfang")
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
+                    // Die Chips bekommen etwas Luft nach oben: sie beginnen
+                    // einen neuen Gedanken, nicht die Fortsetzung von „Zuletzt".
                     VStack(alignment: .leading, spacing: 10) {
-                        // Bereichs-Wahlleiste im Segment-Stil: vier gleich breite
-                        // Zellen (Icon + Label), die aktive farbig mit Unterstrich.
-                        HStack(spacing: 0) {
-                            ForEach(store.bereichsOrdnung, id: \.self) { filter in
-                                let farbe: Color = switch filter {
-                                case .dokumente:   NoteColor.for_(5).accent
-                                case .notizen:     ArcaWarm.ideenGelb
-                                case .tasks:       NoteColor.for_(3).accent
-                                case .passwoerter: NoteColor.for_(2).accent
-                                }
-                                let aktiv = streamFilter == filter
-                                VStack(spacing: 5) {
-                                    ArcaIcon(name: filter.icon, groesse: 19)
-                                        .foregroundStyle(aktiv ? farbe : Color.secondary)
-                                        .frame(height: 22)
+                        // Bereichswahl als Filter-Chips.
+                        //
+                        // Vorher war das eine Segmentleiste: Icon über Label,
+                        // Unterstrich für aktiv, Haarlinie darunter — also
+                        // exakt die Grammatik der Tab-Leiste, 200 pt darüber.
+                        // Das Auge las zwei Navigationen und wusste nicht,
+                        // welche zählt. Es ist aber keine Navigation, es ist
+                        // ein Filter auf den Strom. Chips sagen das: rund,
+                        // nebeneinander, der gewählte gefüllt.
+                        //
+                        // Ohne Icons — die trägt die Leiste unten. Ein Wort
+                        // reicht, und die vier passen so in eine Zeile.
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(store.bereichsOrdnung, id: \.self) { filter in
+                                    let farbe: Color = switch filter {
+                                    case .dokumente:   NoteColor.for_(5).accent
+                                    case .notizen:     ArcaWarm.ideenGelb
+                                    case .tasks:       NoteColor.for_(3).accent
+                                    case .passwoerter: NoteColor.for_(2).accent
+                                    }
+                                    let aktiv = streamFilter == filter
                                     Text(filter.label)
-                                        .font(.system(size: 12, weight: aktiv ? .bold : .medium))
+                                        .font(.system(size: 13, weight: aktiv ? .bold : .medium))
                                         .foregroundStyle(aktiv ? farbe : Color.secondary)
-                                    Capsule()
-                                        .fill(aktiv ? farbe : Color.clear)
-                                        .frame(width: 26, height: 2.5)
-                                }
-                                .padding(.top, 6)
-                                .padding(.bottom, 2)
-                                .frame(maxWidth: .infinity)
-                                .contentShape(Rectangle())
-                                .onTapGesture(count: 2) {
-                                    if filter == .notizen {
-                                        store.homeStreamFilter = .notizen
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                            store.zeigeIdeenPinnwand = true
+                                        .padding(.horizontal, ARCASpacing.chipHorizontal)
+                                        .padding(.vertical, 8)
+                                        .background {
+                                            Capsule().fill(aktiv ? farbe.opacity(0.16) : Color.clear)
                                         }
-                                    }
-                                }
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        store.homeStreamFilter = filter
-                                        streamLimit = 25
-                                    }
+                                        .overlay {
+                                            Capsule().strokeBorder(
+                                                aktiv ? farbe.opacity(0.45) : Color.primary.opacity(0.10),
+                                                lineWidth: 1)
+                                        }
+                                        .contentShape(Capsule())
+                                        .onTapGesture(count: 2) {
+                                            if filter == .notizen {
+                                                store.homeStreamFilter = .notizen
+                                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                                    selectedSection = .waende
+                                                }
+                                            }
+                                        }
+                                        .onTapGesture {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                store.homeStreamFilter = filter
+                                                streamLimit = 25
+                                            }
+                                        }
                                 }
                             }
+                            .padding(.horizontal, 20)
                         }
-                        .overlay(alignment: .bottom) {
-                            Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 1)
-                        }
-                        .padding(.horizontal, 14)
+                        .padding(.top, 8)
 
                         if streamFilter == .dokumente {
                             dokumentKarussell
@@ -1548,6 +1492,158 @@ struct HomeView: View {
                             }
                             .padding(.horizontal, 20)
                         }
+                    }
+
+                    // ── Die Wände: unten, wo der Daumen liegt ──
+                    //
+                    // Eine Wand in ordentlicher Größe statt drei Briefmarken,
+                    // und das Rad dreht durch die anderen.
+                    //
+                    // Sie stehen am Fuß der Seite, weil das Rad das Einzige
+                    // hier ist, das man wirklich BEDIENT — alles andere liest
+                    // oder tippt man. Ein Regler auf halber Höhe zwingt zum
+                    // Umgreifen; unten fällt der Daumen von selbst darauf.
+                    //
+                    // In ganz liegt die Wand nebenan — tippen führt hin.
+                    if !sichtbareWaende.isEmpty {
+                        let waende = sichtbareWaende
+                        let wIdx = min(max(Int((wandFrac * Double(max(waende.count - 1, 1))).rounded()), 0),
+                                       waende.count - 1)
+                        let wand = waende[wIdx]
+                        VStack(alignment: .leading, spacing: 10) {
+                            // Vorschau NEBEN der Crown, nicht darüber.
+                            //
+                            // Die Vorschau ist telefonförmig, weil die echte
+                            // Wand es ist — hochkant nimmt sie über der Crown
+                            // zu viel Seite weg. Nebeneinander trägt dieselbe
+                            // Höhe beides, und die Sektion wird kürzer statt
+                            // länger.
+                            let vorschau = WandVorschau(board: wand)
+                                .environmentObject(store)
+                                .id(wand.id)
+                                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                                .onTapGesture { oeffneWand(wand.id) }
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityHint("Öffnet die Wand")
+
+                            // Der Kopf gehört in den Rahmen: sonst steht die
+                            // Überschrift daneben statt darauf, und der Block
+                            // wirkt beschriftet statt abgeschlossen.
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                ArcaSectionTitle(title: "Wände", icon: "ArcaStar")
+                                Text("alles zu einer Sache")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                            }
+                            // Eingerückt: der Kopf sitzt im Block, nicht auf
+                            // seiner Kante.
+                            .padding(.leading, 6)
+
+                            HStack(alignment: .center, spacing: 14) {
+                                if !wandVorschauRechts { vorschau }
+
+                                VStack(spacing: 8) {
+                                    VStack(spacing: 1) {
+                                        Text(wand.name)
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+                                        let bilanz = wandBilanz(wand.id)
+                                        if !bilanz.isEmpty {
+                                            Text(bilanz)
+                                                .font(.system(size: 10.5))
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                                .multilineTextAlignment(.center)
+                                        }
+                                    }
+                                    .animation(.easeInOut(duration: 0.18), value: wand.id)
+
+                                    // Die Crown — nur wenn es was zu drehen gibt.
+                                    if waende.count > 1 {
+                                        HStack(spacing: 6) {
+                                            ForEach(Array(waende.enumerated()), id: \.offset) { i, _ in
+                                                Circle()
+                                                    .fill(i == wIdx ? ArcaWarm.terrakotta.opacity(0.85)
+                                                                    : Color.secondary.opacity(0.25))
+                                                    .frame(width: 6, height: 6)
+                                            }
+                                        }
+
+                                        HStack(spacing: 8) {
+                                            Button {
+                                                dreheWand(zu: wIdx - 1, von: waende.count)
+                                            } label: { kronePfeil("chevron.left", ArcaWarm.terrakotta) }
+                                            .buttonStyle(.plain)
+                                            .disabled(wIdx == 0)
+                                            .opacity(wIdx == 0 ? 0.35 : 1)
+
+                                            ArcaDrehregler(breite: 118, hoehe: 38,
+                                                           tint: ArcaWarm.terrakotta,
+                                                           fraction: wandFrac,
+                                                           anzahl: waende.count) { neueFrac in
+                                                withAnimation(.easeInOut(duration: 0.18)) {
+                                                    wandFrac = neueFrac
+                                                }
+                                            }
+
+                                            Button {
+                                                dreheWand(zu: wIdx + 1, von: waende.count)
+                                            } label: { kronePfeil("chevron.right", ArcaWarm.terrakotta) }
+                                            .buttonStyle(.plain)
+                                            .disabled(wIdx == waende.count - 1)
+                                            .opacity(wIdx == waende.count - 1 ? 0.35 : 1)
+                                        }
+
+                                        // Die Signatur zieht mit dem Rad um: sie
+                                        // stand unter dem Dokumentregler, den es
+                                        // nicht mehr gibt.
+                                        HStack(spacing: 4) {
+                                            Text("Arca virtual crown")
+                                                .font(.system(size: 9, weight: .medium, design: .rounded))
+                                                .italic()
+                                                .foregroundStyle(.secondary)
+                                            ArcaSmiley(farbe: ArcaWarm.terrakotta.opacity(0.85))
+                                                .frame(width: 15, height: 11)
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+
+                                if wandVorschauRechts { vorschau }
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        // Feiner Rahmen um den ganzen Abschnitt — Kopf, Wand
+                        // und Rad als ein abgeschlossener Block.
+                        //
+                        // Bewusst KEIN arcaGlass: das Rad trägt schon seine
+                        // Glaskapsel, die Pfeile ultraThinMaterial, die
+                        // Vorschau Rand und Schatten. Eine vierte Glasschicht
+                        // darüber ist genau die Verschachtelung, vor der
+                        // ARCAGlassStyle warnt. Also nur die Lichtkante —
+                        // dieselbe Sprache wie ArcaGlasStrich, bloß als
+                        // geschlossene Kontur.
+                        .background(
+                            RoundedRectangle(cornerRadius: ARCAGlassStyle.cornerRadius,
+                                             style: .continuous)
+                                .fill(Color.white.opacity(0.16))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: ARCAGlassStyle.cornerRadius,
+                                             style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [.white.opacity(0.65),
+                                                 Color.primary.opacity(0.10),
+                                                 .white.opacity(0.35)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing),
+                                    lineWidth: 1)
+                        )
+                        .padding(.horizontal, 20)
                     }
 
                     Spacer().frame(height: 24)
@@ -1595,16 +1691,6 @@ struct HomeView: View {
                 symbolZiel = nil
             }
             .environmentObject(store)
-        }
-        .alert("Neue Wand", isPresented: $zeigeNeueWand) {
-            TextField("Name, z. B. „Italien im Mai\u{201C}", text: $neuerWandName)
-            Button("Anlegen") {
-                let b = store.neuesBoard(name: neuerWandName)
-                oeffneWand(b.id)
-            }
-            Button("Abbrechen", role: .cancel) { }
-        } message: {
-            Text("Eine Mappe zu einer Sache — Dokumente, Ideen und Aufgaben an einem Ort.")
         }
         .sheet(isPresented: $showAlleFavoriten) {
             NavigationStack {
@@ -3127,6 +3213,45 @@ struct ArcaGlasStrich: View {
         }
         .frame(height: 2)
         .allowsHitTesting(false)
+    }
+}
+
+/// Der senkrechte Bruder von ArcaGlasStrich: er steht am Bildschirmrand
+/// und sagt, dass dort eine Seite weitergeht. Dieselbe Materialsprache —
+/// ein Lichtgrat im Glas, kein Pfeil und keine Karussell-Punkte.
+///
+/// Er ist antippbar, damit die Seite auch findet, wer nicht wischt: die
+/// Trefferfläche ist ARCASpacing.minTapTarget breit, sichtbar bleibt der
+/// Strich.
+struct ArcaSeitenKante: View {
+    enum Richtung { case rechts, links }
+    var richtung: Richtung = .rechts
+    var hoehe: CGFloat = 132
+    var tippen: (() -> Void)? = nil
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.clear,
+                         Color.primary.opacity(0.10),
+                         Color.primary.opacity(0.14),
+                         Color.primary.opacity(0.10),
+                         .clear],
+                startPoint: .top, endPoint: .bottom)
+                .frame(width: 1)
+            LinearGradient(
+                colors: [.clear, .white.opacity(0.75), .clear],
+                startPoint: .top, endPoint: .bottom)
+                .frame(width: 1)
+                .offset(x: richtung == .rechts ? -1 : 1)
+                .blur(radius: 0.5)
+        }
+        .frame(width: 2, height: hoehe)
+        .frame(width: ARCASpacing.minTapTarget, alignment: richtung == .rechts ? .trailing : .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { tippen?() }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(richtung == .rechts ? "Weiter zu den Wänden" : "Zurück zum Start")
     }
 }
 

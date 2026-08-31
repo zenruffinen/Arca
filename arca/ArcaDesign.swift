@@ -311,6 +311,9 @@ struct ArcaRecentDocumentCard: View {
 // MARK: - „Zuletzt geöffnet"-Karte (kompakt, alle Typen)
 
 struct ArcaZuletztKarte: View {
+    /// Füllt die verfügbare Breite, statt ARCASpacing.recentCardWidth zu
+    /// nehmen — für Reihen mit fester, kleiner Anzahl.
+    var fuellt: Bool = false
     let item: FavoriteItem
     let action: () -> Void
 
@@ -351,7 +354,11 @@ struct ArcaZuletztKarte: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .frame(width: 172, alignment: .leading)
+            // Zwei Karten teilen sich die Reihe: dann ist nichts
+            // angeschnitten und der Rand stimmt. Feste Breite nur, wo die
+            // Karte in einer laufenden Reihe steht.
+            .frame(maxWidth: fuellt ? .infinity : ARCASpacing.recentCardWidth,
+                   alignment: .leading)
             .glassEffect(.regular.tint(tint.opacity(0.08)), in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
