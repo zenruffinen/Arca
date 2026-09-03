@@ -17,8 +17,16 @@ struct AufraeumModus: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var groessenKlasse
 
-    /// Die Warteschlange: alles, was beim Start in „Unsortiert" lag.
+    /// Der Stapel: alles, was beim Start in „Unsortiert" lag.
     @State private var schlange: [UUID] = []
+    /// Welches Blatt gerade oben liegt.
+    ///
+    /// Frueher wurde einfach das erste entfernt — „Spaeter" hiess damit in
+    /// Wahrheit „weg damit", und zurueck kam man nie. Aufraeumen heisst aber
+    /// schauen und ueberlegen, nicht abarbeiten. Der Zeiger laesst blaettern;
+    /// aus dem Stapel verschwindet nur, was wirklich einsortiert oder
+    /// geloescht wurde.
+    @State private var position = 0
     @State private var gesamt = 0
     @State private var previewURL: URL? = nil
     @State private var geladen = false
@@ -27,12 +35,14 @@ struct AufraeumModus: View {
     @State private var loeschKandidat: DocumentEntry? = nil
 
     private var aktuellesDok: DocumentEntry? {
-        guard let id = schlange.first else { return nil }
-        return store.documents.first { $0.id == id }
+        guard schlange.indices.contains(position) else { return nil }
+        return store.documents.first { $0.id == schlange[position] }
     }
 
     private var zielGruppen: [String] {
-        store.documentCategories.filter { $0 != "Unsortiert" && $0 != "Erledigt" }
+        store.documentCategories.filter {
+            $0 != "Unsortiert" && $0 != "Erledigt" && $0 != "Top Secret"
+        }
     }
 
     var body: some View {
@@ -84,6 +94,12 @@ struct AufraeumModus: View {
                     // Gruppen) gehören auf den Stapel
                     let bekannte = Set(store.documentCategories)
                     schlange = store.documents
+                        // „Top Secret" ist keine registrierte Kategorie —
+                        // ohne diese Zeile galten Tresor-Dokumente als
+                        // „Kategorie unbekannt" und landeten mit offener
+                        // Vorschau auf dem Aufraeum-Stapel. Sie gehoeren
+                        // hinter die Gesichtskontrolle, nirgendwo sonst hin.
+                        .filter { $0.category != "Top Secret" }
                         .filter { $0.category == "Unsortiert" || !bekannte.contains($0.category) }
                         .sorted { $0.dateAdded > $1.dateAdded }
                         .map(\.id)
@@ -100,7 +116,7 @@ struct AufraeumModus: View {
                     if let doc = loeschKandidat {
                         store.deleteDocument(doc)
                         UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                        weiter()
+                        vomStapel(doc.id)
                     }
                     loeschKandidat = nil
                 }
@@ -251,6 +267,38 @@ struct AufraeumModus: View {
                         }
                         .buttonStyle(.plain)
 
+                        // ── Top Secret ──
+                        //
+                        // Keine Gruppe wie die anderen, sondern ein Zustand:
+                        // was hier landet, verschwindet aus allen offenen
+                        // Ansichten und ist nur noch im Tresor hinter der
+                        // Gesichtskontrolle zu sehen. Deshalb dunkel und mit
+                        // Schloss statt in einer Gruppenfarbe.
+                        //
+                        // Der Weg gehoert hierher: was vertraulich ist, faellt
+                        // beim Aufraeumen auf — und dann will man es sofort
+                        // wegschliessen, nicht erst die Ansicht wechseln.
+                        Button {
+                            sortiere(doc, nach: "Top Secret")
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Top Secret")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 9)
+                            .background(Color(red: 0.18, green: 0.20, blue: 0.28), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .dropDestination(for: String.self) { _, _ in
+                            sortiere(doc, nach: "Top Secret")
+                            return true
+                        }
+                        .padding(.trailing, 6)
+
                         ForEach(zielGruppen, id: \.self) { gruppe in
                             let farben = categoryColor(gruppe, overrides: store.categoryColors)
                             Button {
@@ -278,19 +326,26 @@ struct AufraeumModus: View {
                 }
             }
 
-            // Die vier großen Entscheidungen
+            // Blättern und entscheiden.
+            //
+            // Hier standen einmal „Zu erledigen" und „Schnellzugriff": beide
+            // legten das Dokument auf eine Schreibtisch-Ablage — und den
+            // Schreibtisch gibt es nur auf dem iPad. Auf dem iPhone taten sie
+            // also etwas, das man nie zu sehen bekam. Raus damit.
+            //
+            // „Später" hiess in Wahrheit „weg vom Stapel". Jetzt blättert man
+            // wirklich: vor, zurück, so lange man mag.
             HStack(spacing: 10) {
-                entscheidung("Zu erledigen", symbol: "pin.fill", farbe: ArcaWarm.terrakotta) {
-                    pinne(doc, seite: "links")
+                entscheidung("Zurück", symbol: "chevron.left", farbe: .secondary,
+                             ablegbar: false) {
+                    zurueck()
                 }
-                entscheidung("Schnellzugriff", symbol: "ArcaBolt", farbe: .orange) {
-                    pinne(doc, seite: "rechts")
+                entscheidung("Weiter", symbol: "chevron.right", farbe: .secondary,
+                             ablegbar: false) {
+                    weiter()
                 }
                 entscheidung("Erledigt", symbol: "ArcaDone", farbe: .green) {
                     erledige(doc)
-                }
-                entscheidung("Später", symbol: "arrow.uturn.right", farbe: .secondary) {
-                    weiter()
                 }
                 entscheidung("Löschen", symbol: "trash", farbe: .red) {
                     loeschKandidat = doc
@@ -301,7 +356,11 @@ struct AufraeumModus: View {
         }
     }
 
+    /// `ablegbar`: nimmt der Knopf ein gezogenes Dokument entgegen? Beim
+    /// Blättern ergibt das keinen Sinn — man wirft ein Blatt nicht auf
+    /// „Weiter".
     private func entscheidung(_ titel: String, symbol: String, farbe: Color,
+                              ablegbar: Bool = true,
                               aktion: @escaping () -> Void) -> some View {
         Button(action: aktion) {
             VStack(spacing: 5) {
@@ -319,6 +378,7 @@ struct AufraeumModus: View {
         }
         .buttonStyle(.plain)
         .dropDestination(for: String.self) { _, _ in
+            guard ablegbar else { return false }
             aktion()
             return true
         }
@@ -367,17 +427,7 @@ struct AufraeumModus: View {
             store.documents[idx].subcategory = ""
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        weiter()
-    }
-
-    private func pinne(_ doc: DocumentEntry, seite: String) {
-        if let idx = store.deskItems.firstIndex(where: { $0.refID == doc.id }) {
-            store.deskItems[idx].seite = seite
-        } else {
-            store.deskItems.append(DeskItem(kind: .document, refID: doc.id, seite: seite))
-        }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        weiter()
+        vomStapel(doc.id)
     }
 
     private func erledige(_ doc: DocumentEntry) {
@@ -389,12 +439,34 @@ struct AufraeumModus: View {
             store.documents[idx].subcategory = ""
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        weiter()
+        vomStapel(doc.id)
     }
 
+    /// Ein Blatt weiter — am Ende wieder von vorn, damit man im Kreis
+    /// schauen kann, statt in eine Sackgasse zu laufen.
     private func weiter() {
+        guard !schlange.isEmpty else { return }
         withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
-            if !schlange.isEmpty { schlange.removeFirst() }
+            position = (position + 1) % schlange.count
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    /// Ein Blatt zurueck.
+    private func zurueck() {
+        guard !schlange.isEmpty else { return }
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
+            position = (position - 1 + schlange.count) % schlange.count
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    /// Erledigt: raus aus dem Stapel. Der Zeiger bleibt stehen, damit das
+    /// naechste Blatt nachrueckt — steht er am Ende, geht es an den Anfang.
+    private func vomStapel(_ id: UUID) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
+            schlange.removeAll { $0 == id }
+            if position >= schlange.count { position = 0 }
         }
     }
 }
