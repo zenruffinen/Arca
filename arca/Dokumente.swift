@@ -63,7 +63,6 @@ struct DocSource: Identifiable {
         DocSource(id: "image", icon: "photo.fill.on.rectangle.fill", label: "Fotos / Videos", colorTag: 2, action: .image), // Blau
         DocSource(id: "text",  icon: "doc.text.fill",             label: "Text",           colorTag: 3, action: .text),  // Grün
         DocSource(id: "diktat", icon: "mic.fill",                 label: "Diktieren",      colorTag: 5, action: .diktat), // Pfirsich
-        DocSource(id: "stift", icon: "pencil.and.scribble",       label: "Stift",          colorTag: 0, action: .stift),  // Gelb
     ]
 }
 
@@ -274,7 +273,11 @@ struct DocumentsView: View {
                     showAddMenu = false
                 }
             }
-            .fileImporter(isPresented: $showFilePicker, allowedContentTypes: filePickerTypes) { result in
+            // Mehrfachauswahl: eine App, deren Zweck Sammeln ist, sollte
+            // fuenf PDFs in einem Durchgang nehmen und nicht in fuenfen.
+            .fileImporter(isPresented: $showFilePicker,
+                          allowedContentTypes: filePickerTypes,
+                          allowsMultipleSelection: true) { result in
                 handleFileImport(result: result, type: filePickerDocType)
             }
             .sheet(isPresented: $showImagePicker) {
@@ -1173,18 +1176,47 @@ struct DocumentsView: View {
         }
     }
 
-    private func handleFileImport(result: Result<URL, Error>, type: DocumentType) {
-        guard case .success(let url) = result else { return }
-        guard url.startAccessingSecurityScopedResource() else { return }
-        defer { url.stopAccessingSecurityScopedResource() }
-        let filename = "\(UUID().uuidString).\(url.pathExtension)"
-        let destination = store.documentURL(for:filename)
-        try? FileManager.default.copyItem(at: url, to: destination)
-        pendingTitle = url.deletingPathExtension().lastPathComponent
-        pendingFilename = filename
-        pendingType = type
-        pendingCategory = store.ensureImportCategoryExists()
-        showCategoryPicker = true
+    /// Eine Datei fragt nach Titel und Gruppe — bei mehreren waere das
+    /// fuenfmal derselbe Dialog. Die wandern deshalb ohne Nachfrage in den
+    /// Eingang, genau wie ausgewaehlte Fotos und Videos.
+    private func handleFileImport(result: Result<[URL], Error>, type: DocumentType) {
+        guard case .success(let urls) = result, !urls.isEmpty else { return }
+
+        /// Kopiert eine Datei in den Bestand und gibt den neuen Namen zurueck.
+        func uebernimm(_ url: URL) -> String? {
+            guard url.startAccessingSecurityScopedResource() else { return nil }
+            defer { url.stopAccessingSecurityScopedResource() }
+            let filename = "\(UUID().uuidString).\(url.pathExtension)"
+            let destination = store.documentURL(for: filename)
+            do { try FileManager.default.copyItem(at: url, to: destination) }
+            catch { return nil }
+            return filename
+        }
+
+        if urls.count == 1, let url = urls.first, let filename = uebernimm(url) {
+            pendingTitle = url.deletingPathExtension().lastPathComponent
+            pendingFilename = filename
+            pendingType = type
+            pendingCategory = store.ensureImportCategoryExists()
+            showCategoryPicker = true
+            return
+        }
+
+        let kategorie = store.ensureImportCategoryExists()
+        var genommen = 0
+        for url in urls {
+            guard let filename = uebernimm(url) else { continue }
+            store.documents.append(
+                DocumentEntry(title: url.deletingPathExtension().lastPathComponent,
+                              type: type,
+                              filename: filename,
+                              dateAdded: Date(),
+                              category: kategorie))
+            genommen += 1
+        }
+        if genommen > 0 {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
     }
 
     /// Importiert ausgewählte Fotos/Videos direkt in die Import-Gruppe (ohne Einzeldialog).

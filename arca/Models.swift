@@ -25,6 +25,14 @@ protocol ZeitGestempelt {
 /// Der Code bleibt vollstaendig liegen. Zum Wiederaufmachen: auf `true`.
 enum ArcaFeatures {
     static let waende = false
+
+    /// Der Arca Pen (handschriftliche Notiz auf Pergament).
+    ///
+    /// Am 03.09. stillgelegt: Arca ist eine Dokumentenverwaltung, und
+    /// zum Sammeln gibt es PDF, Foto, Video und Diktat. Der Stift war
+    /// eine schoene Sache, aber keine, die jemand vermisst.
+    /// Der Code bleibt liegen — zum Wiederaufmachen: auf `true`.
+    static let stift = false
 }
 
 enum ArcaSection: String, CaseIterable, Identifiable {

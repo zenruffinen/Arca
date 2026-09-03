@@ -412,7 +412,7 @@ struct ArcaPlusKnopf: View {
 
             // Arca Pen: immer griffbereit, auch bei eingeklappter
             // Seitenleiste (nur iPad/Mac)
-            if groessenKlasse == .regular {
+            if groessenKlasse == .regular, ArcaFeatures.stift {
                 Button {
                     zeigeStiftNotiz = true
                 } label: {
@@ -574,54 +574,56 @@ struct ArcaIPadSidebar: View {
             VStack(spacing: 10) {
                 // Arca Pen: schräges Pergament-Blatt mit Stift —
                 // der Knopf macht Lust, von Hand zu schreiben
-                Button {
-                    zeigeStiftNotiz = true
-                } label: {
-                    HStack(spacing: 9) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(LinearGradient(
-                                    colors: [Color(red: 0.97, green: 0.92, blue: 0.80),
-                                             Color(red: 0.89, green: 0.80, blue: 0.63)],
-                                    startPoint: .top, endPoint: .bottom))
-                                .frame(width: 16, height: 20)
-                                .overlay(
-                                    VStack(spacing: 2.5) {
-                                        ForEach(0..<3, id: \.self) { _ in
-                                            Capsule()
-                                                .fill(Color(red: 0.55, green: 0.42, blue: 0.25).opacity(0.5))
-                                                .frame(height: 1.4)
+                if ArcaFeatures.stift {
+                    Button {
+                        zeigeStiftNotiz = true
+                    } label: {
+                        HStack(spacing: 9) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(LinearGradient(
+                                        colors: [Color(red: 0.97, green: 0.92, blue: 0.80),
+                                                 Color(red: 0.89, green: 0.80, blue: 0.63)],
+                                        startPoint: .top, endPoint: .bottom))
+                                    .frame(width: 16, height: 20)
+                                    .overlay(
+                                        VStack(spacing: 2.5) {
+                                            ForEach(0..<3, id: \.self) { _ in
+                                                Capsule()
+                                                    .fill(Color(red: 0.55, green: 0.42, blue: 0.25).opacity(0.5))
+                                                    .frame(height: 1.4)
+                                            }
                                         }
-                                    }
-                                    .padding(.horizontal, 3)
-                                )
-                                .overlay(RoundedRectangle(cornerRadius: 3)
-                                    .strokeBorder(Color(red: 0.55, green: 0.42, blue: 0.25).opacity(0.4),
-                                                  lineWidth: 0.7))
-                                .rotationEffect(.degrees(-9))
-                                .shadow(color: .black.opacity(0.25), radius: 1, x: 0, y: 1)
-                            Image(systemName: "pencil")
-                                .font(.system(size: 12, weight: .bold))
+                                        .padding(.horizontal, 3)
+                                    )
+                                    .overlay(RoundedRectangle(cornerRadius: 3)
+                                        .strokeBorder(Color(red: 0.55, green: 0.42, blue: 0.25).opacity(0.4),
+                                                      lineWidth: 0.7))
+                                    .rotationEffect(.degrees(-9))
+                                    .shadow(color: .black.opacity(0.25), radius: 1, x: 0, y: 1)
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .shadow(color: .black.opacity(0.45), radius: 0.6)
+                                    .rotationEffect(.degrees(-42))
+                                    .offset(x: 5, y: 4)
+                            }
+                            Text("Arca Pen")
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(.white)
-                                .shadow(color: .black.opacity(0.45), radius: 0.6)
-                                .rotationEffect(.degrees(-42))
-                                .offset(x: 5, y: 4)
                         }
-                        Text("Arca Pen")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
+                                         ArcaWarm.terrakotta],
+                                startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: Capsule())
+                        .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 5, x: 0, y: 2)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(red: 0.85, green: 0.62, blue: 0.30),
-                                     ArcaWarm.terrakotta],
-                            startPoint: .topLeading, endPoint: .bottomTrailing),
-                        in: Capsule())
-                    .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 5, x: 0, y: 2)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Button {
                     store.zeigeNotfall = true
