@@ -1252,6 +1252,10 @@ struct DocThumbnail: View {
     var passendEinpassen = false
     /// true: frei skalierend in voller Groesse (Schreibtisch) statt 42×50-Stempel
     var gross = false
+    /// Abweichende Kantenlaenge fuer den kleinen Stempel — etwa in
+    /// Listenzeilen, wo er genauso hoch sein muss wie die Symbolkachel
+    /// daneben, damit die Zeilen nicht unterschiedlich hoch werden.
+    var groesse: CGSize = CGSize(width: 42, height: 50)
 
     @State private var image: UIImage? = nil
     @Environment(\.displayScale) private var displayScale
@@ -1304,7 +1308,7 @@ struct DocThumbnail: View {
                     .shadow(radius: 2)
             }
         }
-        .frame(width: gross ? nil : 42, height: gross ? nil : 50)
+        .frame(width: gross ? nil : groesse.width, height: gross ? nil : groesse.height)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay {
             RoundedRectangle(cornerRadius: 6)

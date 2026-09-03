@@ -105,6 +105,14 @@ struct HomeView: View {
     @Binding var selectedSection: ArcaSection
     @State private var profilAuswahl: PhotosPickerItem? = nil
     @State private var showAlleFavoriten = false
+    /// Zeigt die Dokumentliste gerade nur das Angepinnte?
+    ///
+    /// Das ist der Griff fuer einen Anlass: Boardingcard, Reiseunterlagen
+    /// und Versicherung liegen in verschiedenen Gruppen — unterwegs braucht
+    /// man sie als EINEN Stapel. Sammeln ist nur die halbe Miete, verfuegbar
+    /// machen ist die andere.
+    @State private var nurAngepinnt = false
+
     /// Wo das Wand-Rad gerade steht (0…1) — dieselbe Mechanik wie beim
     /// Dokument-Karussell, nur dreht es Wände statt Gruppen.
     @State private var wandFrac: Double = 0
@@ -170,6 +178,8 @@ struct HomeView: View {
     @State private var streamRenameItem: FavoriteItem? = nil
     @State private var streamRenameText = ""
     @State private var vaultZumLoeschen: FavoriteItem? = nil
+    /// Dokumente werden mitsamt Datei geloescht — das fragt nach.
+    @State private var dokZumLoeschen: FavoriteItem? = nil
     @State private var punktFuerListe: UUID? = nil
     @State private var neuerPunktText = ""
 
@@ -438,7 +448,16 @@ struct HomeView: View {
         case .note:     store.notes.removeAll { $0.id == item.id }
         case .list:     store.lists.removeAll { $0.id == item.id }
         case .vault:    store.vaultItems.removeAll { $0.id == item.id }
-        case .document: break
+        case .document:
+            // Stand bis 03.09. auf `break` — genau wie das Umbenennen bis
+            // zum 27.08. Der Fehler lag lange still, weil Dokumente gar
+            // nicht im Strom auftauchten; seit sie es tun, biss er zu.
+            //
+            // store.deleteDocument raeumt auch die Datei weg, nicht nur
+            // den Eintrag.
+            if let d = store.documents.first(where: { $0.id == item.id }) {
+                store.deleteDocument(d)
+            }
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
@@ -530,6 +549,8 @@ struct HomeView: View {
         case .vault:
             if let i = store.vaultItems.firstIndex(where: { $0.id == item.id }) { store.vaultItems[i].colorTag = idx }
         case .document:
+            // Kein Farbfeld im Modell — der Menuepunkt wird fuer Dokumente
+            // gar nicht erst angeboten.
             break
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -566,6 +587,47 @@ struct HomeView: View {
                 let aktiverName = namenFuerAuswahl.indices.contains(aktivIndex) ? namenFuerAuswahl[aktivIndex] : ""
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
+                        // ── Angepinnt: der Griff fuer einen Anlass ──
+                        //
+                        // Bewusst KEINE Kategorie, sondern ein Querschnitt:
+                        // Boardingcard, Reiseunterlagen und Versicherung
+                        // liegen in verschiedenen Gruppen, unterwegs braucht
+                        // man sie als einen Stapel. Deshalb steht die Kachel
+                        // vorn, traegt Terrakotta statt einer Gruppenfarbe
+                        // und hat etwas Abstand — sie ist eine andere Sorte
+                        // Ding als die Kacheln daneben.
+                        //
+                        // Sie erscheint erst, wenn etwas angepinnt ist:
+                        // eine leere Kachel waere nur Rauschen.
+                        if !angepinnteDokumente.isEmpty {
+                            ArcaKategorieKarte(
+                                name: "Angepinnt",
+                                icon: "pin.fill",
+                                farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.16),
+                                                  accent: ArcaWarm.terrakotta,
+                                                  name: "Angepinnt"),
+                                anzahl: angepinnteDokumente.count)
+                            .scaleEffect(nurAngepinnt ? 1.06 : 1.0)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 15)
+                                    .strokeBorder(ArcaWarm.terrakotta.opacity(nurAngepinnt ? 0.75 : 0),
+                                                  lineWidth: 1.5)
+                            )
+                            .shadow(color: nurAngepinnt ? ArcaWarm.terrakotta.opacity(0.25) : .clear,
+                                    radius: 4, y: 2)
+                            .contentShape(RoundedRectangle(cornerRadius: 15))
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    nurAngepinnt.toggle()
+                                }
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            }
+                            .accessibilityLabel(nurAngepinnt
+                                ? "Angepinnt, Filter aktiv. Antippen zeigt wieder alle."
+                                : "Angepinnt. Antippen zeigt nur die angepinnten Dokumente.")
+                            .padding(.trailing, 6)
+                        }
+
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
                             ArcaKategorieKarte(
                                 name: gruppe.name,
@@ -622,6 +684,12 @@ struct HomeView: View {
                 // Feste Höhe, damit die Seite nicht springt — der Wert kommt
                 // aus dem Kit und wächst mit der Kachel mit.
                 .frame(height: ARCASpacing.categoryRowHeight)
+                // Wird das Letzte abgepinnt, verschwindet die Kachel — dann
+                // muss auch der Filter weg, sonst steht man vor einer leeren
+                // Liste ohne Schalter, um sie wieder zu fuellen.
+                .onChange(of: angepinnteDokumente.count) { _, neu in
+                    if neu == 0 { nurAngepinnt = false }
+                }
                 .contentMargins(.horizontal, 20, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
@@ -729,13 +797,27 @@ struct HomeView: View {
 
     // ── Der Strom: ein Typ zur Zeit, jüngste zuerst (kein „Alle" mehr) ──
     private var streamFilter: HomeStreamFilter { store.homeStreamFilter }
-    @State private var streamLimit: Int = 25
 
     private var streamItems: [FavoriteItem] {
         var all: [FavoriteItem] = []
         switch streamFilter {
         case .dokumente:
-            break   // Dokumente zeigen ihre Gruppen, keine Einzelzeilen
+            // Frueher: nur die Gruppen, keine Einzelzeilen. Damit war
+            // „Dokumente" der einzige Filter, der auf dem Start nichts
+            // zeigt — auf dem Startbildschirm einer Dokumenten-App stand
+            // kein einziges Dokument. Die Gruppenreihe bleibt darueber,
+            // hier kommt der Inhalt dazu.
+            //
+            // Top Secret bleibt draussen: das liegt hinter der Gesichts-
+            // kontrolle und gehoert nicht offen auf den Start.
+            let quelle = nurAngepinnt ? angepinnteDokumente
+                                      : store.documents.filter { $0.category != "Top Secret" }
+            for d in quelle {
+                all.append(FavoriteItem(id: d.id, kind: .document,
+                                        title: d.title.isEmpty ? d.filename : d.title,
+                                        subtitle: d.category,
+                                        pinned: false, date: d.dateAdded))
+            }
         case .notizen:
             for n in store.notes {
                 all.append(FavoriteItem(id: n.id, kind: .note, title: n.title.isEmpty ? "Notiz" : n.title,
@@ -968,9 +1050,24 @@ struct HomeView: View {
                   e.art == .karte, !e.kartenBildVorne.isEmpty else { return nil }
             return e.kartenBildVorne
         }()
+        let dokVorschau: (url: URL, typ: DocumentType)? = {
+            guard !kleinesGeraet,
+                  item.kind == .document,
+                  let d = store.documents.first(where: { $0.id == item.id })
+            else { return nil }
+            return (store.documentURL(for: d.filename), d.type)
+        }()
+        let gruppenTon: Color? = {
+            guard item.kind == .document,
+                  let d = store.documents.first(where: { $0.id == item.id })
+            else { return nil }
+            return categoryColor(d.category, overrides: store.categoryColors).bg
+        }()
         HomeStreamRow(item: item,
                       expanded: item.kind == .list && expandedLists.contains(item.id),
-                      kartenBild: kartenBild) {
+                      kartenBild: kartenBild,
+                      dokVorschau: dokVorschau,
+                      gruppenTon: gruppenTon) {
             if item.kind == .list {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     if expandedLists.contains(item.id) { expandedLists.remove(item.id) }
@@ -998,8 +1095,14 @@ struct HomeView: View {
                 streamRenameText = item.title
                 streamRenameItem = item
             }
-            ArcaMenue.farbe(aktuell: streamFarbe(item)) { idx in
-                setzeStreamFarbe(item, idx)
+            // Dokumente tragen keine Farbe — DocumentEntry hat kein solches
+            // Feld. Der Punkt stand trotzdem im Menue und lief ins Leere
+            // (setzeStreamFarbe: case .document: break). Lieber gar nicht
+            // anbieten, als etwas anbieten, das nichts tut.
+            if item.kind != .document {
+                ArcaMenue.farbe(aktuell: streamFarbe(item)) { idx in
+                    setzeStreamFarbe(item, idx)
+                }
             }
             if item.kind == .vault {
                 let istKarte = store.vaultItems.first(where: { $0.id == item.id })?.art == .karte
@@ -1030,6 +1133,7 @@ struct HomeView: View {
             }
             ArcaMenue.loeschen {
                 if item.kind == .vault { vaultZumLoeschen = item }
+                else if item.kind == .document { dokZumLoeschen = item }
                 else { loescheStreamEintrag(item) }
             }
         }
@@ -1049,9 +1153,21 @@ struct HomeView: View {
             let schluessel = store.documentCategories.contains(d.category) ? d.category : "Unsortiert"
             zaehler[schluessel, default: 0] += 1
         }
-        // Unsortiert steht immer fest an erster Stelle
+        // Unsortiert steht immer fest an erster Stelle — das ist der Eingang.
         let namen = ["Unsortiert"] + store.documentCategories.filter { $0 != "Unsortiert" }
-        return namen.map { ($0, zaehler[$0] ?? 0) }
+        let alle = namen.map { (name: $0, anzahl: zaehler[$0] ?? 0) }
+
+        // Volle Gruppen zuerst, leere ans Ende — aber INNERHALB der beiden
+        // Haelften bleibt deine eigene Reihenfolge stehen (die per Ziehen
+        // einer Kachel auf eine andere entsteht).
+        //
+        // Bewusst nicht nach Anzahl sortiert: dann springt die Reihe bei
+        // jedem hinzugefuegten Dokument, und man sucht jedes Mal neu. So
+        // bewegt sich eine Gruppe nur, wenn sie von leer auf gefuellt
+        // wechselt — selten, und dann bedeutet es etwas.
+        let eingang = alle.filter { $0.name == "Unsortiert" }
+        let rest = alle.filter { $0.name != "Unsortiert" }
+        return eingang + rest.filter { $0.anzahl > 0 } + rest.filter { $0.anzahl == 0 }
     }
 
     /// Etwas wurde auf eine Gruppen-Karte gezogen: entweder ein Dokument
@@ -1106,6 +1222,26 @@ struct HomeView: View {
         store.documents[i].category = ziel
         store.documents[i].subcategory = ""
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// Kleines Geraet der SE-Klasse (unter 700 pt Fensterhoehe).
+    ///
+    /// Dort zaehlt jede Zeile: die Dokumentvorschau ist 42x50 und macht die
+    /// Zeile rund 16 pt hoeher als das schlichte Symbol. Auf dem grossen
+    /// Telefon ist das Gewinn, auf dem kleinen Verlust.
+    private var kleinesGeraet: Bool {
+        let hoehe = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }?.bounds.height ?? 852
+        return hoehe < 700
+    }
+
+    /// Angepinnte Dokumente — ohne Top Secret, das liegt im Tresor.
+    private var angepinnteDokumente: [DocumentEntry] {
+        store.documents.filter {
+            $0.category != "Top Secret" && store.istAngepinnt(kind: .document, refID: $0.id)
+        }
     }
 
     private var totalEntryCount: Int {
@@ -1314,6 +1450,12 @@ struct HomeView: View {
                 // Der Gruß ist am 26.08. ganz gewichen: das Profilbild oben
                 // rechts sagt schon, wessen Arca das ist. Der Kalender
                 // beginnt die Seite.
+                // Derselbe Lichtgrat wie unter dem Kalender — er fasst den
+                // Tag oben UND unten ein, statt ihn nur abzuschliessen.
+                ArcaGlasStrich()
+                    .padding(.horizontal, 34)
+                    .padding(.bottom, 12)
+
                 HomeCalendarCard()
                     .padding(.horizontal, 20)
                     .padding(.bottom, 12)
@@ -1360,17 +1502,17 @@ struct HomeView: View {
                 .scrollDismissesKeyboard(.interactively)
             } else {
                 ScrollViewReader { leseProxy in
-                ScrollView {
-                    // 14 statt 20: alles soll ohne Scrollen auf die Seite —
-                    // beide Räder inklusive.
-                    VStack(alignment: .leading, spacing: 14) {
+                    // Der feste Kopf: Zuletzt, Chips und die Gruppenreihe.
+                    // Er scrollt nicht mit — beim Blaettern durch die
+                    // Dokumente soll die Auswahl stehen bleiben.
+                    VStack(alignment: .leading, spacing: 20) {
 
                     // ── Zuletzt: der leise Anfang der Seite ──
                     //
                     // Der Platz steht fest, auch wenn nichts drin ist. Ein
                     // Bereich, der mal da ist und mal nicht, lässt die ganze
                     // Seite springen — und man sucht ihn beim nächsten Mal.
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 3) {
                         HStack {
                             ArcaSectionTitle(title: "Zuletzt", icon: "ArcaClock")
                             Spacer()
@@ -1401,7 +1543,6 @@ struct HomeView: View {
                             .padding(.horizontal, 20)
                             .padding(.top, 2)
                     }
-                    .id("seitenAnfang")
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
                     // Die Chips bekommen etwas Luft nach oben: sie beginnen
@@ -1444,7 +1585,7 @@ struct HomeView: View {
                                         }
                                         .contentShape(Capsule())
                                         .onTapGesture(count: 2) {
-                                            if filter == .notizen {
+                                            if ArcaFeatures.waende, filter == .notizen {
                                                 store.homeStreamFilter = .notizen
                                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                                                     selectedSection = .waende
@@ -1454,19 +1595,95 @@ struct HomeView: View {
                                         .onTapGesture {
                                             withAnimation(.easeInOut(duration: 0.2)) {
                                                 store.homeStreamFilter = filter
-                                                streamLimit = 25
                                             }
                                         }
                                 }
                             }
                             .padding(.horizontal, 20)
                         }
-                        .padding(.top, 8)
 
+                        // Die Gruppenreihe gehoert zum Kopf: sie ist die
+                        // Auswahl, nicht der Inhalt.
                         if streamFilter == .dokumente {
                             dokumentKarussell
-                        } else if streamFilter == .passwoerter && !store.vaultItems.isEmpty {
+                        }
+                    }
+                    }
+                    .frame(maxWidth: homeContentMaxWidth)
+                    .frame(maxWidth: .infinity, alignment: deskSichtbar ? .leading : .center)
+                    .padding(.leading, deskSichtbar ? 16 : 0)
+                    .padding(.bottom, 10)
+
+                    // Ab hier scrollt es — und nur hier.
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                        if streamFilter == .dokumente {
+                            if streamItems.isEmpty {
+                                Text("Noch keine Dokumente — leg das erste mit dem Plus an.")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 8)
+                            } else {
+                                // Wer filtert, muss auch wieder heraus. Die
+                                // Kachel ist zwar ein Schalter, aber das
+                                // sieht man ihr nicht an — hier steht es.
+                                if nurAngepinnt {
+                                    Button {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                            nurAngepinnt = false
+                                        }
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "pin.fill")
+                                                .font(.system(size: 10, weight: .semibold))
+                                            Text("Nur Angepinnt")
+                                                .font(.system(size: 12, weight: .semibold))
+                                            Text("· Alle zeigen")
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .foregroundStyle(ArcaWarm.terrakotta)
+                                        .padding(.horizontal, ARCASpacing.chipHorizontal)
+                                        .padding(.vertical, 7)
+                                        .glassEffect(.regular.tint(ArcaWarm.terrakotta.opacity(0.14)),
+                                                     in: Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 20)
+                                    .padding(.bottom, 2)
+                                }
+
+                                // Alle Dokumente, ohne Deckel und ohne
+                                // „Mehr anzeigen": man scrollt einfach durch.
+                                // Der LazyVStack baut ohnehin nur, was gerade
+                                // sichtbar ist — ein Limit spart hier nichts
+                                // und kostet einen Knopf.
+                                LazyVStack(spacing: 8) {
+                                    ForEach(streamItems) { item in
+                                        streamZeile(item)
+                                    }
+                                    .padding(.horizontal, 20)
+
+                                    ArcaListenSchluss(anzahl: streamItems.count)
+                                        .padding(.top, 6)
+                                }
+                            }
+                        } else if streamFilter == .passwoerter,
+                                  !store.vaultItems.isEmpty || !topSecretItems.isEmpty {
+                            // Auch bei leerem Tresor anzeigen, sobald Top-Secret-
+                            // Dokumente da sind: sonst waeren sie nirgends
+                            // sichtbar und die Summe der vier Zahlen ginge
+                            // nicht mehr mit dem Kopfzaehler auf.
                             tresorGruppiert
+                            // Top Secret sind Dokumente, die hier wohnen statt
+                            // in der Dokumentliste — sie muessen mitgezaehlt
+                            // werden, sonst geht die Summe mit dem Kopf nicht
+                            // auf. Das Digitale Erbe steht zwar auch in dieser
+                            // Schublade, zaehlt aber im Kopf ebenfalls nicht.
+                            ArcaListenSchluss(anzahl: store.vaultItems.count + topSecretItems.count,
+                                              wort: ("Eintrag", "Einträge"))
+                                .padding(.top, 6)
                         } else if streamItems.isEmpty {
                             Text("Noch nichts hier — wirf Arca eine Blitzidee zu.")
                                 .font(.system(size: 13))
@@ -1474,25 +1691,22 @@ struct HomeView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 8)
                         } else {
+                            // Wie bei den Dokumenten: durchscrollen statt
+                            // „Mehr anzeigen", und am Ende die Zahl.
                             LazyVStack(spacing: 8) {
-                                ForEach(streamItems.prefix(streamLimit)) { item in
+                                ForEach(streamItems) { item in
                                     streamZeile(item)
                                 }
-                                if streamItems.count > streamLimit {
-                                    Button {
-                                        withAnimation { streamLimit += 25 }
-                                    } label: {
-                                        Text("Mehr anzeigen (\(streamItems.count - streamLimit))")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(.blue)
-                                            .padding(.vertical, 6)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
+                                .padding(.horizontal, 20)
+
+                                ArcaListenSchluss(
+                                    anzahl: streamItems.count,
+                                    wort: streamFilter == .tasks
+                                        ? ("Aufgabenliste", "Aufgabenlisten")
+                                        : ("Idee", "Ideen"))
+                                    .padding(.top, 6)
                             }
-                            .padding(.horizontal, 20)
                         }
-                    }
 
                     // ── Die Wände: unten, wo der Daumen liegt ──
                     //
@@ -1505,7 +1719,7 @@ struct HomeView: View {
                     // Umgreifen; unten fällt der Daumen von selbst darauf.
                     //
                     // In ganz liegt die Wand nebenan — tippen führt hin.
-                    if !sichtbareWaende.isEmpty {
+                    if ArcaFeatures.waende, !sichtbareWaende.isEmpty {
                         let waende = sichtbareWaende
                         let wIdx = min(max(Int((wandFrac * Double(max(waende.count - 1, 1))).rounded()), 0),
                                        waende.count - 1)
@@ -1648,6 +1862,7 @@ struct HomeView: View {
 
                     Spacer().frame(height: 24)
                     }
+                    .id("seitenAnfang")
                     .frame(maxWidth: homeContentMaxWidth)
                     .frame(maxWidth: .infinity, alignment: deskSichtbar ? .leading : .center)
                     .padding(.leading, deskSichtbar ? 16 : 0)
@@ -1657,6 +1872,10 @@ struct HomeView: View {
                 // Space-Tab erneut angetippt → sanft nach oben
                 .onChange(of: store.homeSprungNachOben) { _, _ in
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        // Home heisst: zurueck auf Anfang — und zwar auch
+                        // aus einem laufenden Filter heraus, nicht nur nach
+                        // oben gescrollt.
+                        nurAngepinnt = false
                         leseProxy.scrollTo("seitenAnfang", anchor: .top)
                     }
                 }
@@ -1744,7 +1963,12 @@ struct HomeView: View {
             }
             .presentationCornerRadius(28)
         }
-        .quickLookPreview($quickAccessPreviewURL)
+        // arcaVorschau statt .quickLookPreview: der SwiftUI-Kurzweg laesst
+        // den Bearbeitungsmodus nicht setzen, und QuickLook bietet dann bei
+        // PDFs mit Formularfeldern von sich aus das Ausfuellen an. Vier
+        // andere Stellen benutzen den Ersatz laengst — der Start war der
+        // letzte Nachzuegler.
+        .arcaVorschau($quickAccessPreviewURL)
         // Einmalige Namensfrage für die Begrüßung (iOS gibt den
         // Gerätenamen aus Datenschutzgründen nicht mehr her)
         .onAppear {
@@ -1786,6 +2010,19 @@ struct HomeView: View {
             Button("Abbrechen", role: .cancel) { vaultZumLoeschen = nil }
         } message: {
             Text("Der Eintrag wird endgültig aus dem Tresor entfernt.")
+        }
+        // Dokument loeschen — hier verschwindet auch die Datei selbst.
+        .alert("Dokument löschen?", isPresented: Binding(
+            get: { dokZumLoeschen != nil },
+            set: { if !$0 { dokZumLoeschen = nil } }
+        )) {
+            Button("Löschen", role: .destructive) {
+                if let item = dokZumLoeschen { loescheStreamEintrag(item) }
+                dokZumLoeschen = nil
+            }
+            Button("Abbrechen", role: .cancel) { dokZumLoeschen = nil }
+        } message: {
+            Text("Das Dokument wird mitsamt der Datei entfernt. Das lässt sich nicht rückgängig machen.")
         }
         // Neuen Punkt in eine Aufgabenliste legen
         .alert("Neuer Punkt", isPresented: Binding(
@@ -2347,6 +2584,14 @@ struct HomeStreamRow: View {
     var expanded: Bool = false
     /// Bankkarten: Dateiname der fotografierten Vorderseite (kleines Preview)
     var kartenBild: String? = nil
+    /// Dokumente: die Datei selbst als Vorschau statt eines Platzhalter-
+    /// Symbols. Dasselbe Bauteil wie in der Gruppenansicht — wer eine
+    /// Sammlung sucht, erkennt sie am Aussehen, nicht am Dateityp.
+    var dokVorschau: (url: URL, typ: DocumentType)? = nil
+    /// Dokumente: der Farbton ihrer Gruppe. Beim Scrollen sieht man so
+    /// sofort, wohin ein Dokument gehoert — die Gruppe steht zwar auch als
+    /// Text darunter, aber Farbe liest man schneller als Schrift.
+    var gruppenTon: Color? = nil
     let onTap: () -> Void
 
     private var icon: String {
@@ -2372,6 +2617,12 @@ struct HomeStreamRow: View {
             HStack(spacing: 12) {
                 if let kartenBild {
                     KartenMiniBild(dateiname: kartenBild)
+                } else if let dokVorschau {
+                    // Dieselbe Kantenlaenge wie die Symbolkachel daneben —
+                    // sonst sind Dokumentzeilen hoeher als Ideen und
+                    // Aufgaben und die Liste wirkt gestuft.
+                    DocThumbnail(url: dokVorschau.url, type: dokVorschau.typ,
+                                 groesse: CGSize(width: 34, height: 34))
                 } else {
                     ArcaIcon(name: icon, groesse: 17)
                         .foregroundStyle(tint)
@@ -2406,10 +2657,18 @@ struct HomeStreamRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            // Der Farbton liegt IM vorhandenen Glas, nicht darunter — eine
+            // zweite Flaeche waere die Verschachtelung, vor der ARCAKit warnt.
             .glassEffect(
-                item.kind == .vault
-                    ? .regular.tint(ArcaWarm.creme.opacity(0.65))
-                    : .regular,
+                {
+                    if item.kind == .vault {
+                        return Glass.regular.tint(ArcaWarm.creme.opacity(0.65))
+                    } else if let gruppenTon {
+                        return Glass.regular.tint(gruppenTon.opacity(0.55))
+                    } else {
+                        return Glass.regular
+                    }
+                }(),
                 in: RoundedRectangle(cornerRadius: 14)
             )
         }
@@ -3213,6 +3472,36 @@ struct ArcaGlasStrich: View {
         }
         .frame(height: 2)
         .allowsHitTesting(false)
+    }
+}
+
+/// Der Schlusspunkt einer Liste: zwei Lichtgrate mit der Anzahl dazwischen.
+///
+/// Der Glasstrich heisst in Arca ohnehin „hier ist ein Abschnitt zu Ende".
+/// Mit der Zahl in der Mitte heisst er: zu Ende, und das waren so viele.
+/// Bewusst klein — er beendet etwas, er fordert nichts.
+struct ArcaListenSchluss: View {
+    let anzahl: Int
+    /// Einzahl/Mehrzahl fuer VoiceOver — sichtbar steht nur die Ziffer.
+    var wort: (einzahl: String, mehrzahl: String) = ("Dokument", "Dokumente")
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ArcaGlasStrich()
+            Text("\(anzahl)")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 26)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .glassEffect(.regular, in: Capsule())
+            ArcaGlasStrich()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(anzahl == 1 ? "1 \(wort.einzahl)" : "\(anzahl) \(wort.mehrzahl)")
     }
 }
 

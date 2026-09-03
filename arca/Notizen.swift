@@ -687,7 +687,8 @@ struct NoteDetailView: View {
                     }
                 }
             }
-            .quickLookPreview($vorschauURL)
+            // Wie ueberall sonst: ohne Formular-Ausfuellen-Angebot.
+            .arcaVorschau($vorschauURL)
         }
     }
 

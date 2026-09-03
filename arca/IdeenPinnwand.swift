@@ -32,9 +32,9 @@ struct IdeenPinnwand: View {
     /// Als eigene Seite neben dem Start (Leiste bleibt stehen, kein Exit)
     /// statt als Overlay über allem. Der Inhalt ist derselbe.
     var alsSeite: Bool = false
-    /// Rückweg zum Start. Wer an der ersten Wand steht und weiter nach
-    /// rechts wischt, landet wieder auf der Hauptseite — dieselbe Geste,
-    /// eine Station weiter. Keine Sonderregel, kein zweiter Knopf.
+    /// Rückweg zum Start — der Exit-Knopf ruft ihn. Auf der Wandseite gibt
+    /// es keine Tab-Leiste, und Wischen wechselt nur die Wand; er ist also
+    /// der einzige Weg zurück.
     var nachHome: (() -> Void)? = nil
     @EnvironmentObject var store: AppStore
     @Environment(\.horizontalSizeClass) private var groessenKlasse
@@ -219,23 +219,27 @@ struct IdeenPinnwand: View {
 
                 // EXIT unten links — dort liegt der Daumen, wenn man das
                 // Telefon hält. Oben rechts müsste man umgreifen.
-                // Als Seite gibt es ihn nicht: dort wischt man zurück,
-                // und die Leiste steht ohnehin da.
-                if !alsSeite {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            ExitKnopf {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                //
+                // Er steht in beiden Fällen da: die Wandseite hat keine
+                // Tab-Leiste mehr, und Wischen wechselt nur die Wand. Ohne
+                // ihn käme man nicht mehr weg.
+                VStack {
+                    Spacer()
+                    HStack {
+                        ExitKnopf {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                if alsSeite {
+                                    nachHome?()
+                                } else {
                                     store.zeigeIdeenPinnwand = false
                                 }
                             }
-                            Spacer()
                         }
+                        Spacer()
                     }
-                    .padding(.leading, 22)
-                    .padding(.bottom, 34)
                 }
+                .padding(.leading, 22)
+                .padding(.bottom, 34)
 
             }
             .onAppear { wandGroesse = geo.size }
@@ -446,13 +450,8 @@ struct IdeenPinnwand: View {
         guard let jetzt = waende.firstIndex(where: { $0.id == boardID }) else { return }
         let ziel = jetzt + richtung
         guard waende.indices.contains(ziel) else {
-            // Vor der ersten Wand liegt der Start — als Seite geht es
-            // dorthin zurück, statt nur anzustoßen.
-            if alsSeite, richtung < 0, let nachHome {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                nachHome()
-                return
-            }
+            // An den Enden bleibt es stehen. Wischen wechselt die Wand und
+            // sonst nichts — wer die Wand verlassen will, nimmt den Exit.
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             return
         }

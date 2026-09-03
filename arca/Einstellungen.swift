@@ -713,6 +713,9 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 14).padding(.vertical, 12)
 
+                        // Nur sichtbar, solange es die Wandvorschau gibt —
+                        // eine Einstellung fuer etwas Unsichtbares verwirrt.
+                        if ArcaFeatures.waende {
                         zeilenTrenner
                         HStack(spacing: 12) {
                             zeilenIcon(wandVorschauRechts ? "rectangle.righthalf.filled"
@@ -734,6 +737,7 @@ struct SettingsView: View {
                             }
                         }
                         .padding(.horizontal, 14).padding(.vertical, 12)
+                        }
 
                         if UIApplication.shared.supportsAlternateIcons {
                             zeilenTrenner

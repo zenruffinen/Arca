@@ -233,25 +233,30 @@ struct ContentView: View {
             // Überall dieselbe warme Bühne wie auf dem Start —
             // kein Farbsprung beim Umschalten
             .background(ArcaWarm.hintergrund.ignoresSafeArea())
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 104) }
+            // Die Wandseite traegt keine Leiste — also auch keinen Platz
+            // dafuer freihalten. Die Wand geht bis unten durch.
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: selectedSection == .waende ? 0 : 104)
+            }
 
             // Am Rand steht ein Lichtgrat: dort geht die Seite weiter.
             // Kein Pfeil, keine Punkte — dieselbe Glassprache wie der
             // waagerechte Strich zwischen den Sektionen.
-            if selectedSection == .home {
+            if ArcaFeatures.waende, selectedSection == .home {
                 ArcaSeitenKante(richtung: .rechts) { wechsleZu(.waende) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
                     .padding(.bottom, 104)
                     .allowsHitTesting(true)
                     .transition(.opacity)
-            } else if selectedSection == .waende {
-                ArcaSeitenKante(richtung: .links) { wechsleZu(.home) }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    .padding(.bottom, 104)
-                    .transition(.opacity)
             }
+            // Auf der Wandseite kein Lichtgrat: dort fuehrt der Exit-Knopf
+            // unten links zurueck, und die Wand soll ungestoert sein.
 
-            ArcaTabBar(selected: $selectedSection)
+            // Die Leiste bleibt der Wandseite fern — die Wand ist eine
+            // Flaeche, auf der gearbeitet wird, keine Station im Wechsel.
+            if selectedSection != .waende {
+                ArcaTabBar(selected: $selectedSection)
+            }
         }
         .ignoresSafeArea(edges: .bottom)
         // Auf dem Start wird NICHT quer gewischt.

@@ -13,6 +13,20 @@ protocol ZeitGestempelt {
     var geaendertAm: Date { get set }
 }
 
+/// Was ausgeliefert wird und was noch wartet.
+///
+/// Die Waende sind fuer 3.0 zugesperrt — nicht wegen der Optik, sondern
+/// wegen des Datenmodells: `PinnBoard` und `Anschlag` sind Stufe 0, und
+/// sobald jemand im Store eine Wand anlegt, ist das Schema fuer immer
+/// gebunden und jede Aenderung braucht eine Migration fremder Daten.
+/// Solange kein Weg hinfuehrt, entstehen keine Daten und das Schema bleibt
+/// frei.
+///
+/// Der Code bleibt vollstaendig liegen. Zum Wiederaufmachen: auf `true`.
+enum ArcaFeatures {
+    static let waende = false
+}
+
 enum ArcaSection: String, CaseIterable, Identifiable {
     case home = "Start"
     /// Die Wände als eigene Seite — nicht mehr als Streifen auf dem Start.
