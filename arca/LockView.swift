@@ -116,34 +116,58 @@ struct LockView: View {
         }
         // Notfall geht vor: Notrufnummern auch ohne Entsperren erreichbar
         // (nur öffentliche Nummern — die eigenen Hotlines bleiben verschlossen)
-        .overlay(alignment: .bottom) {
-            HStack(spacing: 12) {
+        // Der Fuss des Sperrbildschirms.
+        //
+        // Vorher standen hier zwei gleich grosse Kapseln nebeneinander. Die
+        // beiden Wege sind aber grundverschieden: „Notfall" ist fuer den
+        // Augenblick — jemand steht daneben und braucht sofort eine Nummer,
+        // das muss ins Auge springen. „Digitales Erbe" ist fuer den Fall,
+        // dass es einen selbst nicht mehr gibt; danach sucht jemand bewusst
+        // und in Ruhe. Gleiches Gewicht machte daraus zwei gleichwertige
+        // Angebote und drueckte das Erbe in den Alltag, wo es nicht hingehoert.
+        //
+        // Jetzt: der Notfall bleibt ein Knopf, das Erbe wird eine leise
+        // Zeile darunter. Darueber der Lichtgrat, der in Arca ueberall
+        // „hier endet ein Abschnitt" heisst — er trennt den Fuss vom
+        // Tastenfeld.
+        // safeAreaInset statt overlay: der Fuss schwebte frueher ueber dem
+        // Tastenfeld und legte sich je nach Geraetehoehe auf die unterste
+        // Reihe. Als Inset bekommt er echten Platz — das Tastenfeld rueckt
+        // hoch, und es kann nichts mehr ueberlappen, auf keinem Bildschirm.
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 6) {
                 Button {
                     showNotfall = true
                 } label: {
                     Label("Notfall", systemImage: "cross.case.fill")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.red)
-                        .padding(.horizontal, 18)
+                        .padding(.horizontal, 22)
                         .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .glassEffect(.regular.tint(.red.opacity(0.10)), in: Capsule())
                 }
                 .buttonStyle(.plain)
 
-                // Angehörigen-Zugang zum Digitalen Erbe — immer sichtbar
+                // Angehoerigen-Zugang zum Digitalen Erbe — immer erreichbar,
+                // aber leise. Wer ihn braucht, sucht ihn.
                 Button {
                     showErbe = true
                 } label: {
-                    Label("Digitales Erbe", systemImage: "heart.text.square.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(ArcaWarm.terrakotta)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
+                    HStack(spacing: 5) {
+                        Image(systemName: "heart.text.square.fill")
+                            .font(.system(size: 11))
+                        Text("Digitales Erbe")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(ArcaWarm.terrakotta.opacity(0.75))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.bottom, 40)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
         }
         .sheet(isPresented: $showNotfall) {
             NotfallView(karten: [], nurOeffentlich: true)
