@@ -512,8 +512,8 @@ struct DocumentsView: View {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                 } label: {
                     let dran = store.istAngepinnt(kind: .document, refID: doc.id)
-                    Label(dran ? "Entfernen" : "Favorit",
-                          systemImage: dran ? "star.slash" : "star.fill")
+                    Label(dran ? "Abpinnen" : "Anpinnen",
+                          systemImage: dran ? "pin.slash.fill" : "pin.fill")
                 }
                 .tint(.orange)
             }

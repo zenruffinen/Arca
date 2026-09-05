@@ -24,8 +24,11 @@ enum ArcaMenue {
     @ViewBuilder
     static func favorit(ist: Bool, aktion: @escaping () -> Void) -> some View {
         Button(action: aktion) {
-            Label(ist ? "Aus Favoriten entfernen" : "Zu Favoriten",
-                  systemImage: ist ? "star.slash" : "star.fill")
+            // „Anpinnen" statt „Favorit": angepinnt ist, was man fuer einen
+            // Anlass zusammenholt — Boardingcard, Reiseunterlagen, Versicherung.
+            // Das Wort steht so auch auf der Kachel auf dem Start.
+            Label(ist ? "Abpinnen" : "Anpinnen",
+                  systemImage: ist ? "pin.slash.fill" : "pin.fill")
         }
     }
 

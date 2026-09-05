@@ -238,8 +238,8 @@ struct ListsView: View {
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 } label: {
                                     let dran = store.istAngepinnt(kind: .list, refID: list.id)
-                                    Label(dran ? "Aus Favoriten" : "Favorit",
-                                          systemImage: dran ? "star.slash" : "star.fill")
+                                    Label(dran ? "Abpinnen" : "Anpinnen",
+                                          systemImage: dran ? "pin.slash.fill" : "pin.fill")
                                 }
                                 .tint(.orange)
                                 Button {
@@ -407,9 +407,9 @@ struct ListRow: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             if store.istAngepinnt(kind: .list, refID: list.id) {
-                Image(systemName: "star.fill")
+                Image(systemName: "pin.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(ArcaWarm.terrakotta)
             }
             Spacer()
             let done = list.items.filter(\.isDone).count

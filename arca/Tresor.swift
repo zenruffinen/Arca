@@ -124,8 +124,8 @@ struct VaultView: View {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     } label: {
                         let dran = store.istAngepinnt(kind: .vault, refID: item.id)
-                        Label(dran ? "Aus Favoriten" : "Favorit",
-                              systemImage: dran ? "star.slash" : "star.fill")
+                        Label(dran ? "Abpinnen" : "Anpinnen",
+                              systemImage: dran ? "pin.slash.fill" : "pin.fill")
                     }
                     .tint(.orange)
                 }
@@ -1117,11 +1117,11 @@ struct VaultRow: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
-            // Favorit
+            // Angepinnt
             if store.istAngepinnt(kind: .vault, refID: item.id) {
-                Image(systemName: "star.fill")
+                Image(systemName: "pin.fill")
                     .font(.system(size: 9))
-                    .foregroundStyle(.orange.opacity(0.8))
+                    .foregroundStyle(ArcaWarm.terrakotta.opacity(0.85))
             }
 
             Spacer()

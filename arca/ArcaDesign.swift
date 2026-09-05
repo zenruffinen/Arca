@@ -486,6 +486,13 @@ struct ArcaKategorieKarte: View {
     let icon: String
     let farben: NoteColor
     let anzahl: Int
+    /// Wie kraeftig der Farbton im Glas liegt.
+    ///
+    /// Standard 0,55 fuer die Gruppen. Die festgenagelte „Angepinnt"-Kachel
+    /// nimmt weniger: unter ihr laufen die Gruppen durch, und man soll sie
+    /// dabei durchscheinen sehen — sonst wirkt die Kachel wie ein Deckel
+    /// statt wie eine Scheibe.
+    var tintDeckkraft: Double = 0.55
 
     var body: some View {
         VStack(spacing: 3) {
@@ -507,7 +514,7 @@ struct ArcaKategorieKarte: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 6)
         .frame(width: ARCASpacing.categoryTileWidth, height: ARCASpacing.categoryTileHeight)
-        .glassEffect(.regular.tint(farben.bg.opacity(0.55)),
+        .glassEffect(.regular.tint(farben.bg.opacity(tintDeckkraft)),
                      in: RoundedRectangle(cornerRadius: 15))
         .overlay(RoundedRectangle(cornerRadius: 15)
             .strokeBorder(farben.accent.opacity(0.14), lineWidth: 1))

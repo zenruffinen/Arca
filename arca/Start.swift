@@ -585,49 +585,20 @@ struct HomeView: View {
                 let aktivIndex = namenFuerAuswahl.isEmpty ? 0
                     : min(max(Int((dokFrac * Double(max(namenFuerAuswahl.count - 1, 1))).rounded()), 0), namenFuerAuswahl.count - 1)
                 let aktiverName = namenFuerAuswahl.indices.contains(aktivIndex) ? namenFuerAuswahl[aktivIndex] : ""
+                // ── Angepinnt steht fest, die Gruppen laufen darunter durch ──
+                //
+                // Die Kachel scrollte frueher mit und war beim dritten Wisch
+                // weg — ausgerechnet der Griff, den man unterwegs sucht. Jetzt
+                // ist sie festgenagelt: die Gruppenreihe bekommt links Platz
+                // fuer sie und schiebt sich hinter ihr durch.
+                //
+                // Damit man das SIEHT, traegt sie weniger Farbton als die
+                // Gruppen (0,26 statt 0,55) — durch das Glas erkennt man die
+                // Kacheln, die dahinter vorbeiziehen. Ein Schatten hebt sie
+                // ab, sonst waere nicht klar, was oben und was unten liegt.
+                ZStack(alignment: .leading) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        // ── Angepinnt: der Griff fuer einen Anlass ──
-                        //
-                        // Bewusst KEINE Kategorie, sondern ein Querschnitt:
-                        // Boardingcard, Reiseunterlagen und Versicherung
-                        // liegen in verschiedenen Gruppen, unterwegs braucht
-                        // man sie als einen Stapel. Deshalb steht die Kachel
-                        // vorn, traegt Terrakotta statt einer Gruppenfarbe
-                        // und hat etwas Abstand — sie ist eine andere Sorte
-                        // Ding als die Kacheln daneben.
-                        //
-                        // Sie erscheint erst, wenn etwas angepinnt ist:
-                        // eine leere Kachel waere nur Rauschen.
-                        if !angepinnteDokumente.isEmpty {
-                            ArcaKategorieKarte(
-                                name: "Angepinnt",
-                                icon: "pin.fill",
-                                farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.16),
-                                                  accent: ArcaWarm.terrakotta,
-                                                  name: "Angepinnt"),
-                                anzahl: angepinnteDokumente.count)
-                            .scaleEffect(nurAngepinnt ? 1.06 : 1.0)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 15)
-                                    .strokeBorder(ArcaWarm.terrakotta.opacity(nurAngepinnt ? 0.75 : 0),
-                                                  lineWidth: 1.5)
-                            )
-                            .shadow(color: nurAngepinnt ? ArcaWarm.terrakotta.opacity(0.25) : .clear,
-                                    radius: 4, y: 2)
-                            .contentShape(RoundedRectangle(cornerRadius: 15))
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    nurAngepinnt.toggle()
-                                }
-                                UISelectionFeedbackGenerator().selectionChanged()
-                            }
-                            .accessibilityLabel(nurAngepinnt
-                                ? "Angepinnt, Filter aktiv. Antippen zeigt wieder alle."
-                                : "Angepinnt. Antippen zeigt nur die angepinnten Dokumente.")
-                            .padding(.trailing, 6)
-                        }
-
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
                             ArcaKategorieKarte(
                                 name: gruppe.name,
@@ -679,17 +650,15 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.vertical, 4)
+                    // Platz fuer die festgenagelte Kachel: die Gruppen
+                    // beginnen dahinter und schieben sich unter ihr durch.
+                    .padding(.leading, angepinnteDokumente.isEmpty
+                             ? 0 : ARCASpacing.categoryTileWidth + 10)
                     .scrollTargetLayout()
                 }
                 // Feste Höhe, damit die Seite nicht springt — der Wert kommt
                 // aus dem Kit und wächst mit der Kachel mit.
                 .frame(height: ARCASpacing.categoryRowHeight)
-                // Wird das Letzte abgepinnt, verschwindet die Kachel — dann
-                // muss auch der Filter weg, sonst steht man vor einer leeren
-                // Liste ohne Schalter, um sie wieder zu fuellen.
-                .onChange(of: angepinnteDokumente.count) { _, neu in
-                    if neu == 0 { nurAngepinnt = false }
-                }
                 .contentMargins(.horizontal, 20, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
@@ -697,6 +666,49 @@ struct HomeView: View {
                                weite: max(1, geo.contentSize.width - geo.containerSize.width))
                 } action: { _, info in
                     dokFrac = min(max(Double(info.x / info.weite), 0), 1)
+                }
+
+                // Die feste Kachel — liegt ueber der Reihe, nicht in ihr.
+                if !angepinnteDokumente.isEmpty {
+                    ArcaKategorieKarte(
+                        name: "Angepinnt",
+                        icon: "pin.fill",
+                        farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.20),
+                                          accent: ArcaWarm.terrakotta,
+                                          name: "Angepinnt"),
+                        anzahl: angepinnteDokumente.count,
+                        tintDeckkraft: nurAngepinnt ? 0.55 : 0.26)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15)
+                            .strokeBorder(ArcaWarm.terrakotta.opacity(nurAngepinnt ? 0.75 : 0.30),
+                                          lineWidth: nurAngepinnt ? 1.5 : 1)
+                    )
+                    // Der Schatten sagt: das hier liegt oben, der Rest zieht
+                    // darunter vorbei.
+                    .shadow(color: .black.opacity(0.14), radius: 5, x: 3, y: 1)
+                    .shadow(color: nurAngepinnt ? ArcaWarm.terrakotta.opacity(0.25) : .clear,
+                            radius: 5, y: 2)
+                    .contentShape(RoundedRectangle(cornerRadius: 15))
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            nurAngepinnt.toggle()
+                        }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    }
+                    .accessibilityLabel(nurAngepinnt
+                        ? "Angepinnt, Filter aktiv. Antippen zeigt wieder alle."
+                        : "Angepinnt. Antippen zeigt nur die angepinnten Dokumente.")
+                    .padding(.leading, 20)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                }
+                }
+                // Wird das Letzte abgepinnt, verschwindet die Kachel — dann
+                // muss auch der Filter weg, sonst steht man vor einer leeren
+                // Liste ohne Schalter, um sie wieder zu fuellen.
+                .onChange(of: angepinnteDokumente.count) { _, neu in
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        if neu == 0 { nurAngepinnt = false }
+                    }
                 }
 
                 // Seiten-Punkte + Dreh-Regler (beide aus der echten Scroll-Fraktion)
@@ -1940,7 +1952,7 @@ struct HomeView: View {
                         }
                     }
                 }
-                .navigationTitle("Favoriten")
+                .navigationTitle("Angepinnt")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
