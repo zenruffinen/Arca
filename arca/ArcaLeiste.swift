@@ -79,7 +79,7 @@ struct ArcaTabBar: View {
                     NotchedBar(notchRadius: 36, corner: 26)
                         .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                 )
-                .frame(height: 60)
+                .frame(height: 52)
                 .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: -2)
 
             // Seiten-Items: Home + Suche links, Mikro + Mehr rechts, Mitte frei
@@ -119,7 +119,7 @@ struct ArcaTabBar: View {
                     }
                 }
             }
-            .frame(height: 60)
+            .frame(height: 52)
             .padding(.horizontal, 30)
 
             // Der erhöhte zentrale Knopf sitzt im Bogen
@@ -136,7 +136,7 @@ struct ArcaTabBar: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.bottom, 26)
+        .padding(.bottom, 18)
     }
 
     // MARK: Der Besen — kleiner Nachbar des Plus, nur bei Unordnung
@@ -180,7 +180,7 @@ struct ArcaTabBar: View {
                 ZStack {
                     Circle()
                         .fill(ArcaWarm.terrakotta)
-                        .frame(width: 56, height: 56)
+                        .frame(width: 50, height: 50)
                         .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 7, x: 0, y: 3)
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .semibold))
@@ -218,15 +218,15 @@ struct ArcaTabBar: View {
     private func leistenLabel(icon: String, label: String, aktiv: Bool,
                               farbe: Color? = nil) -> some View {
         VStack(spacing: 4) {
-            ArcaIcon(name: icon, groesse: 23)
+            ArcaIcon(name: icon, groesse: 20)
                 .foregroundStyle(farbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.6)))
                 .symbolRenderingMode(.hierarchical)
-                .frame(height: 28)
+                .frame(height: 24)
             Text(label)
-                .font(.system(size: 10, weight: aktiv ? .semibold : .medium))
+                .font(.system(size: 9.5, weight: aktiv ? .semibold : .medium))
                 .foregroundStyle(aktiv ? ArcaWarm.terrakotta : Color.secondary)
         }
-        .frame(minWidth: 48)
+        .frame(minWidth: 44)
         .contentShape(Rectangle())
         .accessibilityLabel(label)
     }
@@ -386,7 +386,7 @@ struct ArcaPlusKnopf: View {
                     Circle()
                         .stroke(ArcaWarm.terrakotta.opacity(schwingt ? 0.0 : 0.35),
                                 lineWidth: schwingt ? 1 : 6)
-                        .frame(width: 56, height: 56)
+                        .frame(width: 50, height: 50)
                         .scaleEffect(schwingt ? 1.6 : 1.0)
                         .animation(
                             .easeOut(duration: 2.2)
@@ -442,7 +442,7 @@ struct ArcaPlusKnopf: View {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 23, weight: .semibold))
                     .foregroundStyle(ArcaWarm.terrakotta)
-                    .frame(width: 56, height: 56)
+                    .frame(width: 50, height: 50)
                     .background(ArcaWarm.karte, in: Circle())
                     .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 2))
                     .shadow(color: .black.opacity(0.18), radius: 7, x: 0, y: 3)
@@ -459,7 +459,7 @@ struct ArcaPlusKnopf: View {
                 Image(systemName: "plus")
                     .font(.system(size: 23, weight: .semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
+                    .frame(width: 50, height: 50)
                     .background(ArcaWarm.terrakotta, in: Circle())
                     .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 8, x: 0, y: 4)
             }

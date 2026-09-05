@@ -236,7 +236,7 @@ struct ContentView: View {
             // Die Wandseite traegt keine Leiste — also auch keinen Platz
             // dafuer freihalten. Die Wand geht bis unten durch.
             .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: selectedSection == .waende ? 0 : 104)
+                Color.clear.frame(height: selectedSection == .waende ? 0 : 90)
             }
 
             // Am Rand steht ein Lichtgrat: dort geht die Seite weiter.
@@ -245,7 +245,7 @@ struct ContentView: View {
             if ArcaFeatures.waende, selectedSection == .home {
                 ArcaSeitenKante(richtung: .rechts) { wechsleZu(.waende) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                    .padding(.bottom, 104)
+                    .padding(.bottom, 90)
                     .allowsHitTesting(true)
                     .transition(.opacity)
             }
