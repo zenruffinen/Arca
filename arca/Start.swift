@@ -20,6 +20,12 @@ import ARCAKit
 struct ScrollInfo: Equatable {
     var x: CGFloat
     var weite: CGFloat   // maximaler Scroll-Weg (Inhalt − Fenster)
+    /// Welcher Anteil des Inhalts gerade im Fenster steht (0…1).
+    ///
+    /// Damit kann der Fortschrittsstrich nicht nur zeigen, WO man ist,
+    /// sondern auch, WIE VIEL es insgesamt gibt — bei neunzehn Gruppen ist
+    /// das der Unterschied zwischen einer Auskunft und neunzehn Pünktchen.
+    var anteil: CGFloat = 1
 }
 
 // MARK: - Home
@@ -119,6 +125,15 @@ struct HomeView: View {
     @State private var sichtbareDokKarte: String? = nil
     @State private var dokScrollPos = ScrollPosition()
     @State private var dokFrac: Double = 0
+    /// Sichtbarer Anteil der Gruppenreihe — treibt die Breite des Läufers.
+    @State private var dokAnteil: CGFloat = 1
+    /// Roher Scrollweg der Gruppenreihe. Die „Angepinnt"-Kachel schiebt sich
+    /// genau dagegen und bleibt dadurch optisch stehen, obwohl sie IN der
+    /// Reihe liegt — nur so gilt der Wisch auch über ihr.
+    @State private var dokX: CGFloat = 0
+    /// Dasselbe fuer die senkrechte Dokumentliste.
+    @State private var listeFrac: Double = 0
+    @State private var listeAnteil: CGFloat = 1
     // Tresor-Gruppen im Strom (einklappbar)
     @State private var homeBankkartenAuf = false
     @State private var homePasswoerterAuf = false
@@ -566,6 +581,48 @@ struct HomeView: View {
 
     /// Favorit antippen: Dokument → Vorschau, Notiz → Blatt,
     /// Liste/Passwort → in die jeweilige Sektion (Tresor bleibt verschlossen).
+    /// „Angepinnt" — der Griff fuer einen Anlass.
+    ///
+    /// Bewusst KEINE Kategorie, sondern ein Querschnitt: Boardingcard,
+    /// Reiseunterlagen und Versicherung liegen in verschiedenen Gruppen,
+    /// unterwegs braucht man sie als einen Stapel.
+    ///
+    /// Sie traegt weniger Farbton als die Gruppen (0,26 statt 0,55) — durch
+    /// das Glas sieht man die Kacheln, die dahinter vorbeiziehen. Laeuft der
+    /// Filter, geht sie auf 0,55 und wird kraeftig: dann ist sie kein Fenster
+    /// mehr, sondern ein Schalter.
+    @ViewBuilder
+    private var angepinntKachel: some View {
+        ArcaKategorieKarte(
+            name: "Angepinnt",
+            icon: "pin.fill",
+            farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.20),
+                              accent: ArcaWarm.terrakotta,
+                              name: "Angepinnt"),
+            anzahl: angepinnteDokumente.count,
+            tintDeckkraft: nurAngepinnt ? 0.55 : 0.26)
+        .overlay(
+            RoundedRectangle(cornerRadius: 15)
+                .strokeBorder(ArcaWarm.terrakotta.opacity(nurAngepinnt ? 0.75 : 0.30),
+                              lineWidth: nurAngepinnt ? 1.5 : 1)
+        )
+        // Der Schatten nach rechts sagt: das hier liegt oben, der Rest zieht
+        // darunter vorbei.
+        .shadow(color: .black.opacity(0.14), radius: 5, x: 3, y: 1)
+        .shadow(color: nurAngepinnt ? ArcaWarm.terrakotta.opacity(0.25) : .clear,
+                radius: 5, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: 15))
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                nurAngepinnt.toggle()
+            }
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+        .accessibilityLabel(nurAngepinnt
+            ? "Angepinnt, Filter aktiv. Antippen zeigt wieder alle."
+            : "Angepinnt. Antippen zeigt nur die angepinnten Dokumente.")
+    }
+
     @ViewBuilder
     private var dokumentKarussell: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -596,9 +653,18 @@ struct HomeView: View {
                 // Gruppen (0,26 statt 0,55) — durch das Glas erkennt man die
                 // Kacheln, die dahinter vorbeiziehen. Ein Schatten hebt sie
                 // ab, sonst waere nicht klar, was oben und was unten liegt.
-                ZStack(alignment: .leading) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
+                        // Die Kachel liegt IN der Reihe und schiebt sich mit
+                        // dem Scrollweg dagegen — optisch steht sie, technisch
+                        // gehoert sie zur Scrollflaeche. Laege sie darueber,
+                        // schluckte sie jeden Wisch, der auf ihr beginnt.
+                        if !angepinnteDokumente.isEmpty {
+                            angepinntKachel
+                                .offset(x: max(0, dokX + 20))
+                                .zIndex(1)
+                        }
+
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
                             ArcaKategorieKarte(
                                 name: gruppe.name,
@@ -650,10 +716,6 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.vertical, 4)
-                    // Platz fuer die festgenagelte Kachel: die Gruppen
-                    // beginnen dahinter und schieben sich unter ihr durch.
-                    .padding(.leading, angepinnteDokumente.isEmpty
-                             ? 0 : ARCASpacing.categoryTileWidth + 10)
                     .scrollTargetLayout()
                 }
                 // Feste Höhe, damit die Seite nicht springt — der Wert kommt
@@ -663,45 +725,16 @@ struct HomeView: View {
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
                     ScrollInfo(x: geo.contentOffset.x,
-                               weite: max(1, geo.contentSize.width - geo.containerSize.width))
+                               weite: max(1, geo.contentSize.width - geo.containerSize.width),
+                               anteil: geo.contentSize.width > 0
+                                   ? min(1, geo.containerSize.width / geo.contentSize.width)
+                                   : 1)
                 } action: { _, info in
                     dokFrac = min(max(Double(info.x / info.weite), 0), 1)
+                    dokAnteil = info.anteil
+                    dokX = info.x
                 }
 
-                // Die feste Kachel — liegt ueber der Reihe, nicht in ihr.
-                if !angepinnteDokumente.isEmpty {
-                    ArcaKategorieKarte(
-                        name: "Angepinnt",
-                        icon: "pin.fill",
-                        farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.20),
-                                          accent: ArcaWarm.terrakotta,
-                                          name: "Angepinnt"),
-                        anzahl: angepinnteDokumente.count,
-                        tintDeckkraft: nurAngepinnt ? 0.55 : 0.26)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 15)
-                            .strokeBorder(ArcaWarm.terrakotta.opacity(nurAngepinnt ? 0.75 : 0.30),
-                                          lineWidth: nurAngepinnt ? 1.5 : 1)
-                    )
-                    // Der Schatten sagt: das hier liegt oben, der Rest zieht
-                    // darunter vorbei.
-                    .shadow(color: .black.opacity(0.14), radius: 5, x: 3, y: 1)
-                    .shadow(color: nurAngepinnt ? ArcaWarm.terrakotta.opacity(0.25) : .clear,
-                            radius: 5, y: 2)
-                    .contentShape(RoundedRectangle(cornerRadius: 15))
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                            nurAngepinnt.toggle()
-                        }
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    }
-                    .accessibilityLabel(nurAngepinnt
-                        ? "Angepinnt, Filter aktiv. Antippen zeigt wieder alle."
-                        : "Angepinnt. Antippen zeigt nur die angepinnten Dokumente.")
-                    .padding(.leading, 20)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
-                }
-                }
                 // Wird das Letzte abgepinnt, verschwindet die Kachel — dann
                 // muss auch der Filter weg, sonst steht man vor einer leeren
                 // Liste ohne Schalter, um sie wieder zu fuellen.
@@ -711,20 +744,17 @@ struct HomeView: View {
                     }
                 }
 
-                // Seiten-Punkte + Dreh-Regler (beide aus der echten Scroll-Fraktion)
+                // Ein Läufer auf einer Spur statt einer Reihe Pünktchen.
+                //
+                // Punkte skalieren nicht: bei neunzehn Gruppen standen dort
+                // neunzehn Krümel, die niemand mehr zählt. Der Strich sagt
+                // beides auf einmal — seine POSITION, wo man ist, und seine
+                // BREITE, wie viel ins Fenster passt. Bei drei Gruppen füllt
+                // er fast die Spur, bei zwanzig ist er ein Daumen.
                 if dokumentGruppen.count > 1 {
-                    let namen = dokumentGruppen.map { $0.name }
-                    let idx = min(max(Int((dokFrac * Double(namen.count - 1)).rounded()), 0), namen.count - 1)
-
-                    HStack(spacing: 6) {
-                        ForEach(Array(namen.enumerated()), id: \.offset) { i, _ in
-                            Circle()
-                                .fill(i == idx ? ArcaWarm.terrakotta.opacity(0.85) : Color.secondary.opacity(0.25))
-                                .frame(width: 6, height: 6)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 0)
+                    ArcaLaufStrich(fortschritt: dokFrac, anteil: dokAnteil)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 2)
 
                     // Hier stand ein zweites Rad. Es ist weg: die
                     // Dokumentreihe schiebt der Finger direkt, ein Regler
@@ -1881,6 +1911,25 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollDismissesKeyboard(.interactively)
+                .onScrollGeometryChange(for: ScrollInfo.self) { geo in
+                    ScrollInfo(x: geo.contentOffset.y,
+                               weite: max(1, geo.contentSize.height - geo.containerSize.height),
+                               anteil: geo.contentSize.height > 0
+                                   ? min(1, geo.containerSize.height / geo.contentSize.height)
+                                   : 1)
+                } action: { _, info in
+                    listeFrac = min(max(Double(info.x / info.weite), 0), 1)
+                    listeAnteil = info.anteil
+                }
+                // Derselbe Läufer wie unter den Gruppen, nur hochkant am
+                // rechten Rand: schmaler und leiser, denn hier begleitet er
+                // nur — die Auskunft steht in der Liste selbst.
+                .overlay(alignment: .trailing) {
+                    ArcaLaufStrich(fortschritt: listeFrac, anteil: listeAnteil,
+                                   achse: .senkrecht, dicke: 3)
+                        .padding(.trailing, 5)
+                        .padding(.vertical, 8)
+                }
                 // Space-Tab erneut angetippt → sanft nach oben
                 .onChange(of: store.homeSprungNachOben) { _, _ in
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
@@ -3484,6 +3533,77 @@ struct ArcaGlasStrich: View {
         }
         .frame(height: 2)
         .allowsHitTesting(false)
+    }
+}
+
+/// Der Läufer: zeigt an einer Spur, wo man in einer Querreihe steht — und
+/// wie viel davon gerade im Fenster ist.
+///
+/// Er ersetzt die Seiten-Pünktchen. Die waren ehrlich, solange es drei oder
+/// vier Gruppen gab; bei zwanzig sind sie Konfetti. Der Läufer trägt den
+/// Terrakotta-Verlauf der Suite und liegt in einer Glasspur.
+struct ArcaLaufStrich: View {
+    enum Achse { case waagerecht, senkrecht }
+
+    /// 0…1 — wo im Scrollweg man steht.
+    let fortschritt: Double
+    /// 0…1 — welcher Anteil des Inhalts sichtbar ist.
+    let anteil: CGFloat
+    var achse: Achse = .waagerecht
+    /// Staerke der Spur. Waagerecht unter der Reihe darf er kraeftiger sein
+    /// als senkrecht am Rand einer Liste, wo er nur begleitet.
+    var dicke: CGFloat = 4
+
+    private var sichtbar: Bool { anteil < 0.999 }
+
+    var body: some View {
+        GeometryReader { geo in
+            let laenge = achse == .waagerecht ? geo.size.width : geo.size.height
+            // Mindestens 34 pt, sonst ist der Läufer bei vielen Einträgen ein
+            // Strichlein, das man nicht mehr sieht.
+            let laeufer = max(34, laenge * min(max(anteil, 0), 1))
+            let weg = max(0, laenge - laeufer) * CGFloat(min(max(fortschritt, 0), 1))
+
+            ZStack(alignment: achse == .waagerecht ? .leading : .top) {
+                Capsule()
+                    .fill(Color.primary.opacity(0.07))
+
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [ArcaWarm.terrakotta.opacity(0.45),
+                                     ArcaWarm.terrakotta,
+                                     ArcaWarm.terrakotta.opacity(0.55)],
+                            startPoint: achse == .waagerecht ? .leading : .top,
+                            endPoint: achse == .waagerecht ? .trailing : .bottom)
+                    )
+                    .overlay(
+                        // Ein Lichtgrat obenauf — dieselbe Sprache wie
+                        // ArcaGlasStrich, nur auf dem Läufer.
+                        Capsule()
+                            .fill(LinearGradient(
+                                colors: [.white.opacity(0.55), .clear],
+                                startPoint: achse == .waagerecht ? .top : .leading,
+                                endPoint: achse == .waagerecht ? .bottom : .trailing))
+                            .padding(achse == .waagerecht ? .horizontal : .vertical, 2)
+                            .blendMode(.plusLighter)
+                    )
+                    .frame(width: achse == .waagerecht ? laeufer : nil,
+                           height: achse == .waagerecht ? nil : laeufer)
+                    .offset(x: achse == .waagerecht ? weg : 0,
+                            y: achse == .waagerecht ? 0 : weg)
+                    .shadow(color: ArcaWarm.terrakotta.opacity(0.28), radius: 3, y: 1)
+            }
+        }
+        .frame(width: achse == .waagerecht ? nil : dicke,
+               height: achse == .waagerecht ? dicke : nil)
+        // Passt nichts mehr hinein, gibt es nichts zu zeigen — dann blendet
+        // er sich weg, statt als voller Balken zu behaupten, es gaebe mehr.
+        .opacity(sichtbar ? 1 : 0)
+        .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.9), value: fortschritt)
+        .animation(.easeInOut(duration: 0.2), value: sichtbar)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
