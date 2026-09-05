@@ -1504,11 +1504,14 @@ struct HomeView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
 
                 // Gruß und Kalender sind ein Stück — „Hallo Hans, heute ist
-                // Folgendes dran". Der Glasstrich schließt sie ab und trennt
-                // sie von allem, was darunter kommt.
-                ArcaGlasStrich()
-                    .padding(.horizontal, 34)
-                    .padding(.bottom, 16)
+                // Folgendes dran". Darunter beginnt der Bestand.
+                //
+                // Hier steht der kräftigere Trenner, kein Haarstrich: seit
+                // die Überschrift „Zuletzt" weg ist, muss er allein sagen,
+                // dass ein neuer Abschnitt anfängt.
+                ArcaGlasTrenner()
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 14)
             }
 
             // ── Die Suche kommt nur auf Ruf der Lupe ──
@@ -1555,11 +1558,9 @@ struct HomeView: View {
                     // Bereich, der mal da ist und mal nicht, lässt die ganze
                     // Seite springen — und man sucht ihn beim nächsten Mal.
                     VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            ArcaSectionTitle(title: "Zuletzt", icon: "ArcaClock")
-                            Spacer()
-                        }
-                        .padding(.horizontal, 20)
+                        // Keine Überschrift mehr. „Zuletzt" sagte, was zwei
+                        // Karten mit Datum ohnehin zeigen — der Trenner über
+                        // dem Kalender markiert den Abschnitt jetzt allein.
                         if store.zuletztGeoeffneteItems.isEmpty {
                             ArcaPlatzhalter(text: "Was du zuletzt geöffnet hast, liegt hier bereit.",
                                             symbol: "clock")
@@ -3533,6 +3534,51 @@ struct ArcaGlasStrich: View {
         }
         .frame(height: 2)
         .allowsHitTesting(false)
+    }
+}
+
+/// Ein Trenner aus Glas — mehr als ein Haarstrich, weniger als eine Kante.
+///
+/// Er sieht aus wie eine Rille, die in die Fläche eingelassen ist: oben ein
+/// Schatten, unten ein Lichtgrat, dazwischen eine schmale Glasspur. Zu den
+/// Rändern läuft er aus, damit er nichts abschneidet, sondern nur trennt.
+///
+/// Wo er steht, braucht der Abschnitt darunter keine Überschrift mehr —
+/// „Zuletzt" stand einmal dort und sagte, was ohnehin jeder sieht.
+struct ArcaGlasTrenner: View {
+    var breite: CGFloat = 3
+
+    /// Zu beiden Seiten ausblenden — eine Kante, die abrupt endet, sieht aus
+    /// wie ein Fehler.
+    private var blende: LinearGradient {
+        LinearGradient(stops: [
+            .init(color: .clear, location: 0.0),
+            .init(color: .black, location: 0.18),
+            .init(color: .black, location: 0.82),
+            .init(color: .clear, location: 1.0)
+        ], startPoint: .leading, endPoint: .trailing)
+    }
+
+    var body: some View {
+        ZStack {
+            // Die Rille: dunkel oben, damit sie vertieft wirkt
+            Capsule()
+                .fill(
+                    LinearGradient(colors: [Color.primary.opacity(0.13),
+                                            Color.primary.opacity(0.04)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+            // Der Lichtgrat an der Unterkante — die Fläche fängt das Licht
+            Capsule()
+                .fill(LinearGradient(colors: [.clear, .white.opacity(0.85)],
+                                     startPoint: .top, endPoint: .bottom))
+                .padding(.top, breite * 0.45)
+                .blur(radius: 0.4)
+        }
+        .frame(height: breite)
+        .mask(blende)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
