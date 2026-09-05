@@ -35,19 +35,71 @@ struct NoteColor {
         })
     }
 
+    /// Auch der Akzent muss die Seite wechseln: ein tiefes Oliv verschwindet
+    /// auf dunklem Grund, ein helles Ocker blendet auf hellem.
+    private static func adaptiveAccent(
+        lightR: Double, lightG: Double, lightB: Double,
+        darkR:  Double, darkG:  Double, darkB:  Double
+    ) -> Color {
+        Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: darkR,  green: darkG,  blue: darkB,  alpha: 1)
+                : UIColor(red: lightR, green: lightG, blue: lightB, alpha: 1)
+        })
+    }
+
+    /// Die Palette: vier Farbfamilien statt sechs Bunttoene.
+    ///
+    /// Vorher standen hier Gelb, Rosa, Blau, Gruen, Lila und Pfirsich in den
+    /// System-Farben. Lila und Rosa waren Fremdkoerper — Arca ist warm und
+    /// papieren, ein Pink daneben wirkt wie ein Textmarker im Aktenschrank.
+    /// Und sechs konkurrierende Toene sind auf einer Seite mit neunzehn
+    /// Gruppen einfach unruhig.
+    ///
+    /// Jetzt: Ocker und Terrakotta (warm), Rauchblau und Tinte (kuehl),
+    /// Salbei und Oliv (gruen) — vier Familien, je zwei Abstufungen. Alle
+    /// gedaempft, alle aus derselben Welt wie ArcaWarm.
+    ///
+    /// GENAU SECHS PLAETZE. Die selbst gewaehlten Gruppenfarben liegen als
+    /// Zahl in `categoryColors`, und `for_` rechnet modulo — ein Platz mehr
+    /// oder weniger wuerde jede bestehende Zuordnung verschieben.
     static let palette: [NoteColor] = [
-        NoteColor(bg: adaptiveBg(lightR: 1.00, lightG: 0.94, lightB: 0.65,
-                                  darkR:  0.28, darkG:  0.24, darkB:  0.04), accent: .yellow, name: "Gelb"),
-        NoteColor(bg: adaptiveBg(lightR: 1.00, lightG: 0.82, lightB: 0.86,
-                                  darkR:  0.35, darkG:  0.10, darkB:  0.18), accent: .pink,   name: "Rosa"),
-        NoteColor(bg: adaptiveBg(lightR: 0.78, lightG: 0.89, lightB: 1.00,
-                                  darkR:  0.08, darkG:  0.18, darkB:  0.38), accent: .blue,   name: "Blau"),
-        NoteColor(bg: adaptiveBg(lightR: 0.83, lightG: 0.95, lightB: 0.81,
-                                  darkR:  0.10, darkG:  0.28, darkB:  0.10), accent: .green,  name: "Grün"),
-        NoteColor(bg: adaptiveBg(lightR: 0.89, lightG: 0.83, lightB: 1.00,
-                                  darkR:  0.22, darkG:  0.12, darkB:  0.38), accent: .purple, name: "Lila"),
-        NoteColor(bg: adaptiveBg(lightR: 1.00, lightG: 0.86, lightB: 0.73,
-                                  darkR:  0.35, darkG:  0.20, darkB:  0.05), accent: .orange, name: "Pfirsich"),
+        // 0 — Ocker: das alte Gelb, nur mit Erde drin
+        NoteColor(bg: adaptiveBg(lightR: 0.99, lightG: 0.93, lightB: 0.76,
+                                  darkR:  0.26, darkG:  0.21, darkB:  0.06),
+                  accent: adaptiveAccent(lightR: 0.72, lightG: 0.53, lightB: 0.14,
+                                          darkR:  0.90, darkG:  0.73, darkB:  0.35),
+                  name: "Ocker"),
+        // 1 — Terrakotta: Arcas eigene Farbe, wo vorher Rosa stand
+        NoteColor(bg: adaptiveBg(lightR: 0.99, lightG: 0.88, lightB: 0.82,
+                                  darkR:  0.31, darkG:  0.16, darkB:  0.11),
+                  accent: adaptiveAccent(lightR: 0.76, lightG: 0.40, lightB: 0.26,
+                                          darkR:  0.93, darkG:  0.60, darkB:  0.46),
+                  name: "Terrakotta"),
+        // 2 — Rauchblau: das alte Blau, entstaubt
+        NoteColor(bg: adaptiveBg(lightR: 0.85, lightG: 0.91, lightB: 0.95,
+                                  darkR:  0.09, darkG:  0.17, darkB:  0.25),
+                  accent: adaptiveAccent(lightR: 0.29, lightG: 0.47, lightB: 0.60,
+                                          darkR:  0.58, darkG:  0.76, darkB:  0.90),
+                  name: "Rauchblau"),
+        // 3 — Salbei: das alte Gruen, ohne Neon
+        NoteColor(bg: adaptiveBg(lightR: 0.87, lightG: 0.93, lightB: 0.85,
+                                  darkR:  0.11, darkG:  0.21, darkB:  0.13),
+                  accent: adaptiveAccent(lightR: 0.36, lightG: 0.55, lightB: 0.38,
+                                          darkR:  0.62, darkG:  0.83, darkB:  0.64),
+                  name: "Salbei"),
+        // 4 — Tinte: dunkles Blaugrau, wo vorher Lila stand
+        NoteColor(bg: adaptiveBg(lightR: 0.88, lightG: 0.89, lightB: 0.93,
+                                  darkR:  0.13, darkG:  0.15, darkB:  0.21),
+                  accent: adaptiveAccent(lightR: 0.28, lightG: 0.32, lightB: 0.44,
+                                          darkR:  0.68, darkG:  0.73, darkB:  0.86),
+                  name: "Tinte"),
+        // 5 — Oliv: die dunklere Schwester von Salbei, wo Pfirsich war
+        NoteColor(bg: adaptiveBg(lightR: 0.93, lightG: 0.93, lightB: 0.80,
+                                  darkR:  0.19, darkG:  0.20, darkB:  0.08),
+                  accent: adaptiveAccent(lightR: 0.48, lightG: 0.49, lightB: 0.24,
+                                          darkR:  0.79, darkG:  0.81, darkB:  0.50),
+                  name: "Oliv"),
     ]
 
     static func for_(_ tag: Int) -> NoteColor {
