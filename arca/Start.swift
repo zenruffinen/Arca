@@ -110,6 +110,10 @@ struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @Binding var selectedSection: ArcaSection
     @State private var profilAuswahl: PhotosPickerItem? = nil
+    /// Woher soll das Profilbild kommen — Kamera oder Mediathek?
+    @State private var zeigeBildQuelle = false
+    @State private var zeigeKamera = false
+    @State private var zeigeMediathek = false
     @State private var showAlleFavoriten = false
     /// Zeigt die Dokumentliste gerade nur das Angepinnte?
     ///
@@ -1386,7 +1390,13 @@ struct HomeView: View {
 
                 // Persönlicher Kopf: Profilbild (antippen zum Wählen).
                 // QR-Scan liegt jetzt im „Mehr"-Menü unten.
-                PhotosPicker(selection: $profilAuswahl, matching: .images, photoLibrary: .shared()) {
+                // Antippen fragt erst, WOHER: die Mediathek allein reichte
+                // nicht — wer sich gerade ein Bild machen will, hat es noch
+                // nicht in der Mediathek. PhotosPicker kann keine Kamera,
+                // deshalb ein eigener Knopf mit Auswahl davor.
+                Button {
+                    zeigeBildQuelle = true
+                } label: {
                     // Foto klein & mittig im Glas-Puck (wie der Notfall-Knopf) —
                     // ringsum bleibt ein sichtbarer Glasrand.
                     Group {
@@ -1416,6 +1426,30 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Profilbild wählen")
+                .confirmationDialog("Profilbild", isPresented: $zeigeBildQuelle,
+                                    titleVisibility: .visible) {
+                    if KameraAufnahme.verfuegbar {
+                        Button("Foto aufnehmen") { zeigeKamera = true }
+                    }
+                    Button("Aus der Mediathek") { zeigeMediathek = true }
+                    if store.profilBildData != nil {
+                        Button("Bild entfernen", role: .destructive) {
+                            store.profilBildData = nil
+                        }
+                    }
+                    Button("Abbrechen", role: .cancel) { }
+                }
+                .photosPicker(isPresented: $zeigeMediathek, selection: $profilAuswahl,
+                              matching: .images, photoLibrary: .shared())
+                .fullScreenCover(isPresented: $zeigeKamera) {
+                    KameraAufnahme { bild in
+                        store.profilBildData = bild.arcaKleinesQuadrat(240)
+                        zeigeKamera = false
+                    } onAbbruch: {
+                        zeigeKamera = false
+                    }
+                    .ignoresSafeArea()
+                }
                 .onChange(of: profilAuswahl) { _, neu in
                     guard let neu else { return }
                     Task {
@@ -1423,6 +1457,9 @@ struct HomeView: View {
                            let ui = UIImage(data: data) {
                             store.profilBildData = ui.arcaKleinesQuadrat(240)
                         }
+                        // Zuruecksetzen, sonst waehlt man dasselbe Bild nie
+                        // ein zweites Mal aus.
+                        profilAuswahl = nil
                     }
                 }
 

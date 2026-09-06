@@ -14,6 +14,49 @@ import Vision
 
 // MARK: - Scanner
 
+/// Eine einfache Kamera-Aufnahme.
+///
+/// Der Dokumentenscanner (VisionKit) ist etwas anderes: der sucht Kanten,
+/// entzerrt und macht ein PDF. Fuer ein Profilbild will man schlicht
+/// abdruecken. Deshalb hier der schmale Weg ueber UIImagePickerController.
+struct KameraAufnahme: UIViewControllerRepresentable {
+    let onFoto: (UIImage) -> Void
+    let onAbbruch: () -> Void
+
+    static var verfuegbar: Bool {
+        UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.cameraDevice = .front
+        picker.allowsEditing = true
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ vc: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let eltern: KameraAufnahme
+        init(_ eltern: KameraAufnahme) { self.eltern = eltern }
+
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            // Zugeschnitten, falls der Nutzer beschnitten hat — sonst das Original.
+            let bild = (info[.editedImage] as? UIImage) ?? (info[.originalImage] as? UIImage)
+            if let bild { eltern.onFoto(bild) } else { eltern.onAbbruch() }
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            eltern.onAbbruch()
+        }
+    }
+}
+
 struct DocumentScannerView: UIViewControllerRepresentable {
     /// Liefert das fertige PDF und den erkannten Text (OCR, on-device)
     let onScan: (URL, String) -> Void

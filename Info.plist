@@ -136,7 +136,7 @@
 	<key>NSCalendarsUsageDescription</key>
 	<string>Arca zeigt deine heutigen Termine auf dem Startbildschirm — nur lesend, nichts verlässt dein Gerät.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Arca benötigt Kamerazugriff zum Scannen von Dokumenten</string>
+	<string>Arca benötigt Kamerazugriff, um Dokumente zu scannen und dein Profilbild aufzunehmen.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Arca verwendet Face ID um deine Daten zu schützen</string>
 	<key>NSMicrophoneUsageDescription</key>
