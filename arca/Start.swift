@@ -1327,6 +1327,20 @@ struct HomeView: View {
         }
     }
 
+    /// „Guten Morgen, Hans" — nach Tageszeit, oder „Dein Space", wenn
+    /// kein Name da ist. Dieselbe Einteilung wie die alte Hero-Karte.
+    private var begruessung: String {
+        let n = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !n.isEmpty else { return "Dein Space" }
+        let gruss: String
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<11:  gruss = "Guten Morgen"
+        case 11..<18: gruss = "Guten Tag"
+        default:      gruss = "Guten Abend"
+        }
+        return "\(gruss), \(n)"
+    }
+
     private var totalEntryCount: Int {
         store.vaultItems.count + store.documents.count + store.notes.count + store.lists.count
     }
@@ -1365,9 +1379,15 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Arca")
                         .font(.system(size: 22, weight: .bold, design: .rounded))
-                    Text(totalEntryCount == 1 ? "Dein Space · 1 Eintrag" : "Dein Space · \(totalEntryCount) Einträge")
+                    // Der Gruss wohnt hier, wo er keinen Platz kostet. Er
+                    // war mit der Hero-Karte verschwunden — die App fragte
+                    // beim ersten Start nach dem Namen und begruesste dann
+                    // nie. Ohne Namen bleibt es beim „Dein Space".
+                    Text("\(begruessung) · \(totalEntryCount == 1 ? "1 Eintrag" : "\(totalEntryCount) Einträge")")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
 
                 Spacer()
