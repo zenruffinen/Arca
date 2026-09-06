@@ -749,7 +749,41 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 6)
 
-                    // ── 1) Persönlich ──
+                    // ── 1) Daten & Sicherheit ──
+                    glasGruppe("Daten & Sicherheit") {
+                        HStack(spacing: 12) {
+                            zeilenIcon("icloud.fill", .blue)
+                            Text("iCloud").font(.system(size: 15, weight: .medium))
+                            Spacer()
+                            HStack(spacing: 4) {
+                                if store.iCloudStatus == .synced {
+                                    Image(systemName: "checkmark.circle.fill").font(.system(size: 13))
+                                }
+                                Text(store.iCloudStatus.rawValue)
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(store.iCloudStatus == .synced ? .green :
+                                             store.iCloudStatus == .downloading ? .orange : .secondary)
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
+
+                        zeilenTrenner
+                        aktionsZeile("square.and.arrow.up.fill", .blue, "Daten sichern") {
+                            exportPassword = ""; exportPasswordConfirm = ""
+                            exportPasswordError = ""; showExportPassword = false
+                            showExportPasswordSheet = true
+                        }
+                        zeilenTrenner
+                        aktionsZeile("square.and.arrow.down.fill", .green, "Daten wiederherstellen") {
+                            showImportConfirm = true
+                        }
+
+                        hinweisKarte(symbol: "checkmark.shield.fill", farbe: .green,
+                                     titel: "Deine Daten. Deine Sicherheit.",
+                                     text: "Backups sind verschlüsselt — in iCloud Drive, per Mail oder lokal gesichert, jederzeit wiederherstellbar.")
+                    }
+
+                    // ── 2) Persönlich ──
                     glasGruppe("Persönlich") {
                         HStack(spacing: 12) {
                             zeilenIcon("person.fill", ArcaWarm.terrakotta)
@@ -790,54 +824,19 @@ struct SettingsView: View {
                         .padding(.horizontal, 14).padding(.vertical, 12)
                         }
 
-                        if UIApplication.shared.supportsAlternateIcons {
-                            zeilenTrenner
-                            HStack(spacing: 14) {
-                                zeilenIcon("app.gift", ArcaWarm.terrakotta)
-                                Text("App-Symbol").font(.system(size: 15, weight: .medium))
-                                Spacer()
-                                iconWahl(name: nil, bild: "ArcaIcon", titel: "Arca")
-                                iconWahl(name: "ArcaGold", bild: "ArcaGoldVorschau", titel: "Gold")
-                            }
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                        }
                     }
 
-                    // ── 2) Daten & Sicherheit ──
-                    glasGruppe("Daten & Sicherheit") {
-                        HStack(spacing: 12) {
-                            zeilenIcon("icloud.fill", .blue)
-                            Text("iCloud").font(.system(size: 15, weight: .medium))
-                            Spacer()
-                            HStack(spacing: 4) {
-                                if store.iCloudStatus == .synced {
-                                    Image(systemName: "checkmark.circle.fill").font(.system(size: 13))
-                                }
-                                Text(store.iCloudStatus.rawValue)
-                            }
-                            .font(.subheadline)
-                            .foregroundStyle(store.iCloudStatus == .synced ? .green :
-                                             store.iCloudStatus == .downloading ? .orange : .secondary)
-                        }
-                        .padding(.horizontal, 14).padding(.vertical, 12)
-
-                        zeilenTrenner
-                        aktionsZeile("square.and.arrow.up.fill", .blue, "Daten sichern") {
-                            exportPassword = ""; exportPasswordConfirm = ""
-                            exportPasswordError = ""; showExportPassword = false
-                            showExportPasswordSheet = true
-                        }
-                        zeilenTrenner
-                        aktionsZeile("square.and.arrow.down.fill", .green, "Daten wiederherstellen") {
-                            showImportConfirm = true
-                        }
-
-                        hinweisKarte(symbol: "checkmark.shield.fill", farbe: .green,
-                                     titel: "Deine Daten. Deine Sicherheit.",
-                                     text: "Backups sind verschlüsselt — in iCloud Drive, per Mail oder lokal gesichert, jederzeit wiederherstellbar.")
+                    // ── 3) Wusstest du? ──
+                    glasGruppe("Wusstest du?") {
+                        DidYouKnowCard().padding(.horizontal, 12).padding(.vertical, 12)
                     }
 
-                    // ── 3) Über Arca ──
+                    // ── 4) Arca unterstützen ──
+                    glasGruppe("Arca unterstützen") {
+                        TrinkgeldKarte().padding(.horizontal, 12).padding(.vertical, 10)
+                    }
+
+                    // ── 5) Über Arca ──
                     glasGruppe("Über Arca") {
                         Button { showReleaseNotes = true } label: {
                             HStack(spacing: 12) {
@@ -870,14 +869,23 @@ struct SettingsView: View {
                         FeedbackLinkRow(url: feedbackURL)
                     }
 
-                    // ── 4) Arca unterstützen ──
-                    glasGruppe("Arca unterstützen") {
-                        TrinkgeldKarte().padding(.horizontal, 12).padding(.vertical, 10)
-                    }
-
-                    // ── 5) Wusstest du? ──
-                    glasGruppe("Wusstest du?") {
-                        DidYouKnowCard().padding(.horizontal, 12).padding(.vertical, 12)
+                    // ── 6) App-Symbol ──
+                    //
+                    // Ein Einmal-Ding: einmal gewaehlt, nie wieder angefasst.
+                    // Stand frueher in „Persoenlich" ganz oben — jetzt ganz
+                    // unten, wo es niemanden auf dem Weg zum Backup aufhaelt.
+                    if UIApplication.shared.supportsAlternateIcons {
+                        glasGruppe("App-Symbol") {
+                                zeilenTrenner
+                                HStack(spacing: 14) {
+                                    zeilenIcon("app.gift", ArcaWarm.terrakotta)
+                                    Text("App-Symbol").font(.system(size: 15, weight: .medium))
+                                    Spacer()
+                                    iconWahl(name: nil, bild: "ArcaIcon", titel: "Arca")
+                                    iconWahl(name: "ArcaGold", bild: "ArcaGoldVorschau", titel: "Gold")
+                                }
+                                .padding(.horizontal, 14).padding(.vertical, 10)
+                        }
                     }
 
                     Label("Arca ist kostenlos, werbefrei und sammelt keine Daten über dich.",
