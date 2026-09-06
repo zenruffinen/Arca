@@ -284,6 +284,33 @@ struct DidYouKnowCard: View {
     }
 }
 
+/// Die Icon-Plakette der Einstellungszeilen.
+///
+/// SettingsView hatte sie als private Methode — RateAppRow und
+/// FeedbackLinkRow sind eigene Typen und kamen nicht heran. Deshalb trugen
+/// sie nackte Symbole und sahen zwischen ihren Nachbarn fremd aus.
+struct ArcaEinstellungsIcon: View {
+    let symbol: String
+    let farbe: Color
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(farbe)
+            .frame(width: 30, height: 30)
+            .background(farbe.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+extension View {
+    /// Der gemeinsame Zuschnitt einer Einstellungszeile: 14 aussen, 12 hoch.
+    /// „Arca bewerten" und „Feedback senden" standen auf 4 und wirkten
+    /// deshalb zwischen ihren Nachbarn zusammengedrueckt.
+    func arcaEinstellungsZeile() -> some View {
+        padding(.horizontal, 14).padding(.vertical, 12)
+    }
+}
+
 struct RateAppRow: View {
     /// Numerische App-Store-ID von Arca. Der Knopf öffnet direkt die Bewertungsseite.
     /// Solange leer, nutzt Arca die System-Bewertungsabfrage von Apple als Fallback.
@@ -300,15 +327,25 @@ struct RateAppRow: View {
                 requestReview()
             }
         } label: {
-            HStack {
-                Label("Arca bewerten", systemImage: "star.fill")
-                Spacer()
+            HStack(spacing: 12) {
+                ArcaEinstellungsIcon(symbol: "star.fill", farbe: NoteColor.for_(0).accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Arca bewerten")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.primary)
+                    Text("Eine Bewertung im App Store hilft sehr")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .arcaEinstellungsZeile()
+            .contentShape(Rectangle())
         }
-        .foregroundStyle(.primary)
+        .buttonStyle(.plain)
     }
 }
 
@@ -332,15 +369,25 @@ struct FeedbackLinkRow: View {
                 showCopiedAlert = true
             }
         } label: {
-            HStack {
-                Label("Feedback senden", systemImage: "envelope.fill")
-                Spacer()
+            HStack(spacing: 12) {
+                ArcaEinstellungsIcon(symbol: "envelope.fill", farbe: NoteColor.for_(2).accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Feedback senden")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.primary)
+                    Text(email)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .arcaEinstellungsZeile()
+            .contentShape(Rectangle())
         }
-        .foregroundStyle(.primary)
+        .buttonStyle(.plain)
         .alert("E-Mail-Adresse kopiert", isPresented: $showCopiedAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -814,9 +861,9 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 14).padding(.vertical, 12)
                         zeilenTrenner
-                        RateAppRow().padding(.horizontal, 14).padding(.vertical, 4)
+                        RateAppRow()
                         zeilenTrenner
-                        FeedbackLinkRow(url: feedbackURL).padding(.horizontal, 14).padding(.vertical, 4)
+                        FeedbackLinkRow(url: feedbackURL)
                     }
 
                     // ── 4) Arca unterstützen ──
@@ -1138,6 +1185,13 @@ struct SettingsView: View {
                     directoryURL: exportPickerStartFolder
                 ) { saved in
                     store.rememberBackupFolder(containing: saved)
+                    // Ein echtes Backup: Datum fuer die Erinnerung stempeln.
+                    //
+                    // Das stand nur im Teilen-Blatt-Zweig. Seit der Export
+                    // ueber den echten Dateien-Browser laeuft, kam die App
+                    // hier vorbei — und der Punkt auf dem Start ging nach
+                    // einer Sicherung nie mehr weg.
+                    store.letztesBackup = Date()
                     exportPickerItem = nil
                     let name = saved.lastPathComponent
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
