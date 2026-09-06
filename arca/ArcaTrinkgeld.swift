@@ -19,8 +19,28 @@ final class TrinkgeldGlas: ObservableObject {
     @Published var produkte: [Product] = []
     @Published var dankeSichtbar = false
     @Published var laedt = false
+    /// Einmal geladen — danach heisst „leer" wirklich „nicht erreichbar",
+    /// nicht „noch nicht geschaut".
+    @Published var geladen = false
+    /// Etwas ging schief oder wartet (Ask to Buy) — eine Zeile fuer den
+    /// Nutzer statt Schweigen.
+    @Published var hinweis: String? = nil
 
     private let kennungen = ["trinkgeld.espresso", "trinkgeld.gipfeli", "trinkgeld.gross"]
+    private var lauscher: Task<Void, Never>? = nil
+
+    private init() {
+        // Ein Kauf, den die App nicht mehr abschliessen konnte (Absturz,
+        // Anruf, Ask-to-Buy spaeter genehmigt), kommt hier an. Ohne diesen
+        // Lauscher bliebe er offen — bezahlt, aber nie bedankt.
+        lauscher = Task { [weak self] in
+            for await pruefung in Transaction.updates {
+                guard let self, case .verified(let t) = pruefung else { continue }
+                await t.finish()
+                self.dankeSichtbar = true
+            }
+        }
+    }
 
     /// Symbol je Stufe — der Kafi-Dreiklang.
     func symbol(fuer produkt: Product) -> String {
@@ -37,15 +57,38 @@ final class TrinkgeldGlas: ObservableObject {
         produkte = ((try? await Product.products(for: kennungen)) ?? [])
             .sorted { $0.price < $1.price }
         laedt = false
+        geladen = true
+        // Beim Start noch offene Kaeufe abschliessen
+        for await pruefung in Transaction.unfinished {
+            if case .verified(let t) = pruefung { await t.finish() }
+        }
     }
 
     func kaufe(_ produkt: Product) async {
-        guard let ergebnis = try? await produkt.purchase() else { return }
-        if case .success(let pruefung) = ergebnis,
-           case .verified(let transaktion) = pruefung {
+        let ergebnis: Product.PurchaseResult
+        do {
+            ergebnis = try await produkt.purchase()
+        } catch {
+            hinweis = "Das hat gerade nicht geklappt. Versuch es später nochmal."
+            return
+        }
+        switch ergebnis {
+        case .success(let pruefung):
+            guard case .verified(let transaktion) = pruefung else {
+                hinweis = "Der Kauf liess sich nicht bestätigen."
+                return
+            }
             await transaktion.finish()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dankeSichtbar = true
+        case .pending:
+            // Ask to Buy: die Freigabe kommt spaeter — dann meldet sich
+            // der Lauscher oben.
+            hinweis = "Der Kauf wartet auf Freigabe. Sobald sie da ist, bedankt sich Arca."
+        case .userCancelled:
+            break
+        @unknown default:
+            break
         }
     }
 }
@@ -60,9 +103,18 @@ struct TrinkgeldKarte: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
-            if glas.produkte.isEmpty {
-                // Ohne App-Store-Produkte (oder vor der 3.0): leiser Hinweis
-                Label("Das Trinkgeld-Glas öffnet mit Version 3.0 im App Store.",
+            if glas.laedt || !glas.geladen {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Trinkgeld-Glas wird geholt …")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+            } else if glas.produkte.isEmpty {
+                // Erst nach dem Laden: dann heisst leer „nicht erreichbar" —
+                // kein Netz, oder die Produkte fehlen noch in App Store
+                // Connect. „Oeffnet mit 3.0" stand hier vorher; DAS ist 3.0.
+                Label("Das Trinkgeld-Glas ist gerade nicht erreichbar.",
                       systemImage: "cup.and.saucer")
                     .font(.system(size: 12))
                     .foregroundStyle(.tertiary)
@@ -97,6 +149,14 @@ struct TrinkgeldKarte: View {
         }
         .padding(.vertical, 4)
         .task { await glas.lade() }
+        .alert("Trinkgeld", isPresented: Binding(
+            get: { glas.hinweis != nil },
+            set: { if !$0 { glas.hinweis = nil } }
+        )) {
+            Button("OK") { glas.hinweis = nil }
+        } message: {
+            Text(glas.hinweis ?? "")
+        }
         .alert("Merci vielmal! ❤️", isPresented: $glas.dankeSichtbar) {
             Button("Gern geschehen") {}
         } message: {
