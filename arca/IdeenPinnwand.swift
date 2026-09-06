@@ -1657,6 +1657,29 @@ enum WandZugabe: String, CaseIterable, Identifiable {
 // hängt: Champagner-Glas, warmer Lichtsaum, Karten, die einzeln
 // schweben. Die Wand dahinter bleibt sichtbar, nur weich.
 
+/// Warmes Champagner-Glas: nicht weiss, nicht grau — eine Spur beige.
+/// Der Hintergrund aller schwebenden Panels; entstanden fuer „An diese
+/// Wand", jetzt auch unter dem Zusammenlegen. Ein Rezept, zwei Fenster.
+struct ArcaChampagnerGlas: View {
+    let breite: CGFloat
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            LinearGradient(colors: [Color(red: 0.99, green: 0.94, blue: 0.85).opacity(0.34),
+                                    Color(red: 0.94, green: 0.86, blue: 0.74).opacity(0.24)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            // inneres Leuchten aus der Mitte
+            RadialGradient(colors: [.white.opacity(0.22), .clear],
+                           center: .init(x: 0.5, y: 0.32),
+                           startRadius: 2, endRadius: breite * 0.85)
+            // feine Spiegelung oben links
+            LinearGradient(colors: [.white.opacity(0.28), .clear, .clear],
+                           startPoint: .topLeading, endPoint: .center)
+        }
+    }
+}
+
 struct AnDieseWandPanel: View {
     let wandName: String
     let breite: CGFloat
@@ -1752,22 +1775,7 @@ struct AnDieseWandPanel: View {
                     radius: 6, x: 0, y: 3)
     }
 
-    /// Warmes Champagner-Glas: nicht weiß, nicht grau — eine Spur beige.
-    private var glas: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            LinearGradient(colors: [Color(red: 0.99, green: 0.94, blue: 0.85).opacity(0.34),
-                                    Color(red: 0.94, green: 0.86, blue: 0.74).opacity(0.24)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-            // inneres Leuchten aus der Mitte
-            RadialGradient(colors: [.white.opacity(0.22), .clear],
-                           center: .init(x: 0.5, y: 0.32),
-                           startRadius: 2, endRadius: breite * 0.85)
-            // feine Spiegelung oben links
-            LinearGradient(colors: [.white.opacity(0.28), .clear, .clear],
-                           startPoint: .topLeading, endPoint: .center)
-        }
-    }
+    private var glas: some View { ArcaChampagnerGlas(breite: breite) }
 
     private func karte(_ zugabe: WandZugabe) -> some View {
         Button {

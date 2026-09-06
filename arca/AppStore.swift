@@ -2550,6 +2550,64 @@ final class AppStore: ObservableObject {
     }
 
     /// Alter Name, neue Mechanik — der Stern in der Oberfläche pinnt an.
+    /// Legt mehrere Notizen zu einer zusammen.
+    ///
+    /// Beim Diktieren waechst ein Gedanke ueber zwei Aufnahmen: die erste
+    /// ist danach ein Bruchstueck. Statt sie zu loeschen und neu zu
+    /// sprechen, wandern die Texte zusammen.
+    ///
+    /// Zusammengelegt wird in die AELTESTE — sie ist der Keim, und ihre
+    /// Identitaet bleibt erhalten. Das ist kein Detail: haengt an ihr ein
+    /// Anschlag (angepinnt), ueberlebt der. Eine neue Notiz haette ihn
+    /// verwaist zurueckgelassen.
+    ///
+    /// Fotos und Dokumentverknuepfungen ALLER Beteiligten wandern mit —
+    /// ein Zusammenlegen, das Anhaenge verliert, waere schlimmer als keins.
+    ///
+    /// Gibt die ID der ueberlebenden Notiz zurueck.
+    @discardableResult
+    func legeNotizenZusammen(_ ids: [UUID]) -> UUID? {
+        let beteiligte = notes.filter { ids.contains($0.id) }
+            .sorted { $0.dateCreated < $1.dateCreated }
+        guard beteiligte.count > 1, let keim = beteiligte.first,
+              let keimIdx = notes.firstIndex(where: { $0.id == keim.id })
+        else { return nil }
+
+        // Texte in zeitlicher Reihenfolge. Der Titel einer angehaengten
+        // Notiz geht nicht verloren — er wird ihre Ueberschrift im Text.
+        var teile: [String] = []
+        for (i, n) in beteiligte.enumerated() {
+            let titel = n.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text  = n.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if i == 0 {
+                if !text.isEmpty { teile.append(text) }
+            } else {
+                if !titel.isEmpty, titel != keim.title { teile.append(titel) }
+                if !text.isEmpty { teile.append(text) }
+            }
+        }
+
+        var fotos = keim.fotos
+        var dokumente = keim.verknuepfteDokumente
+        for n in beteiligte.dropFirst() {
+            for f in n.fotos where !fotos.contains(f) { fotos.append(f) }
+            for d in n.verknuepfteDokumente where !dokumente.contains(d) { dokumente.append(d) }
+        }
+
+        notes[keimIdx].text = teile.joined(separator: "\n\n")
+        notes[keimIdx].fotos = fotos
+        notes[keimIdx].verknuepfteDokumente = dokumente
+        notes[keimIdx].geaendertAm = Date()
+        // Eine zusammengelegte Notiz ist keine fluechtige Blitzidee mehr.
+        notes[keimIdx].isQuickIdea = false
+
+        let wegfallend = Set(beteiligte.dropFirst().map(\.id))
+        for id in wegfallend { abpinnen(kind: .note, refID: id) }
+        notes.removeAll { wegfallend.contains($0.id) }
+
+        return keim.id
+    }
+
     func toggleFavorite(kind: FavoriteKind, id: UUID) {
         if istAngepinnt(kind: kind, refID: id) {
             abpinnen(kind: kind, refID: id)

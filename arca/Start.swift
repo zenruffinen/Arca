@@ -199,6 +199,11 @@ struct HomeView: View {
     @State private var vaultZumLoeschen: FavoriteItem? = nil
     /// Dokumente werden mitsamt Datei geloescht — das fragt nach.
     @State private var dokZumLoeschen: FavoriteItem? = nil
+    /// Zusammenlegen ueber das Menue: der Keim, dann kreuzt man an.
+    @State private var zusammenlegenKeim: NoteEntry? = nil
+    /// Zusammenlegen per Ziehen: (Quelle, Ziel) — wartet auf Bestaetigung,
+    /// weil ein Ziehen leicht danebengeht und das Loeschen endgueltig ist.
+    @State private var zusammenlegenPaar: (quelle: NoteEntry, ziel: NoteEntry)? = nil
     @State private var punktFuerListe: UUID? = nil
     @State private var neuerPunktText = ""
 
@@ -1125,6 +1130,20 @@ struct HomeView: View {
         }
         .contentShape(Rectangle())
         .wennDraggable(item.kind != .vault, item.id.uuidString)
+        // Eine Notiz auf eine andere ziehen legt sie zusammen — nach
+        // Rueckfrage, weil ein Ziehen leicht danebengeht und die Quelle
+        // danach weg ist.
+        .dropDestination(for: String.self) { eingeworfen, _ in
+            guard item.kind == .note,
+                  let roh = eingeworfen.first, let quelleID = UUID(uuidString: roh),
+                  quelleID != item.id,
+                  let quelle = store.notes.first(where: { $0.id == quelleID }),
+                  let ziel = store.notes.first(where: { $0.id == item.id })
+            else { return false }
+            zusammenlegenPaar = (quelle, ziel)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            return true
+        }
         .contextMenu {
             ArcaMenue.favorit(ist: istFav) {
                 store.toggleFavorite(kind: item.kind, id: item.id)
@@ -1169,6 +1188,13 @@ struct HomeView: View {
                 } label: { Label("Punkt hinzufügen", systemImage: "plus.circle") }
             }
             if item.kind == .note {
+                // Beim Diktieren waechst ein Gedanke oft ueber zwei
+                // Aufnahmen — hier wachsen sie wieder zusammen.
+                if store.notes.count > 1, let keim = store.notes.first(where: { $0.id == item.id }) {
+                    Button {
+                        zusammenlegenKeim = keim
+                    } label: { Label("Zusammenlegen mit …", systemImage: "arrow.triangle.merge") }
+                }
                 Menu {
                     Button { wandleNotizInAufgaben(item) } label: { Label("Aufgabenliste", systemImage: "checkmark.square") }
                     Button { wandleNotizInPasswort(item) } label: { Label("Passwort-Eintrag", systemImage: "key.fill") }
@@ -1287,6 +1313,17 @@ struct HomeView: View {
     private var angepinnteDokumente: [DocumentEntry] {
         store.documents.filter {
             $0.category != "Top Secret" && store.istAngepinnt(kind: .document, refID: $0.id)
+        }
+    }
+
+    /// Tippen irgendwo in den Raum schliesst die Tastatur. Steht nichts im
+    /// Suchfeld, geht die Suche gleich ganz zu — wer sich entschieden hat,
+    /// nichts einzugeben, will nicht erst den Knopf im Balken suchen.
+    private func sucheLoslassen() {
+        guard isSearchFocused else { return }
+        isSearchFocused = false
+        if searchText.isEmpty {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { sucheOffen = false }
         }
     }
 
@@ -1693,6 +1730,9 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, alignment: deskSichtbar ? .leading : .center)
                     .padding(.leading, deskSichtbar ? 16 : 0)
                     .padding(.bottom, 10)
+                    // simultaneous: die Zeilen und Kacheln behalten ihre
+                    // eigenen Tipps, wir hoeren nur mit.
+                    .simultaneousGesture(TapGesture().onEnded { sucheLoslassen() })
 
                     // Ab hier scrollt es — und nur hier.
                     ScrollView {
@@ -1949,6 +1989,7 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(TapGesture().onEnded { sucheLoslassen() })
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
                     ScrollInfo(x: geo.contentOffset.y,
                                weite: max(1, geo.contentSize.height - geo.containerSize.height),
@@ -2123,6 +2164,13 @@ struct HomeView: View {
         } message: {
             Text("Das Dokument wird mitsamt der Datei entfernt. Das lässt sich nicht rückgängig machen.")
         }
+        // Zusammenlegen (Menue-Fenster + Zieh-Rueckfrage) als eigener
+        // Modifier: die Kette des Starts ist so lang, dass der Typpruefer
+        // bei drei weiteren Gliedern aufgab. Ein Modifier wird fuer sich
+        // geprueft.
+        .modifier(ZusammenlegenAnhang(keim: $zusammenlegenKeim,
+                                      paar: $zusammenlegenPaar,
+                                      store: store))
         // Neuen Punkt in eine Aufgabenliste legen
         .alert("Neuer Punkt", isPresented: Binding(
             get: { punktFuerListe != nil },
@@ -2673,6 +2721,64 @@ enum HomeStreamFilter: String, CaseIterable {
         case .notizen:     return "ArcaIdee"
         case .tasks:       return "ArcaChecklist"
         case .passwoerter: return "ArcaKey"
+        }
+    }
+}
+
+/// Zusammenlegen von Notizen auf dem Start: das schwebende Fenster (ueber
+/// das Menue) und die Rueckfrage (beim Ziehen einer Notiz auf eine andere).
+///
+/// Eigener Modifier statt drei weiterer Glieder in HomeViews Kette — die
+/// war so lang, dass der Typpruefer aufgab. So wird er fuer sich geprueft.
+struct ZusammenlegenAnhang: ViewModifier {
+    @Binding var keim: NoteEntry?
+    @Binding var paar: (quelle: NoteEntry, ziel: NoteEntry)?
+    let store: AppStore
+
+    private var rueckfrage: String {
+        guard let paar else { return "" }
+        let q = paar.quelle.title.isEmpty ? "Ohne Titel" : paar.quelle.title
+        let z = paar.ziel.title.isEmpty ? "Ohne Titel" : paar.ziel.title
+        return "„\(q)“ und „\(z)“ werden eine Notiz — die ältere bleibt, die Texte hängen aneinander, Fotos wandern mit."
+    }
+
+    private func lege(_ ids: [UUID]) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            store.legeNotizenZusammen(ids)
+        }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .overlay { fenster }
+            .animation(.spring(response: 0.3, dampingFraction: 0.86), value: keim?.id)
+            .alert("Zusammenlegen?", isPresented: paarOffen) {
+                Button("Zusammenlegen") {
+                    if let paar { lege([paar.quelle.id, paar.ziel.id]) }
+                    paar = nil
+                }
+                Button("Abbrechen", role: .cancel) { paar = nil }
+            } message: {
+                Text(rueckfrage)
+            }
+    }
+
+    private var paarOffen: Binding<Bool> {
+        Binding(get: { paar != nil }, set: { if !$0 { paar = nil } })
+    }
+
+    @ViewBuilder
+    private var fenster: some View {
+        if let keim {
+            NotizenZusammenlegenEinblendung(keim: keim, fertig: { weitere in
+                self.keim = nil
+                guard !weitere.isEmpty else { return }
+                lege([keim.id] + weitere)
+            }, abbrechen: {
+                self.keim = nil
+            })
+            .environmentObject(store)
         }
     }
 }

@@ -172,6 +172,8 @@ struct NotesView: View {
     @State private var searchText = ""
     @AppStorage("notesSortOption") private var sortOption: String = "newest"
     @AppStorage("notesFilterColor") private var filterColor: Int = -1
+    /// Welche Notiz ist der Keim beim Zusammenlegen?
+    @State private var zusammenlegenKeim: NoteEntry? = nil
     @State private var renamingNote: NoteEntry? = nil
     @State private var renameNoteText = ""
     @State private var shareItem: ShareURLItem? = nil
@@ -244,6 +246,22 @@ struct NotesView: View {
                 .presentationCornerRadius(28)
             }
             .sheet(item: $shareItem) { item in ShareSheet(activityItems: [item.url]) }
+            .overlay {
+                if let keim = zusammenlegenKeim {
+                    NotizenZusammenlegenEinblendung(keim: keim) { weitere in
+                        zusammenlegenKeim = nil
+                        guard !weitere.isEmpty else { return }
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            store.legeNotizenZusammen([keim.id] + weitere)
+                        }
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } abbrechen: {
+                        zusammenlegenKeim = nil
+                    }
+                    .environmentObject(store)
+                }
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.86), value: zusammenlegenKeim?.id)
         }
     }
 
@@ -310,6 +328,15 @@ struct NotesView: View {
                                     store.notes[i].colorTag = idx
                                 }
                             }
+                            // Beim Diktieren waechst ein Gedanke oft ueber
+                            // zwei Aufnahmen — hier wachsen sie wieder zusammen.
+                            if store.notes.count > 1 {
+                                Button {
+                                    zusammenlegenKeim = note
+                                } label: {
+                                    Label("Zusammenlegen mit …", systemImage: "arrow.triangle.merge")
+                                }
+                            }
                             Button {
                                 if let url = store.exportNote(note) {
                                     shareItem = ShareURLItem(url: url)
@@ -369,6 +396,327 @@ struct NotesView: View {
         }
     }
 
+}
+
+// MARK: - Notizen zusammenlegen — schwebendes Panel
+//
+// Kein Blatt vom Bildschirmrand: das verdeckte die Leiste und den unteren
+// Rand. Ein Fenster, das ueber der Seite haengt — Champagner-Glas wie
+// „An diese Wand", die Seite dahinter bleibt sichtbar, nur weich.
+//
+// Bewusst kein Bearbeiten-Modus in der Liste — der kaempft dort mit dem
+// Antippen zum Oeffnen. Hier sagt die Notiz, die der Keim ist, es selbst,
+// und man kreuzt die Ergaenzungen an.
+
+struct NotizenZusammenlegenPanel: View {
+    @EnvironmentObject var store: AppStore
+    let keim: NoteEntry
+    let breite: CGFloat
+    /// Obergrenze — das Fenster nimmt sich so viel, wie sein Inhalt braucht,
+    /// und nicht mehr. Vier Kandidaten ergeben ein kleines Fenster, vierzig
+    /// ein grosses mit Scrollen.
+    let maxHoehe: CGFloat
+    let fertig: ([UUID]) -> Void
+    let abbrechen: () -> Void
+
+    @State private var gewaehlt: Set<UUID> = []
+    @State private var da = false
+
+    private let tinte = Color(red: 0.20, green: 0.16, blue: 0.11)
+    private let zeilenHoehe: CGFloat = 78
+
+    /// Alles ausser dem Keim, neueste zuerst — die Ergaenzung ist meist
+    /// die, die man gerade gesprochen hat.
+    private var kandidaten: [NoteEntry] {
+        store.notes.filter { $0.id != keim.id }
+            .sorted { $0.dateCreated > $1.dateCreated }
+    }
+
+    /// Kopf (~150) + Aktion (~110) bleiben immer, die Liste bekommt den Rest.
+    private var listenHoehe: CGFloat {
+        let noetig = CGFloat(kandidaten.count) * zeilenHoehe + 8
+        return min(noetig, max(zeilenHoehe * 2, maxHoehe - 262))
+    }
+
+    /// Blitzideen nehmen ihren Titel aus dem Anfang des Textes — dann
+    /// wuerde die Vorschau den Titel nur wiederholen. Also zeigen wir, was
+    /// NACH dem Titel kommt; ist da nichts, bleibt die Zeile weg.
+    private func vorschau(_ n: NoteEntry) -> String? {
+        var t = n.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titel = n.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !titel.isEmpty, t.hasPrefix(titel) {
+            t = String(t.dropFirst(titel.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        t = t.replacingOccurrences(of: "\n", with: " ")
+        return t.isEmpty ? nil : t
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color(red: 0.35, green: 0.29, blue: 0.22).opacity(0.22))
+                .frame(width: 34, height: 4)
+                .padding(.top, 12)
+
+            Text("Zusammenlegen")
+                .font(.system(size: 21, weight: .bold))
+                .foregroundStyle(tinte)
+                .padding(.top, 10)
+
+            keimKarte
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+            Text("WAS SOLL DAZU?")
+                .font(.system(size: 10.5, weight: .bold))
+                .tracking(0.8)
+                .foregroundStyle(tinte.opacity(0.5))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 6)
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 8) {
+                    ForEach(Array(kandidaten.enumerated()), id: \.element.id) { i, n in
+                        zeile(n)
+                            .opacity(da ? 1 : 0)
+                            .scaleEffect(da ? 1 : 0.94)
+                            .animation(.spring(response: 0.34, dampingFraction: 0.86)
+                                .delay(Double(min(i, 8)) * 0.03), value: da)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+            }
+            .frame(height: listenHoehe)
+            // Auslauf statt Abbruch: die letzte Karte verschwindet weich,
+            // bevor die Aktion beginnt.
+            .mask(
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 22)
+                }
+            )
+
+            aktion
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+
+            Button("Abbrechen", action: abbrechen)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(tinte.opacity(0.65))
+                .padding(.top, 10)
+                .padding(.bottom, 14)
+        }
+        .frame(width: breite)
+        // Nur so hoch wie der Inhalt — sonst spannt ein dehnbares Kind
+        // (der Grat der Keim-Karte) das ganze Fenster auf.
+        .fixedSize(horizontal: false, vertical: true)
+        .background(ArcaChampagnerGlas(breite: breite))
+        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [.white.opacity(0.85), .white.opacity(0.18),
+                                            .white.opacity(0.55)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1)
+        )
+        .shadow(color: Color(red: 1.0, green: 0.88, blue: 0.68).opacity(0.45), radius: 26)
+        .shadow(color: .black.opacity(0.30), radius: 40, x: 0, y: 24)
+        .shadow(color: .black.opacity(0.16), radius: 7, x: 0, y: 4)
+        .scaleEffect(da ? 1 : 0.95)
+        .opacity(da ? 1 : 0)
+        .animation(.spring(response: 0.30, dampingFraction: 0.86), value: da)
+        .onAppear { da = true }
+    }
+
+    /// Der Keim: eine ruhige Karte, kein Schild. Links ein Terrakotta-Grat
+    /// sagt „hierhin", der Titel bleibt lesbar statt in eine Kapsel gepresst.
+    private var keimKarte: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(LinearGradient(
+                    colors: [Color(red: 0.85, green: 0.50, blue: 0.33),
+                             Color(red: 0.72, green: 0.38, blue: 0.24)],
+                    startPoint: .top, endPoint: .bottom))
+                .frame(width: 3)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("HIERHIN WÄCHST ES")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                Text(keim.title.isEmpty ? "Ohne Titel" : keim.title)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(tinte)
+                    .lineLimit(2)
+                if let v = vorschau(keim) {
+                    Text(v)
+                        .font(.system(size: 11))
+                        .foregroundStyle(tinte.opacity(0.65))
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        // Der Grat hat keine eigene Hoehe — er soll die des Textes nehmen,
+        // nicht die des Fensters.
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [ArcaWarm.terrakotta.opacity(0.16), ArcaWarm.terrakotta.opacity(0.06)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(ArcaWarm.terrakotta.opacity(0.35), lineWidth: 0.9)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
+    }
+
+    /// Der Knopf zeigt seinen Zustand: wartend als Kontur, bereit als
+    /// gefuellte Terrakotta-Kapsel. Ein verblasster Knopf sieht kaputt aus.
+    @ViewBuilder
+    private var aktion: some View {
+        if gewaehlt.isEmpty {
+            Text("Notizen auswählen")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tinte.opacity(0.45))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .overlay(Capsule().strokeBorder(tinte.opacity(0.18), lineWidth: 1))
+        } else {
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                fertig(Array(gewaehlt))
+            } label: {
+                Text(gewaehlt.count == 1 ? "Zusammenlegen" : "Zusammenlegen (\(gewaehlt.count))")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule().fill(LinearGradient(
+                            colors: [Color(red: 0.85, green: 0.50, blue: 0.33),
+                                     Color(red: 0.72, green: 0.38, blue: 0.24)],
+                            startPoint: .top, endPoint: .bottom))
+                            .overlay(Capsule().fill(LinearGradient(
+                                colors: [.white.opacity(0.35), .clear],
+                                startPoint: .top, endPoint: .center)))
+                    )
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.8))
+                    .shadow(color: Color(red: 0.6, green: 0.3, blue: 0.15).opacity(0.35),
+                            radius: 8, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+            .transition(.scale(scale: 0.96).combined(with: .opacity))
+        }
+    }
+
+    private func zeile(_ n: NoteEntry) -> some View {
+        let dran = gewaehlt.contains(n.id)
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                if dran { gewaehlt.remove(n.id) } else { gewaehlt.insert(n.id) }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(dran ? ArcaWarm.terrakotta : tinte.opacity(0.28), lineWidth: 1.4)
+                        .background(Circle().fill(dran ? ArcaWarm.terrakotta : .clear))
+                    if dran {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 22, height: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(n.title.isEmpty ? "Ohne Titel" : n.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(tinte)
+                        .lineLimit(1)
+                    if let v = vorschau(n) {
+                        Text(v)
+                            .font(.system(size: 11))
+                            .foregroundStyle(tinte.opacity(0.68))
+                            .lineLimit(1)
+                    }
+                    Text(n.dateCreated.formatted(date: .abbreviated, time: .shortened))
+                        .font(.system(size: 10))
+                        .foregroundStyle(tinte.opacity(0.42))
+                }
+                Spacer(minLength: 0)
+                if !n.fotos.isEmpty {
+                    Label("\(n.fotos.count)", systemImage: "photo")
+                        .font(.system(size: 10))
+                        .foregroundStyle(tinte.opacity(0.55))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .frame(height: zeilenHoehe - 8)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [.white.opacity(dran ? 0.34 : 0.26),
+                                     Color(red: 0.97, green: 0.91, blue: 0.81).opacity(0.12)],
+                            startPoint: .top, endPoint: .bottom))
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(dran ? ArcaWarm.terrakotta.opacity(0.55) : .white.opacity(0.65),
+                                  lineWidth: dran ? 1.2 : 0.9)
+            )
+            .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Die Einblendung: Vignette drueber, Panel in der Mitte. Fuer Start und
+/// Ideen dieselbe — damit sie sich nirgends unterscheidet.
+struct NotizenZusammenlegenEinblendung: View {
+    let keim: NoteEntry
+    let fertig: ([UUID]) -> Void
+    let abbrechen: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                // Vignette: nimmt die Raender zurueck, damit das Panel traegt
+                RadialGradient(colors: [.black.opacity(0.04), .black.opacity(0.34)],
+                               center: .center,
+                               startRadius: geo.size.width * 0.22,
+                               endRadius: geo.size.height * 0.72)
+                    .ignoresSafeArea()
+                    .onTapGesture { abbrechen() }
+                NotizenZusammenlegenPanel(keim: keim,
+                                          breite: min(geo.size.width * 0.86, 420),
+                                          maxHoehe: min(geo.size.height * 0.72, 620),
+                                          fertig: fertig,
+                                          abbrechen: abbrechen)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            }
+        }
+        .transition(.opacity)
+        .zIndex(200)
+    }
 }
 
 // MARK: - NoteRow
