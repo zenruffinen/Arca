@@ -228,8 +228,12 @@ struct DidYouKnowCard: View {
         ArcaTip(icon: "icloud.fill", text: "Deine Daten synchronisieren sich automatisch zwischen iPhone und iPad.", tint: .cyan),
         ArcaTip(icon: "square.and.arrow.up.fill", text: "Sichere deinen Tresor regelmäßig über „Daten sichern“ – so bist du auch bei Geräteverlust geschützt.", tint: .indigo),
         ArcaTip(icon: "ticket.fill", text: "Lege deine Fahrkarten und Tickets in einen Ordner und zeig ihn in der Schnellansicht – am Bahnsteig sofort griffbereit.", tint: .pink),
-        ArcaTip(icon: "airplane", text: "Reisedokumente wie Pass, Buchungen und Bordkarten an einem Ort – auf Reisen alles schnell zur Hand.", tint: .orange),
-        ArcaTip(icon: "car.fill", text: "Führerschein, Fahrzeugschein und Versichertenkarte fotografieren – bei einer Kontrolle in Sekunden gefunden.", tint: .blue),
+        // Ehrlich bleiben: ein Scan ersetzt kein Original. Wer wegen eines
+        // Tipps glaubt, der Scan reiche bei der Kontrolle, gibt Arca die
+        // Schuld. Arca hilft, alles beisammen und wiederfindbar zu haben —
+        // nicht mehr, und das ist schon viel.
+        ArcaTip(icon: "airplane", text: "Pass, Buchungen und Bordkarten an einem Ort – auf Reisen alles schnell zur Hand. Den echten Pass brauchst du trotzdem: ein Scan gilt nicht als Ausweis, hilft aber, wenn das Original mal verlegt ist.", tint: .orange),
+        ArcaTip(icon: "car.fill", text: "Führerschein, Fahrzeugschein und Versichertenkarte fotografieren – so hast du alles beisammen. Bei einer Kontrolle zählt nur das Original; der Scan zeigt, dass du es hast, und hilft beim Wiederfinden.", tint: .blue),
         ArcaTip(icon: "cross.case.fill", text: "Impfpass, Rezepte und Befunde an einem Ort – beim Arztbesuch alles sofort zur Hand.", tint: .red),
         ArcaTip(icon: "receipt.fill", text: "Kassenbons und Garantiebelege fotografieren – beim Umtausch oder Garantiefall sofort griffbereit.", tint: .green),
         ArcaTip(icon: "wifi", text: "Speichere dein WLAN-Passwort einmal – und zeig es Gästen blitzschnell, ohne langes Suchen.", tint: .cyan),
