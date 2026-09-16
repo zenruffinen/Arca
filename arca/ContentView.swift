@@ -69,7 +69,13 @@ struct ContentView: View {
             }
         }
         .onChange(of: selectedSection) { _, section in
-            if section != .documents { store.pendingScrollCategory = nil; store.fokusKategorie = nil }
+            if section != .documents {
+                store.pendingScrollCategory = nil
+                store.fokusKategorie = nil
+                // Der Angepinnt-Ordner ist ein Ort auf der Dokumentseite —
+                // verlaesst man sie, steht man nicht mehr darin.
+                store.nurAngepinnteDokumente = false
+            }
         }
         .sheet(isPresented: $store.pendingQuickCapture, onDismiss: {
             store.quickCaptureAutoRecord = false
@@ -85,6 +91,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $store.zeigeNotfall) {
             NotfallView(karten: store.vaultItems.filter { !$0.sperrHotline.isEmpty })
+                .environmentObject(store)
         }
         // Die Ideen-Pinnwand: rechts angedockt, links bleibt der Space sichtbar
         .overlay {

@@ -9,11 +9,17 @@
 //
 
 import SwiftUI
+import ARCAKit   // Leitlinie: Knopf-Körper und Pluszeichen kommen aus ARCAKit
 
 // MARK: - Custom Tab Bar
 
 /// Der Rahmen der unteren Leiste mit einem Bogen (Notch) in der Mitte,
 /// in dem der erhöhte Plus-/Besen-Knopf sitzt.
+///
+/// Seit dem 16.09. rundet sie UNTEN genauso wie oben. Vorher lief sie
+/// unten gerade bis an die Kante — das ist die Form einer Leiste, die am
+/// Bildschirmrand klebt. Ein Ding, das schwebt, hat keine gerade
+/// Unterseite; es hat vier Ecken und einen Schatten darunter.
 struct NotchedBar: Shape {
     var notchRadius: CGFloat = 34
     var corner: CGFloat = 26
@@ -23,9 +29,14 @@ struct NotchedBar: Shape {
         let cx = rect.midX
         let r = notchRadius
         let top = rect.minY
+        let bottom = rect.maxY
+        // Nie mehr als die halbe Höhe, sonst überschlagen sich die Bögen.
+        // Bei corner == Höhe/2 ist die Leiste eine Kapsel — genau das ist
+        // gewollt.
+        let c = min(corner, rect.height / 2)
 
-        p.move(to: CGPoint(x: rect.minX, y: top + corner))
-        p.addQuadCurve(to: CGPoint(x: rect.minX + corner, y: top),
+        p.move(to: CGPoint(x: rect.minX, y: top + c))
+        p.addQuadCurve(to: CGPoint(x: rect.minX + c, y: top),
                        control: CGPoint(x: rect.minX, y: top))
         // hin zum Bogen
         p.addLine(to: CGPoint(x: cx - r, y: top))
@@ -35,11 +46,16 @@ struct NotchedBar: Shape {
         p.addQuadCurve(to: CGPoint(x: cx + r, y: top),
                        control: CGPoint(x: cx + r * 0.52, y: top + r * 0.92))
         // weiter zur rechten Ecke
-        p.addLine(to: CGPoint(x: rect.maxX - corner, y: top))
-        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: top + corner),
+        p.addLine(to: CGPoint(x: rect.maxX - c, y: top))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: top + c),
                        control: CGPoint(x: rect.maxX, y: top))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        // rechte Kante hinunter und unten herum
+        p.addLine(to: CGPoint(x: rect.maxX, y: bottom - c))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX - c, y: bottom),
+                       control: CGPoint(x: rect.maxX, y: bottom))
+        p.addLine(to: CGPoint(x: rect.minX + c, y: bottom))
+        p.addQuadCurve(to: CGPoint(x: rect.minX, y: bottom - c),
+                       control: CGPoint(x: rect.minX, y: bottom))
         p.closeSubpath()
         return p
     }
@@ -72,19 +88,29 @@ struct ArcaTabBar: View {
 
     var body: some View {
         ZStack {
-            // Rahmen mit Bogen in der Mitte
+            // Rahmen mit Bogen in der Mitte — eine schwebende Kapsel.
+            //
+            // Zwei Schatten statt einem: der weite, weiche trägt die Leiste
+            // über der Seite, der enge, dunklere setzt sie auf. Mit nur
+            // einem sieht sie entweder aufgeklebt oder nach oben verrutscht
+            // aus.
             NotchedBar(notchRadius: 36, corner: 26)
                 .fill(.ultraThinMaterial)
+                .overlay(
+                    NotchedBar(notchRadius: 36, corner: 26)
+                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                )
                 .overlay(
                     NotchedBar(notchRadius: 36, corner: 26)
                         .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                 )
                 .frame(height: 52)
-                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: -2)
+                .shadow(color: .black.opacity(0.13), radius: 18, x: 0, y: 8)
+                .shadow(color: .black.opacity(0.07), radius: 4, x: 0, y: 1)
 
             // Seiten-Items: Home + Suche links, Mikro + Mehr rechts, Mitte frei
             HStack(spacing: 0) {
-                HStack(spacing: 22) {
+                HStack(spacing: 18) {
                     leistenItem(icon: "ArcaHome", label: "Home", aktiv: spaceActive) {
                         store.fokusKategorie = nil
                         store.zeigeIdeenPinnwand = false
@@ -105,7 +131,7 @@ struct ArcaTabBar: View {
                     }
                 }
                 Spacer(minLength: 0)
-                HStack(spacing: 22) {
+                HStack(spacing: 18) {
                     leistenItem(icon: "ArcaMic", label: "Mikro", aktiv: false,
                                 farbe: ArcaWarm.terrakotta) {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -120,7 +146,11 @@ struct ArcaTabBar: View {
                 }
             }
             .frame(height: 52)
-            .padding(.horizontal, 30)
+            // Enger als vorher (30): die Felder tragen jetzt selbst eine
+            // Kapsel und brauchen den Platz innen, nicht außen. Zwischen
+            // dem zweiten Feld und dem Plus in der Mitte bleiben so gut
+            // zehn Punkt Luft.
+            .padding(.horizontal, 26)
 
             // Der erhöhte zentrale Knopf sitzt im Bogen
             zentralKnopf
@@ -135,8 +165,11 @@ struct ArcaTabBar: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 18)
+        // Mehr Luft ringsum: eine schwebende Leiste braucht auf beiden
+        // Seiten Seite, die unter ihr durchläuft, und unten so viel Abstand,
+        // dass der Strich der Home-Anzeige nicht an ihr klebt.
+        .padding(.horizontal, 16)
+        .padding(.bottom, 32)
     }
 
     // MARK: Der Besen — kleiner Nachbar des Plus, nur bei Unordnung
@@ -146,24 +179,21 @@ struct ArcaTabBar: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             store.zeigeAufraeumen = true
         } label: {
-            ZStack {
-                Circle()
-                    .fill(ArcaWarm.karte)
-                    .frame(width: 38, height: 38)
-                    .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45), lineWidth: 1.4))
-                    .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
-                ArcaIcon(name: "ArcaBroom", groesse: 18)
-                    .foregroundStyle(ArcaWarm.terrakotta)
-            }
-            .overlay(alignment: .topTrailing) {
-                Text("\(unsortiertAnzahl)")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(minWidth: 17, minHeight: 17)
-                    .padding(.horizontal, 2)
-                    .background(Color.red, in: Capsule())
-                    .offset(x: 5, y: -3)
-            }
+            ArcaIcon(name: "ArcaBroom", groesse: 18)
+                .foregroundStyle(ArcaWarm.terrakotta)
+                // Derselbe Körper wie beim Plus, nur in Karten-Creme: der
+                // Besen ist der kleine Nachbar, nicht ein anderes Ding.
+                .arcaWeicheKugel(ArcaWarm.karte, durchmesser: 38)
+                .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.35), lineWidth: 1.2))
+                .overlay(alignment: .topTrailing) {
+                    Text("\(unsortiertAnzahl)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 17, minHeight: 17)
+                        .padding(.horizontal, 2)
+                        .background(Color.red, in: Capsule())
+                        .offset(x: 5, y: -3)
+                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Aufräumen — \(unsortiertAnzahl) unsortiert")
@@ -177,15 +207,12 @@ struct ArcaTabBar: View {
             legeKontextbezogenAn()
         } label: {
             VStack(spacing: 4) {
-                ZStack {
-                    Circle()
-                        .fill(ArcaWarm.terrakotta)
-                        .frame(width: 50, height: 50)
-                        .shadow(color: ArcaWarm.terrakotta.opacity(0.35), radius: 7, x: 0, y: 3)
-                    Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
+                // Der Knopf ist jetzt ein Körper, kein Kreis: Wölbung,
+                // Glanzlicht, Lichtrand. Und das Plus besteht aus zwei
+                // Kapseln statt aus dem Systemzeichen — runde Enden statt
+                // abgeschnittener.
+                ARCAPlusZeichen(groesse: 22)
+                    .arcaWeicheKugel(ArcaWarm.terrakotta, durchmesser: 50)
                 // Plakette: was das Plus im Moment anlegen würde
                 .overlay(alignment: .topTrailing) {
                     ArcaIcon(name: kontextIcon, groesse: 11)
@@ -218,15 +245,35 @@ struct ArcaTabBar: View {
     private func leistenLabel(icon: String, label: String, aktiv: Bool,
                               farbe: Color? = nil) -> some View {
         VStack(spacing: 4) {
-            ArcaIcon(name: icon, groesse: 20)
-                .foregroundStyle(farbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.6)))
-                .symbolRenderingMode(.hierarchical)
-                .frame(height: 24)
+            // Das Haus wird gezeichnet, nicht geladen: als Strich-Asset
+            // verschwand es neben dem kräftigen Plus daneben.
+            if icon == "ArcaHome" {
+                ArcaHausMarke(
+                    groesse: 23,
+                    farbe: farbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.62)))
+                    .frame(height: 24)
+            } else {
+                ArcaIcon(name: icon, groesse: 20)
+                    .foregroundStyle(farbe ?? (aktiv ? ArcaWarm.terrakotta : Color.primary.opacity(0.6)))
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(height: 24)
+            }
             Text(label)
                 .font(.system(size: 9.5, weight: aktiv ? .semibold : .medium))
                 .foregroundStyle(aktiv ? ArcaWarm.terrakotta : Color.secondary)
         }
         .frame(minWidth: 44)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 4)
+        // Das aktive Feld: eine getönte Kapsel hinter Icon und Wort.
+        // Vorher sagte nur die Farbe, wo man steht — in einer schwebenden
+        // Leiste ist das zu leise, weil das Glas darunter selbst schon
+        // hell ist.
+        .background {
+            if aktiv {
+                Capsule().fill(ArcaWarm.terrakotta.opacity(0.13))
+            }
+        }
         .contentShape(Rectangle())
         .accessibilityLabel(label)
     }
@@ -628,7 +675,7 @@ struct ArcaIPadSidebar: View {
                 Button {
                     store.zeigeNotfall = true
                 } label: {
-                    Label("Notfall", systemImage: "cross.case.fill")
+                    Label("Notfallkoffer", systemImage: "cross.case.fill")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity)

@@ -150,8 +150,15 @@ struct DocumentsView: View {
     }
 
     private var filteredDocuments: [DocumentEntry] {
-        if searchText.isEmpty { return store.documents }
-        return store.documents.filter {
+        // „Angepinnt" ist keine Kategorie, sondern ein Schnitt quer durch
+        // alle. Er greift VOR der Suche, damit man auch innerhalb der
+        // angepinnten suchen kann.
+        var basis = store.documents
+        if store.nurAngepinnteDokumente {
+            basis = basis.filter { store.istAngepinnt(kind: .document, refID: $0.id) }
+        }
+        if searchText.isEmpty { return basis }
+        return basis.filter {
             $0.title.localizedCaseInsensitiveContains(searchText) ||
             $0.category.localizedCaseInsensitiveContains(searchText) ||
             $0.ocrText.localizedCaseInsensitiveContains(searchText)
@@ -688,10 +695,13 @@ struct DocumentsView: View {
     private var documentsList: some View {
         ScrollViewReader { proxy in
         List {
-            if store.fokusKategorie != nil {
+            if store.fokusKategorie != nil || store.nurAngepinnteDokumente {
                 HStack {
                 Button {
-                    withAnimation { store.fokusKategorie = nil }
+                    withAnimation {
+                        store.fokusKategorie = nil
+                        store.nurAngepinnteDokumente = false
+                    }
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "chevron.left")
@@ -702,6 +712,23 @@ struct DocumentsView: View {
                     .foregroundStyle(ArcaWarm.terrakotta)
                 }
                 .buttonStyle(.plain)
+                // Im Angepinnt-Ordner sagt eine Nadel, wo man ist: die
+                // Kategorie-Überschriften darunter sind dieselben wie
+                // sonst, nur ausgedünnt — ohne Hinweis sieht das aus wie
+                // eine Liste, aus der Dokumente verschwunden sind.
+                if store.nurAngepinnteDokumente {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Angepinnt")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(ArcaWarm.terrakotta)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(ArcaWarm.terrakotta.opacity(0.14), in: Capsule())
+                    .padding(.leading, 8)
+                }
                 Spacer()
                 // Mehrere greifen und gemeinsam umlegen — vor allem im
                 // Eingang, wo nach dem Ablegen ein Stapel liegt.
@@ -722,7 +749,9 @@ struct DocumentsView: View {
             }
             let grouped = Dictionary(grouping: filteredDocuments, by: \.category)
             if grouped.isEmpty {
-                Text(store.documents.isEmpty ? "Noch keine Dokumente vorhanden." : "Keine Treffer.")
+                Text(store.nurAngepinnteDokumente && searchText.isEmpty
+                     ? "Hier ist noch nichts angepinnt. Im Menü eines Dokuments findest du das Anpinnen."
+                     : (store.documents.isEmpty ? "Noch keine Dokumente vorhanden." : "Keine Treffer."))
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)

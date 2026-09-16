@@ -26,9 +26,13 @@ struct ArcaBackup: Codable {
     /// mit alten Backups, die nur die Metadaten enthielten.
     var fileData: [String: Data]?
     var documentSubcategories: [String: [String]]?
+    /// Notfallkoffer: Medikamente und Kontakte. Optional — aeltere Sicherungen
+    /// kennen das Feld nicht und bleiben lesbar.
+    var notfallEintraege: [NotfallEintrag]?
 
     enum CodingKeys: String, CodingKey {
         case vaultItems, documents, notes, lists, documentCategories, exportDate, fileData, documentSubcategories
+        case notfallEintraege
     }
 
     init(vaultItems: [VaultEntry],
@@ -38,7 +42,8 @@ struct ArcaBackup: Codable {
          documentCategories: [String],
          exportDate: Date,
          fileData: [String: Data]? = nil,
-         documentSubcategories: [String: [String]]? = nil) {
+         documentSubcategories: [String: [String]]? = nil,
+         notfallEintraege: [NotfallEintrag]? = nil) {
         self.vaultItems = vaultItems
         self.documents = documents
         self.notes = notes
@@ -47,6 +52,7 @@ struct ArcaBackup: Codable {
         self.exportDate = exportDate
         self.fileData = fileData
         self.documentSubcategories = documentSubcategories
+        self.notfallEintraege = notfallEintraege
     }
 
     // Safe Decoder — alte Backups ohne fileData / lists bleiben kompatibel
@@ -60,6 +66,7 @@ struct ArcaBackup: Codable {
         exportDate              = try c.decode(Date.self,                           forKey: .exportDate)
         fileData                = try c.decodeIfPresent([String: Data].self,        forKey: .fileData)
         documentSubcategories   = try c.decodeIfPresent([String: [String]].self,   forKey: .documentSubcategories)
+        notfallEintraege        = try c.decodeIfPresent([NotfallEintrag].self,     forKey: .notfallEintraege)
     }
 }
 
@@ -315,6 +322,17 @@ final class AppStore: ObservableObject {
             saveJSON(anschlaege, key: "anschlaege")
         }
     }
+    /// Notfallkoffer: Medikamente und Notfallkontakte (siehe NotfallEintrag).
+    @Published var notfallEintraege: [NotfallEintrag] = [] {
+        didSet {
+            guard !isLoadingData, !stempeltGerade else { return }
+            if let neu = gepflegt(notfallEintraege, oldValue) {
+                stempeltGerade = true; notfallEintraege = neu; stempeltGerade = false
+            }
+            saveNotfall()
+        }
+    }
+
     @Published var lists: [ListEntry] = [] {
         didSet {
             guard !isLoadingData, !stempeltGerade else { return }
@@ -337,6 +355,13 @@ final class AppStore: ObservableObject {
     @Published var pendingScrollCategory: String? = nil
     /// Nur diese eine Kategorie in der Dokumente-Ansicht zeigen (Reingehen)
     @Published var fokusKategorie: String? = nil
+    /// Nur die angepinnten Dokumente zeigen — der eigene „Ordner", den die
+    /// Kachel „Angepinnt" aufmacht.
+    ///
+    /// Eine eigene Fahne statt `fokusKategorie = "Angepinnt"`: Angepinnt IST
+    /// keine Kategorie, es liegt quer über allen. Als Kategorie getarnt
+    /// fände die Gruppierung in der Dokumentliste kein einziges Dokument.
+    @Published var nurAngepinnteDokumente: Bool = false
     @Published var pendingSection: ArcaSection? = nil
     @Published var pendingQuickCapture: Bool = false
     /// Wurde etwas von einer Wand aus angelegt? Dann hängt es hinterher
@@ -353,6 +378,20 @@ final class AppStore: ObservableObject {
     @Published var homeStreamFilter: HomeStreamFilter = .dokumente
     /// Zuletzt geöffnete Einträge (id → Zeitpunkt) — lokal, gerätespezifisch
     @Published var zuletztGeoeffnet: [UUID: Date] = [:]
+
+    /// Reihenfolge des Stroms auf dem Start. Gilt für alle vier Bereiche:
+    /// eine Liste, die je nach Chip anders sortiert, muss man bei jedem
+    /// Wechsel neu lesen.
+    @Published var stromSortierung: StromSortierung = .neuesteZuerst {
+        didSet { UserDefaults.standard.set(stromSortierung.rawValue, forKey: "arcaStromSortierung") }
+    }
+
+    func ladeStromSortierung() {
+        if let roh = UserDefaults.standard.string(forKey: "arcaStromSortierung"),
+           let s = StromSortierung(rawValue: roh) {
+            stromSortierung = s
+        }
+    }
 
     /// Merkt einen Öffnen-Zeitpunkt (behält die letzten 24, speichert lokal).
     func merkeGeoeffnet(_ id: UUID) {
@@ -405,6 +444,9 @@ final class AppStore: ObservableObject {
     @Published var pendingSettingsAktion: String? = nil
     /// Notfall-Bereich anzeigen (aus dem Mehr-Menü der Leiste)
     @Published var zeigeNotfall: Bool = false
+    /// Notfall-Widget bei gesperrter App: der Sperrbildschirm oeffnet die
+    /// oeffentliche Fassung des Koffers (nie die entsperrte).
+    @Published var zeigeNotfallGesperrt: Bool = false
     /// Aufräumen/Sortieren-Fenster anzeigen (aus dem Unsortiert-Korb der Leiste)
     @Published var zeigeAufraeumen: Bool = false
     /// Persönliches Profilbild (lokal, klein). Macht den Kopf persönlicher.
@@ -632,7 +674,7 @@ final class AppStore: ObservableObject {
     /// true wenn bereits Arca-Daten (lokal oder als iCloud-Platzhalter) existieren.
     private func hasAnyExistingDataStore() -> Bool {
         let keys = [
-            "vaultItems", "documents", "notes", "lists",
+            "vaultItems", "documents", "notes", "lists", "notfallEintraege",
             "documentCategories", "categoryColors", "categoryIcons", "documentSubcategories", "homeFolderQuickView"
         ]
         for key in keys {
@@ -832,6 +874,10 @@ final class AppStore: ObservableObject {
         if let f = lies([ListEntry].self, "lists", in: fork) {
             schreib(fusioniere(lies([ListEntry].self, "lists", in: dataDirectory) ?? [], f), "lists")
         }
+        if let f = lies([NotfallEintrag].self, "notfallEintraege", in: fork) {
+            schreib(fusioniere(lies([NotfallEintrag].self, "notfallEintraege", in: dataDirectory) ?? [], f),
+                    "notfallEintraege")
+        }
         if let f = lies([DeskItem].self, "deskItems", in: fork) {
             schreib(fusioniere(lies([DeskItem].self, "deskItems", in: dataDirectory) ?? [], f), "deskItems")
         }
@@ -951,7 +997,7 @@ final class AppStore: ObservableObject {
     /// Zuletzt gesehene Datei-Stände — nur ECHTE Fremd-Änderungen lösen aus.
     private var bekannteStaende: [String: Date] = [:]
     private let synchronisierteSchluessel = [
-        "vaultItems", "documents", "notes", "lists", "deskItems", "deskStil",
+        "vaultItems", "documents", "notes", "lists", "notfallEintraege", "deskItems", "deskStil",
         "documentCategories", "categoryColors", "categoryIcons", "documentSubcategories",
         "grabsteine", "homeFolderQuickView", "pinnwandLayout", "pinnBoards", "anschlaege"
     ]
@@ -1004,6 +1050,7 @@ final class AppStore: ObservableObject {
         if faellig.contains("documents") { saveDocuments() }
         if faellig.contains("notes") { saveNotes() }
         if faellig.contains("lists") { saveLists() }
+        if faellig.contains("notfallEintraege") { saveNotfall() }
         if faellig.contains("deskItems") { saveJSON(deskItems, key: "deskItems") }
         if faellig.contains("documentCategories") { saveDocumentCategories() }
         if faellig.contains("categoryColors") { saveCategoryColors() }
@@ -1067,6 +1114,7 @@ final class AppStore: ObservableObject {
         // Demo-Seeding vorübergehend DEAKTIVIERT (Fehler: räumt sich selbst weg).
         // seedeDemodatenWennErststart()
         ladeZuletztGeoeffnet()
+        ladeStromSortierung()
         speichereNachfusion()
         persistFreshInstallDefaults()
         persistHomeFolderQuickViewMigrationIfNeeded()
@@ -1314,6 +1362,28 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Jede Datei, die ein Eintrag braucht — nicht nur die der Dokumente.
+    ///
+    /// FEHLER bis 14.09.2026: Der Export packte nur `documents[].filename`
+    /// ein. Fotos an Notizen (`notiz_*.jpg`) und die Kartenfotos im Tresor
+    /// (`karte_*.jpg`) liegen im selben Ordner, wurden aber nie gesichert.
+    /// Auf demselben Geraet fiel das nicht auf — die Dateien lagen ja noch
+    /// da. Auf einem neuen Telefon kamen die Eintraege zurueck, ihre Bilder
+    /// nicht.
+    private var gesicherteDateinamen: [String] {
+        var namen: [String] = []
+        var gesehen = Set<String>()
+        func nimm(_ n: String) {
+            guard !n.isEmpty, gesehen.insert(n).inserted else { return }
+            namen.append(n)
+        }
+        documents.forEach { nimm($0.filename) }
+        notes.forEach { $0.fotos.forEach(nimm) }
+        vaultItems.forEach { nimm($0.kartenBildVorne); nimm($0.kartenBildHinten) }
+        notfallEintraege.forEach { nimm($0.fotoDatei) }
+        return namen
+    }
+
     /// Backup-Export, Format v2: verschlüsseltes Apple-Archiv (AEA).
     /// Speicherschonend — die Dateien werden gestreamt statt in den RAM geladen.
     func exportData(password: String) -> Result<URL, BackupExportError> {
@@ -1335,16 +1405,17 @@ final class AppStore: ObservableObject {
                 documentCategories: documentCategories,
                 exportDate: Date(),
                 fileData: nil,
-                documentSubcategories: documentSubcategories
+                documentSubcategories: documentSubcategories,
+                notfallEintraege: notfallEintraege
             )
             let manifest = try JSONEncoder().encode(backup)
             try manifest.write(to: stage.appendingPathComponent("manifest.json"))
-            for doc in documents {
+            for name in gesicherteDateinamen {
                 // Falls nur iCloud-Platzhalter: Download anstossen
-                ensureFileDownloaded(doc.filename)
-                let src = documentURL(for: doc.filename)
+                ensureFileDownloaded(name)
+                let src = documentURL(for: name)
                 guard FileManager.default.fileExists(atPath: src.path) else { continue }
-                let dst = stageFiles.appendingPathComponent(doc.filename)
+                let dst = stageFiles.appendingPathComponent(name)
                 // Hardlink (kein Platzverbrauch); falls nicht möglich: kopieren
                 if (try? FileManager.default.linkItem(at: src, to: dst)) == nil {
                     try? FileManager.default.copyItem(at: src, to: dst)
@@ -1512,7 +1583,7 @@ final class AppStore: ObservableObject {
         // sie erhält Datenhoheit über alle Schlüssel, sonst würde die
         // Schutzmauer (geladeneSchluessel) ihre eigenen Schreibzugriffe blocken.
         geladeneSchluessel.formUnion([
-            "vaultItems", "documents", "notes", "lists",
+            "vaultItems", "documents", "notes", "lists", "notfallEintraege",
             "documentCategories", "categoryColors", "categoryIcons", "documentSubcategories", "homeFolderQuickView"
         ])
         // Wiederhergestelltes ist stärker als Grabsteine: frische Stempel
@@ -1524,16 +1595,22 @@ final class AppStore: ObservableObject {
         for i in backup.documents.indices  { backup.documents[i].geaendertAm = jetzt;  grabsteine.removeValue(forKey: backup.documents[i].id) }
         for i in backup.lists.indices      { backup.lists[i].geaendertAm = jetzt;      grabsteine.removeValue(forKey: backup.lists[i].id) }
         for i in backup.vaultItems.indices { backup.vaultItems[i].geaendertAm = jetzt; grabsteine.removeValue(forKey: backup.vaultItems[i].id) }
+        // Aeltere Sicherungen kennen den Notfallkoffer nicht: nil heisst
+        // „nichts mitgebracht", nicht „alles loeschen".
+        var mitgebrachtesNotfall = backup.notfallEintraege ?? []
+        for i in mitgebrachtesNotfall.indices { mitgebrachtesNotfall[i].geaendertAm = jetzt; grabsteine.removeValue(forKey: mitgebrachtesNotfall[i].id) }
         if merge {
             let existingNoteIDs  = Set(notes.map(\.id))
             let existingDocIDs   = Set(documents.map(\.id))
             let existingListIDs  = Set(lists.map(\.id))
             let existingVaultIDs = Set(vaultItems.map(\.id))
+            let existingNotfallIDs = Set(notfallEintraege.map(\.id))
 
             notes      += backup.notes.filter      { !existingNoteIDs.contains($0.id) }
             documents  += backup.documents.filter  { !existingDocIDs.contains($0.id) }
             lists      += backup.lists.filter      { !existingListIDs.contains($0.id) }
             vaultItems += backup.vaultItems.filter { !existingVaultIDs.contains($0.id) }
+            notfallEintraege += mitgebrachtesNotfall.filter { !existingNotfallIDs.contains($0.id) }
 
             let newCategories = backup.documentCategories.filter { !documentCategories.contains($0) }
             if !newCategories.isEmpty { documentCategories += newCategories }
@@ -1550,6 +1627,9 @@ final class AppStore: ObservableObject {
             documents  = backup.documents
             notes      = backup.notes
             lists      = backup.lists
+            // Ersetzen nur, wenn die Sicherung den Koffer ueberhaupt kennt —
+            // eine alte Sicherung soll die heutige Liste nicht leeren.
+            if backup.notfallEintraege != nil { notfallEintraege = mitgebrachtesNotfall }
             documentCategories = backup.documentCategories.isEmpty
                 ? AppStore.defaultCategories
                 : backup.documentCategories
@@ -2124,6 +2204,11 @@ final class AppStore: ObservableObject {
         defaults.set(documents.count, forKey: "widget_docCount")
         defaults.set(notes.count,     forKey: "widget_noteCount")
         defaults.set(lists.count,     forKey: "widget_listCount")
+        // Notfall-Widget: nur Anzahlen, keine Namen — ein Widget sieht jeder,
+        // der auf den Bildschirm schaut.
+        defaults.set(notfallEintraege.filter { $0.art == .wichtig }.count,     forKey: "widget_notfallWichtig")
+        defaults.set(notfallEintraege.filter { $0.art == .medikament }.count,  forKey: "widget_notfallMedikamente")
+        defaults.set(notfallEintraege.filter { $0.art == .kontakt }.count,     forKey: "widget_notfallKontakte")
         defaults.set(UserDefaults.standard.string(forKey: "quickAccessTitle") ?? "", forKey: "widget_quickAccessTitle")
         defaults.set(UserDefaults.standard.string(forKey: "quickAccessKind")  ?? "", forKey: "widget_quickAccessKind")
         defaults.set(UserDefaults.standard.string(forKey: "quickAccessId")    ?? "", forKey: "widget_quickAccessId")
@@ -2168,6 +2253,11 @@ final class AppStore: ObservableObject {
 
     private func saveCategoryIcons() {
         saveJSON(categoryIcons, key: "categoryIcons")
+    }
+
+    private func saveNotfall() {
+        saveJSON(notfallEintraege, key: "notfallEintraege")
+        updateWidgetData()
     }
 
     private func saveLists() {
@@ -2280,6 +2370,11 @@ final class AppStore: ObservableObject {
         if let decoded = loadJSON([ListEntry].self, key: "lists") {
             lists = loeseKonflikte(
                 fusioniereUndMerke(lists, decoded, schluessel: "lists"), key: "lists")
+        }
+        if let decoded = loadJSON([NotfallEintrag].self, key: "notfallEintraege") {
+            notfallEintraege = loeseKonflikte(
+                fusioniereUndMerke(notfallEintraege, decoded, schluessel: "notfallEintraege"),
+                key: "notfallEintraege")
         }
         if let decoded = loadJSON([DeskItem].self, key: "deskItems") {
             deskItems = loeseKonflikte(
@@ -2821,6 +2916,19 @@ final class AppStore: ObservableObject {
     }
 
     /// Speichert ein eingescanntes Karten-Foto (JPEG) und liefert den Dateinamen.
+    /// Foto einer Medikamentenpackung. Liegt neben den anderen Dateien und
+    /// kommt ueber `gesicherteDateinamen` mit in die Sicherung.
+    ///
+    /// Beim Loeschen eines Eintrags bleibt die Datei bewusst liegen — wie bei
+    /// Notizfotos. Ein verwaistes Bild kostet ein paar Kilobyte; eine Datei,
+    /// die ein anderes Geraet waehrend des Abgleichs noch braucht, zu frueh
+    /// zu loeschen, kostet das Bild.
+    func speichereNotfallFoto(_ data: Data) -> String {
+        let name = "notfall_\(UUID().uuidString).jpg"
+        do { try data.write(to: documentURL(for: name), options: .atomic); return name }
+        catch { return "" }
+    }
+
     func speichereKartenBild(_ data: Data) -> String {
         let name = "karte_\(UUID().uuidString).jpg"
         let url = filesDirectory.appendingPathComponent(name)

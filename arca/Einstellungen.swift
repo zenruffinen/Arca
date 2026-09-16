@@ -824,6 +824,51 @@ struct SettingsView: View {
                         .padding(.horizontal, 14).padding(.vertical, 12)
                         }
 
+                        // ── Reihenfolge der Liste auf dem Start ──
+                        //
+                        // Sie hat am 16.09. das Feld „Zuletzt verwendet"
+                        // abgelöst: „Zuletzt geöffnet" tut dasselbe für die
+                        // ganze Liste, statt zwei Einträge in einen eigenen
+                        // Kasten zu setzen.
+                        zeilenTrenner
+                        HStack(spacing: 12) {
+                            zeilenIcon(store.stromSortierung.symbol, ArcaWarm.terrakotta)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Reihenfolge der Liste")
+                                    .font(.system(size: 15, weight: .medium))
+                                Text(store.stromSortierung.label)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                Picker("", selection: Binding(
+                                    get: { store.stromSortierung },
+                                    set: { neu in
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            store.stromSortierung = neu
+                                        }
+                                        UISelectionFeedbackGenerator().selectionChanged()
+                                    })) {
+                                    ForEach(StromSortierung.allCases) { s in
+                                        Text(s.kurzLabel).tag(s)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
+                                .padding(.top, 2)
+
+                                // Der Nachsatz gehört dazu: die App merkt
+                                // sich nur die letzten 24 geöffneten
+                                // Einträge. Wer das nicht weiß, hält die
+                                // Sortierung für kaputt, sobald weiter
+                                // unten wieder Datumsordnung herrscht.
+                                if store.stromSortierung == .zuletztGeoeffnet {
+                                    Text("Was du länger nicht geöffnet hast, steht dahinter — nach Datum.")
+                                        .font(.system(size: 10.5))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.top, 3)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
                     }
 
                     // ── 3) Wusstest du? ──
@@ -915,6 +960,12 @@ struct SettingsView: View {
                 NavigationStack {
                     List {
                         Section {
+                            Label("Der Start ist in Felder gegliedert: Kategorien und Bestand stehen jeweils in ihrem eigenen Bereich mit Lichtkante", systemImage: "rectangle.3.group.fill")
+                            Label("Kategorien sind jetzt Ordner, die ihren Inhalt zeigen – zwei Vorschaublätter stecken darin, Name und Anzahl eingraviert", systemImage: "folder.fill")
+                            Label("„Angepinnt“ öffnet einen eigenen Ordner statt die Startliste zu filtern – mit Rückweg über „Alle Kategorien“", systemImage: "pin.fill")
+                            Label("Reihenfolge der Liste wählbar unter Mehr: zuletzt geöffnet, neueste, älteste oder A–Z. Dafür entfällt „Zuletzt verwendet“ – die Kategorien rücken nach oben", systemImage: "arrow.up.arrow.down")
+                            Label("Die untere Leiste schwebt jetzt frei über der Seite, mit runden Ecken und Licht auf der Kante", systemImage: "dock.rectangle")
+                            Label("Plus und Besen sind plastische Körper mit Glanzlicht, das Haus für Home ist neu gezeichnet", systemImage: "plus.circle.fill")
                             Label("Ganz neuer Startbildschirm mit persönlichem Profilbild, Bereichs-Wahlleiste und der glasigen „Arca virtual crown“ zum Blättern", systemImage: "sparkles")
                             Label("Kreditkarten im Tresor: Vorder- und Rückseite fotografieren, umdrehen per Tipp, Apple-Pay-Merker – in der Liste als kleines Vorschaubild", systemImage: "creditcard.fill")
                             Label("Tresor-Schubladen: Bankkarten, Passwörter und ein Top-Secret-Fach – geöffnet mit einer Gesichtskontrolle", systemImage: "lock.rectangle.stack.fill")

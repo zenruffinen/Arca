@@ -216,6 +216,51 @@ struct ArcaNote: Codable {
     var exportDate: Date
 }
 
+/// Wie der Strom auf dem Start sortiert ist.
+///
+/// „Zuletzt geöffnet" ist die einzige Reihenfolge, die etwas weiß, was in
+/// den Einträgen selbst nicht steht — sie kommt aus `zuletztGeoeffnet`.
+/// Und die Liste merkt sich nur 24 Stück; alles darunter fällt auf das
+/// Datum zurück, sonst stünde der Rest in zufälliger Ordnung.
+enum StromSortierung: String, Codable, CaseIterable, Identifiable {
+    case zuletztGeoeffnet
+    case neuesteZuerst
+    case aeltesteZuerst
+    case alphabetisch
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .zuletztGeoeffnet: "Zuletzt geöffnet"
+        case .neuesteZuerst:    "Neueste zuerst"
+        case .aeltesteZuerst:   "Älteste zuerst"
+        case .alphabetisch:     "A–Z"
+        }
+    }
+
+    /// Für die Segmentleiste: vier volle Namen nebeneinander passen auf
+    /// ein iPhone nicht, dort stünde überall „Zuletzt g…". Ein Wort pro
+    /// Feld ist lesbar, die lange Fassung steht in der Zeile darüber.
+    var kurzLabel: String {
+        switch self {
+        case .zuletztGeoeffnet: "Geöffnet"
+        case .neuesteZuerst:    "Neueste"
+        case .aeltesteZuerst:   "Älteste"
+        case .alphabetisch:     "A–Z"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .zuletztGeoeffnet: "clock.arrow.circlepath"
+        case .neuesteZuerst:    "arrow.down"
+        case .aeltesteZuerst:   "arrow.up"
+        case .alphabetisch:     "textformat.abc"
+        }
+    }
+}
+
 enum DocumentType: String, Codable {
     case pdf = "PDF"
     case image = "Bild"
@@ -315,6 +360,66 @@ struct ListEntry: Identifiable, Codable, Hashable {
 }
 
 extension ListEntry: ZeitGestempelt {}
+
+// MARK: - Notfall: Medikamente und Kontakte
+
+/// Ein Eintrag im Notfallkoffer — ein Medikament oder ein Notfallkontakt.
+///
+/// Ein Typ mit Art statt zweier Typen, wie beim Tresor (Passwort oder
+/// Karte). Der Grund ist der Speicher: jede Sammlung laeuft durch Sicherung,
+/// iCloud-Fusion, Grabsteine und Konfliktloesung — eine Sammlung sind halb
+/// so viele Stellen, an denen still etwas verloren gehen kann.
+///
+/// Entstanden am 14.09.2026: Der Arzt fragte nach den Medikamenten, und die
+/// Antwort war nicht zur Hand.
+struct NotfallEintrag: Identifiable, Codable, Hashable {
+    /// `wichtig`: was Rettungskraefte zuerst wissen muessen — Herzschrittmacher,
+    /// Allergien, Blutgruppe. Seit dem Abend des 14.09.2026.
+    enum Art: String, Codable { case medikament, kontakt, wichtig }
+
+    var id = UUID()
+    var art: Art
+    /// Medikament: Handelsname. Kontakt: Name der Person.
+    var name: String
+    /// Medikament: Wirkstoff und Staerke („Metoprolol 50 mg") — das braucht
+    /// eine Apotheke im Ausland, der Markenname heisst dort oft anders.
+    /// Kontakt: wer das ist („Tochter", „Hausarzt").
+    var detail: String = ""
+    /// Medikament: Dosierung („1 Tablette morgens"). Kontakt: Telefonnummer.
+    var zusatz: String = ""
+    /// Freier Hinweis — Allergie, Einnahme zum Essen, Erreichbarkeit.
+    var hinweis: String = ""
+    /// Foto der Packung oder des Ausweises (Dateiname im filesDirectory).
+    var fotoDatei: String = ""
+    var reihenfolge: Int = 0
+    var geaendertAm: Date = Date()
+
+    init(id: UUID = UUID(), art: Art, name: String, detail: String = "",
+         zusatz: String = "", hinweis: String = "", fotoDatei: String = "",
+         reihenfolge: Int = 0) {
+        self.id = id; self.art = art; self.name = name; self.detail = detail
+        self.zusatz = zusatz; self.hinweis = hinweis; self.fotoDatei = fotoDatei
+        self.reihenfolge = reihenfolge
+    }
+
+    // Tolerant lesen: kuenftige Felder duerfen fehlen, ohne dass eine
+    // Sicherung unlesbar wird.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id          = try c.decodeIfPresent(UUID.self,   forKey: .id)          ?? UUID()
+        // try?: eine kuenftige, hier unbekannte Art macht nicht die ganze Liste unlesbar
+        art         = (try? c.decodeIfPresent(Art.self,  forKey: .art))        ?? .medikament
+        name        = try c.decodeIfPresent(String.self, forKey: .name)        ?? ""
+        detail      = try c.decodeIfPresent(String.self, forKey: .detail)      ?? ""
+        zusatz      = try c.decodeIfPresent(String.self, forKey: .zusatz)      ?? ""
+        hinweis     = try c.decodeIfPresent(String.self, forKey: .hinweis)     ?? ""
+        fotoDatei   = try c.decodeIfPresent(String.self, forKey: .fotoDatei)   ?? ""
+        reihenfolge = try c.decodeIfPresent(Int.self,    forKey: .reihenfolge) ?? 0
+        geaendertAm = try c.decodeIfPresent(Date.self,   forKey: .geaendertAm) ?? Date()
+    }
+}
+
+extension NotfallEintrag: ZeitGestempelt {}
 
 // Geteilte Aufgabenliste
 struct ArcaList: Codable {

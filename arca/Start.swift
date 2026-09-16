@@ -114,14 +114,10 @@ struct HomeView: View {
     @State private var zeigeBildQuelle = false
     @State private var zeigeKamera = false
     @State private var zeigeMediathek = false
-    @State private var showAlleFavoriten = false
-    /// Zeigt die Dokumentliste gerade nur das Angepinnte?
-    ///
-    /// Das ist der Griff fuer einen Anlass: Boardingcard, Reiseunterlagen
-    /// und Versicherung liegen in verschiedenen Gruppen — unterwegs braucht
-    /// man sie als EINEN Stapel. Sammeln ist nur die halbe Miete, verfuegbar
-    /// machen ist die andere.
-    @State private var nurAngepinnt = false
+    // Der Filter „nur Angepinnt" wohnte bis zum 16.09. hier als @State und
+    // wirkte in der Startliste. Jetzt oeffnet die Kachel einen echten
+    // Ordner auf der Dokumentseite (store.nurAngepinnteDokumente) — der
+    // Griff fuer den Anlass ist derselbe, nur an einem Ort statt an zweien.
 
     /// Wo das Wand-Rad gerade steht (0…1) — dieselbe Mechanik wie beim
     /// Dokument-Karussell, nur dreht es Wände statt Gruppen.
@@ -597,39 +593,61 @@ struct HomeView: View {
     /// unterwegs braucht man sie als einen Stapel.
     ///
     /// Sie traegt weniger Farbton als die Gruppen (0,26 statt 0,55) — durch
-    /// das Glas sieht man die Kacheln, die dahinter vorbeiziehen. Laeuft der
-    /// Filter, geht sie auf 0,55 und wird kraeftig: dann ist sie kein Fenster
-    /// mehr, sondern ein Schalter.
+    /// das Glas sieht man die Kacheln, die dahinter vorbeiziehen.
+    ///
+    /// Seit dem 16.09. ist sie kein Schalter mehr, sondern ein Ordner wie
+    /// die anderen: antippen geht HINEIN. Vorher filterte sie die Liste auf
+    /// dem Start an Ort und Stelle — eine Kachel, die aussieht wie ihre
+    /// Nachbarn, sich aber anders verhaelt, muss man sich merken.
     @ViewBuilder
     private var angepinntKachel: some View {
-        ArcaKategorieKarte(
+        ArcaOrdnerKarte(
             name: "Angepinnt",
             icon: "pin.fill",
             farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.20),
                               accent: ArcaWarm.terrakotta,
                               name: "Angepinnt"),
             anzahl: angepinnteDokumente.count,
-            tintDeckkraft: nurAngepinnt ? 0.55 : 0.26)
-        .overlay(
-            RoundedRectangle(cornerRadius: 15)
-                .strokeBorder(ArcaWarm.terrakotta.opacity(nurAngepinnt ? 0.75 : 0.30),
-                              lineWidth: nurAngepinnt ? 1.5 : 1)
-        )
+            vorschau: blaetter(aus: angepinnteDokumente),
+            tintDeckkraft: 0.26)
         // Der Schatten nach rechts sagt: das hier liegt oben, der Rest zieht
         // darunter vorbei.
         .shadow(color: .black.opacity(0.14), radius: 5, x: 3, y: 1)
-        .shadow(color: nurAngepinnt ? ArcaWarm.terrakotta.opacity(0.25) : .clear,
-                radius: 5, y: 2)
-        .contentShape(RoundedRectangle(cornerRadius: 15))
-        .onTapGesture {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                nurAngepinnt.toggle()
+        .contentShape(ArcaOrdnerForm())
+        .onTapGesture { oeffneAngepinnt() }
+        .accessibilityLabel("Angepinnt. Antippen öffnet die angepinnten Dokumente.")
+    }
+
+    /// Die zwei jüngsten Dokumente einer Gruppe als Vorschaublätter.
+    ///
+    /// Jüngste zuerst: ein Ordner, in den man gerade etwas gelegt hat,
+    /// soll das auch zeigen — sonst sieht die Vorschau bei jedem Blick
+    /// gleich aus und sagt nichts mehr.
+    private func vorschauBlaetter(fuer gruppe: String) -> [(url: URL, typ: DocumentType)] {
+        let bekannte = Set(store.documentCategories)
+        let docs = store.documents
+            .filter { doc in
+                gruppe == "Unsortiert"
+                    ? (doc.category == "Unsortiert" || !bekannte.contains(doc.category))
+                    : doc.category == gruppe
             }
-            UISelectionFeedbackGenerator().selectionChanged()
+            .sorted { $0.dateAdded > $1.dateAdded }
+        return blaetter(aus: docs)
+    }
+
+    private func blaetter(aus docs: [DocumentEntry]) -> [(url: URL, typ: DocumentType)] {
+        docs.prefix(2).map { (store.documentURL(for: $0.filename), $0.type) }
+    }
+
+    /// Geht in den Angepinnt-Ordner — derselbe Weg wie `openDocuments`,
+    /// nur ueber die eigene Fahne statt ueber eine Kategorie.
+    private func oeffneAngepinnt() {
+        UISelectionFeedbackGenerator().selectionChanged()
+        store.fokusKategorie = nil
+        store.nurAngepinnteDokumente = true
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            selectedSection = .documents
         }
-        .accessibilityLabel(nurAngepinnt
-            ? "Angepinnt, Filter aktiv. Antippen zeigt wieder alle."
-            : "Angepinnt. Antippen zeigt nur die angepinnten Dokumente.")
     }
 
     @ViewBuilder
@@ -640,7 +658,9 @@ struct HomeView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
+                    // Die Reihe wohnt jetzt im Feld „Kategorien" — die
+                    // Einrückung kommt von dessen Rand, nicht mehr von hier.
+                    .padding(.horizontal, ARCASpacing.card)
                     .padding(.vertical, 8)
             } else {
                 // Aufräumen-Hinweis nur noch unten als Besen-Icon in der Leiste
@@ -670,16 +690,21 @@ struct HomeView: View {
                         // schluckte sie jeden Wisch, der auf ihr beginnt.
                         if !angepinnteDokumente.isEmpty {
                             angepinntKachel
-                                .offset(x: max(0, dokX + 20))
+                                // Der Ausgleich muss dem Rand der Reihe
+                                // entsprechen, sonst springt die Kachel beim
+                                // ersten Wisch — im Feld ist das dessen
+                                // Innenabstand, nicht mehr der Seitenrand.
+                                .offset(x: max(0, dokX + ARCASpacing.card))
                                 .zIndex(1)
                         }
 
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
-                            ArcaKategorieKarte(
+                            ArcaOrdnerKarte(
                                 name: gruppe.name,
                                 icon: store.iconFor(gruppe.name),
                                 farben: categoryColor(gruppe.name, overrides: store.categoryColors),
-                                anzahl: gruppe.anzahl)
+                                anzahl: gruppe.anzahl,
+                                vorschau: vorschauBlaetter(fuer: gruppe.name))
                             .id(gruppe.name)
                             // Der per Rad angewählte Ordner wird etwas größer (mittlere Karte)
                             .scaleEffect(gruppe.name == aktiverName ? 1.06 : 1.0)
@@ -688,7 +713,7 @@ struct HomeView: View {
                                     : .clear, radius: 4, y: 2)
                             .zIndex(gruppe.name == aktiverName ? 1 : 0)
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: aktiverName)
-                            .contentShape(RoundedRectangle(cornerRadius: 15))
+                            .contentShape(ArcaOrdnerForm())
                             .onTapGesture { openDocuments(category: gruppe.name) }
                             .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
                             .dropDestination(for: String.self) { eingeworfen, _ in
@@ -720,7 +745,7 @@ struct HomeView: View {
                             neueGruppeName = ""
                             showNeueGruppe = true
                         } label: {
-                            ArcaKategorieHinzufuegenKarte()
+                            ArcaOrdnerHinzufuegenKarte()
                         }
                         .buttonStyle(.plain)
                     }
@@ -729,8 +754,8 @@ struct HomeView: View {
                 }
                 // Feste Höhe, damit die Seite nicht springt — der Wert kommt
                 // aus dem Kit und wächst mit der Kachel mit.
-                .frame(height: ARCASpacing.categoryRowHeight)
-                .contentMargins(.horizontal, 20, for: .scrollContent)
+                .frame(height: ARCASpacing.ordnerRowHeight)
+                .contentMargins(.horizontal, ARCASpacing.card, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
                     ScrollInfo(x: geo.contentOffset.x,
@@ -744,15 +769,6 @@ struct HomeView: View {
                     dokX = info.x
                 }
 
-                // Wird das Letzte abgepinnt, verschwindet die Kachel — dann
-                // muss auch der Filter weg, sonst steht man vor einer leeren
-                // Liste ohne Schalter, um sie wieder zu fuellen.
-                .onChange(of: angepinnteDokumente.count) { _, neu in
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        if neu == 0 { nurAngepinnt = false }
-                    }
-                }
-
                 // Ein Läufer auf einer Spur statt einer Reihe Pünktchen.
                 //
                 // Punkte skalieren nicht: bei neunzehn Gruppen standen dort
@@ -762,7 +778,7 @@ struct HomeView: View {
                 // er fast die Spur, bei zwanzig ist er ein Daumen.
                 if dokumentGruppen.count > 1 {
                     ArcaLaufStrich(fortschritt: dokFrac, anteil: dokAnteil)
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, ARCASpacing.card)
                         .padding(.top, 2)
 
                     // Hier stand ein zweites Rad. Es ist weg: die
@@ -793,23 +809,6 @@ struct HomeView: View {
                     lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.14), radius: 3, x: 0, y: 2)
-    }
-
-    private func favSymbol(_ kind: FavoriteKind) -> String {
-        switch kind {
-        case .document: return "ArcaDocument"
-        case .note:     return "ArcaIdee"
-        case .list:     return "ArcaChecklist"
-        case .vault:    return "ArcaKey"
-        }
-    }
-    private func favFarbe(_ kind: FavoriteKind) -> Color {
-        switch kind {
-        case .document: return .orange
-        case .note:     return ArcaWarm.ideenGelb
-        case .list:     return .green
-        case .vault:    return .blue
-        }
     }
 
     private func openFavorite(_ fav: FavoriteItem) {
@@ -849,6 +848,7 @@ struct HomeView: View {
     // ── Der Strom: ein Typ zur Zeit, jüngste zuerst (kein „Alle" mehr) ──
     private var streamFilter: HomeStreamFilter { store.homeStreamFilter }
 
+
     private var streamItems: [FavoriteItem] {
         var all: [FavoriteItem] = []
         switch streamFilter {
@@ -861,8 +861,7 @@ struct HomeView: View {
             //
             // Top Secret bleibt draussen: das liegt hinter der Gesichts-
             // kontrolle und gehoert nicht offen auf den Start.
-            let quelle = nurAngepinnt ? angepinnteDokumente
-                                      : store.documents.filter { $0.category != "Top Secret" }
+            let quelle = store.documents.filter { $0.category != "Top Secret" }
             for d in quelle {
                 all.append(FavoriteItem(id: d.id, kind: .document,
                                         title: d.title.isEmpty ? d.filename : d.title,
@@ -888,7 +887,36 @@ struct HomeView: View {
                                         subtitle: "Mit Face ID öffnen", pinned: false, date: v.dateCreated))
             }
         }
-        return all.sorted { $0.date > $1.date }
+        return sortiere(all)
+    }
+
+    /// Bringt den Strom in die gewählte Reihenfolge.
+    ///
+    /// Bei „Zuletzt geöffnet" hat nicht jeder Eintrag einen Wert — die App
+    /// merkt sich nur die letzten 24. Wer keinen hat, reiht sich DAHINTER
+    /// ein, dort wieder nach Datum. Ohne diesen Nachsatz stünde der ganze
+    /// Rest der Liste in beliebiger Ordnung, und die Sortierung wäre nur
+    /// für die ersten zwei Dutzend eine.
+    private func sortiere(_ items: [FavoriteItem]) -> [FavoriteItem] {
+        switch store.stromSortierung {
+        case .neuesteZuerst:
+            return items.sorted { $0.date > $1.date }
+        case .aeltesteZuerst:
+            return items.sorted { $0.date < $1.date }
+        case .alphabetisch:
+            return items.sorted {
+                $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            }
+        case .zuletztGeoeffnet:
+            return items.sorted { a, b in
+                switch (store.zuletztGeoeffnet[a.id], store.zuletztGeoeffnet[b.id]) {
+                case let (x?, y?): return x > y
+                case (_?, nil):    return true
+                case (nil, _?):    return false
+                case (nil, nil):   return a.date > b.date
+                }
+            }
+        }
     }
 
     // MARK: Tresor im Strom — einklappbare Gruppen (Bankkarten / Passwörter)
@@ -1378,16 +1406,32 @@ struct HomeView: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Arca")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
                     // Der Gruss wohnt hier, wo er keinen Platz kostet. Er
                     // war mit der Hero-Karte verschwunden — die App fragte
                     // beim ersten Start nach dem Namen und begruesste dann
                     // nie. Ohne Namen bleibt es beim „Dein Space".
-                    Text("\(begruessung) · \(totalEntryCount == 1 ? "1 Eintrag" : "\(totalEntryCount) Einträge")")
-                        .font(.system(size: 12))
+                    Text(begruessung)
+                        .font(.system(size: 15))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
+                    // Die Zusage darunter. Sie stand vorher nirgends — der
+                    // Platz war von der Zahl der Eintraege belegt, und die
+                    // sagt am Kopf der Seite weniger als der Satz, wofuer
+                    // die App da ist. Die Zahl steht ohnehin unter jeder
+                    // Liste (ArcaListenSchluss).
+                    // Zwei Zeilen erlaubt: auf dem iPad steht der Kopf in
+                    // einer schmalen Spalte neben dem Schreibtisch, und
+                    // dort brach der Satz als „Deine Dokumente. I…" ab. Auf
+                    // dem iPhone passt er weiterhin in eine Zeile — der
+                    // Umbruch greift nur, wo er gebraucht wird.
+                    Text("Deine Dokumente. Immer da.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
@@ -1443,7 +1487,7 @@ struct HomeView: View {
                         .glassEffect(.regular, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Notfall")
+                .accessibilityLabel("Notfallkoffer")
 
                 // Persönlicher Kopf: Profilbild (antippen zum Wählen).
                 // QR-Scan liegt jetzt im „Mehr"-Menü unten.
@@ -1651,35 +1695,16 @@ struct HomeView: View {
                     // Der Platz steht fest, auch wenn nichts drin ist. Ein
                     // Bereich, der mal da ist und mal nicht, lässt die ganze
                     // Seite springen — und man sucht ihn beim nächsten Mal.
-                    VStack(alignment: .leading, spacing: 3) {
-                        // Keine Überschrift mehr. „Zuletzt" sagte, was zwei
-                        // Karten mit Datum ohnehin zeigen — der Trenner über
-                        // dem Kalender markiert den Abschnitt jetzt allein.
-                        if store.zuletztGeoeffneteItems.isEmpty {
-                            ArcaPlatzhalter(text: "Was du zuletzt geöffnet hast, liegt hier bereit.",
-                                            symbol: "clock")
-                                .padding(.horizontal, 20)
-                                .frame(height: 58)
-                        } else {
-                            // Nur die letzten zwei — dafür teilen sie sich die
-                            // ganze Breite. Eine Reihe, die quer scrollt und
-                            // dabei immer angeschnitten aussieht, war der
-                            // unruhigste Teil der Seite.
-                            HStack(spacing: 8) {
-                                ForEach(store.zuletztGeoeffneteItems.prefix(2)) { item in
-                                    ArcaZuletztKarte(fuellt: true, item: item) { openFavorite(item) }
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .frame(height: 58)
-                        }
-
-                        // Der Lichtgrat schließt den Abschnitt ab — darunter
-                        // beginnt mit den Chips ein neuer Gedanke.
-                        ArcaGlasStrich()
-                            .padding(.horizontal, 20)
-                            .padding(.top, 2)
-                    }
+                    // ── „Zuletzt verwendet" ist am 16.09. gewichen ──
+                    //
+                    // Das Feld zeigte zwei Einträge und kostete dafür ein
+                    // Achtel der Seite. Seit der Strom sortierbar ist,
+                    // macht die Reihenfolge „Zuletzt geöffnet" dasselbe —
+                    // nur für die ganze Liste statt für zwei Zeilen. Die
+                    // Kategorien rücken dadurch nach oben, und der Bestand
+                    // bekommt den Platz.
+                    //
+                    // Die Reihenfolge steht unter Mehr → Einstellungen.
 
                     // ── Der Strom: alle Einträge gemischt, Filter statt Räume ──
                     // Die Chips bekommen etwas Luft nach oben: sie beginnen
@@ -1740,16 +1765,31 @@ struct HomeView: View {
                         }
 
                         // Die Gruppenreihe gehoert zum Kopf: sie ist die
-                        // Auswahl, nicht der Inhalt.
+                        // Auswahl, nicht der Inhalt. Seit dem 16.09. steht
+                        // sie in ihrem eigenen Feld — „Kategorien" sagt,
+                        // was die Kacheln sind; vorher musste man es aus
+                        // ihnen schliessen.
                         if streamFilter == .dokumente {
-                            dokumentKarussell
+                            ARCASectionPanel("Kategorien", systemImage: "folder", randlos: true) {
+                                ARCAPanelLink("Alle anzeigen", tint: ArcaWarm.terrakotta) {
+                                    store.fokusKategorie = nil
+                                    selectedSection = .documents
+                                }
+                            } content: {
+                                dokumentKarussell
+                            }
+                            .padding(.horizontal, 20)
                         }
                     }
                     }
                     .frame(maxWidth: homeContentMaxWidth)
                     .frame(maxWidth: .infinity, alignment: deskSichtbar ? .leading : .center)
                     .padding(.leading, deskSichtbar ? 16 : 0)
-                    .padding(.bottom, 10)
+                    // Kein Abstand nach unten mehr (war 10): der Bestand
+                    // soll so dicht an den Kategorien stehen wie die
+                    // Kategorien an der Chip-Reihe. Zwei verschieden große
+                    // Lücken untereinander lesen sich als zwei
+                    // verschiedene Zusammenhänge — es ist aber einer.
                     // simultaneous: die Zeilen und Kacheln behalten ihre
                     // eigenen Tipps, wir hoeren nur mit.
                     .simultaneousGesture(TapGesture().onEnded { sucheLoslassen() })
@@ -1757,42 +1797,29 @@ struct HomeView: View {
                     // Ab hier scrollt es — und nur hier.
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
+                        // ── Der Bestand in seinem eigenen Feld ──
+                        //
+                        // Ohne Kopfzeile. Sie stand am 16.09. noch da und
+                        // wiederholte nur den Chip, der zwei Balken weiter
+                        // oben schon gedrückt ist — dafür eine ganze Zeile
+                        // plus Lupe zu opfern, war der Platz nicht wert.
+                        // Die Suche liegt ohnehin unten in der Leiste.
+                        //
+                        // Das Feld selbst bleibt: eine weiche Fläche mit
+                        // Lichtkante, kein Glas — die Zeilen darin tragen
+                        // ihres schon, und Glas auf Glas rendert falsch.
+                        VStack(alignment: .leading, spacing: ARCASpacing.inCard) {
                         if streamFilter == .dokumente {
                             if streamItems.isEmpty {
                                 Text("Noch keine Dokumente — leg das erste mit dem Plus an.")
                                     .font(.system(size: 13))
                                     .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 20)
                                     .padding(.vertical, 8)
                             } else {
-                                // Wer filtert, muss auch wieder heraus. Die
-                                // Kachel ist zwar ein Schalter, aber das
-                                // sieht man ihr nicht an — hier steht es.
-                                if nurAngepinnt {
-                                    Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                            nurAngepinnt = false
-                                        }
-                                    } label: {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "pin.fill")
-                                                .font(.system(size: 10, weight: .semibold))
-                                            Text("Nur Angepinnt")
-                                                .font(.system(size: 12, weight: .semibold))
-                                            Text("· Alle zeigen")
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        .foregroundStyle(ArcaWarm.terrakotta)
-                                        .padding(.horizontal, ARCASpacing.chipHorizontal)
-                                        .padding(.vertical, 7)
-                                        .glassEffect(.regular.tint(ArcaWarm.terrakotta.opacity(0.14)),
-                                                     in: Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .padding(.horizontal, 20)
-                                    .padding(.bottom, 2)
-                                }
+                                // Hier stand der Ausstieg aus dem Filter
+                                // „Nur Angepinnt". Den gibt es nicht mehr:
+                                // die Kachel geht in einen Ordner, und aus
+                                // dem fuehrt der Weg oben links zurueck.
 
                                 // Alle Dokumente, ohne Deckel und ohne
                                 // „Mehr anzeigen": man scrollt einfach durch.
@@ -1803,7 +1830,6 @@ struct HomeView: View {
                                     ForEach(streamItems) { item in
                                         streamZeile(item)
                                     }
-                                    .padding(.horizontal, 20)
 
                                     ArcaListenSchluss(anzahl: streamItems.count)
                                         .padding(.top, 6)
@@ -1828,7 +1854,6 @@ struct HomeView: View {
                             Text("Noch nichts hier — wirf Arca eine Blitzidee zu.")
                                 .font(.system(size: 13))
                                 .foregroundStyle(.secondary)
-                                .padding(.horizontal, 20)
                                 .padding(.vertical, 8)
                         } else {
                             // Wie bei den Dokumenten: durchscrollen statt
@@ -1837,7 +1862,6 @@ struct HomeView: View {
                                 ForEach(streamItems) { item in
                                     streamZeile(item)
                                 }
-                                .padding(.horizontal, 20)
 
                                 ArcaListenSchluss(
                                     anzahl: streamItems.count,
@@ -1847,6 +1871,15 @@ struct HomeView: View {
                                     .padding(.top, 6)
                             }
                         }
+                        }
+                        // Dieselben Innenabstände, die ARCASectionPanel
+                        // setzt — das Feld soll neben „Kategorien" nicht
+                        // anders eingerückt sein, nur weil es keinen Kopf
+                        // mehr hat.
+                        .padding(ARCASpacing.card)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .arcaLichtkante()
+                        .padding(.horizontal, 20)
 
                     // ── Die Wände: unten, wo der Daumen liegt ──
                     //
@@ -2032,10 +2065,6 @@ struct HomeView: View {
                 // Space-Tab erneut angetippt → sanft nach oben
                 .onChange(of: store.homeSprungNachOben) { _, _ in
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                        // Home heisst: zurueck auf Anfang — und zwar auch
-                        // aus einem laufenden Filter heraus, nicht nur nach
-                        // oben gescrollt.
-                        nurAngepinnt = false
                         leseProxy.scrollTo("seitenAnfang", anchor: .top)
                     }
                 }
@@ -2070,45 +2099,6 @@ struct HomeView: View {
                 symbolZiel = nil
             }
             .environmentObject(store)
-        }
-        .sheet(isPresented: $showAlleFavoriten) {
-            NavigationStack {
-                List {
-                    ForEach(store.favoriteItems) { fav in
-                        Button {
-                            showAlleFavoriten = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { openFavorite(fav) }
-                        } label: {
-                            HStack(spacing: 12) {
-                                ArcaIcon(name: favSymbol(fav.kind), groesse: 17)
-                                    .foregroundStyle(favFarbe(fav.kind))
-                                    .frame(width: 34, height: 34)
-                                    .background(favFarbe(fav.kind).opacity(0.12),
-                                                in: RoundedRectangle(cornerRadius: 9))
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(fav.title)
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-                                    Text(fav.subtitle)
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                Spacer()
-                            }
-                        }
-                    }
-                }
-                .navigationTitle("Angepinnt")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Fertig") { showAlleFavoriten = false }
-                    }
-                }
-            }
-            .presentationDetents([.medium, .large])
         }
         .sheet(item: $quickAccessNote) { note in
             NoteDetailView(note: note)

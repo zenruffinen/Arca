@@ -521,6 +521,344 @@ struct ArcaKategorieKarte: View {
     }
 }
 
+// MARK: - Ordner mit Vorschau (Studie, Reihe 2)
+
+/// Die Silhouette eines Ordners: Lasche oben links, Körper darunter.
+///
+/// EINE durchgehende Kontur, nicht zwei übereinandergelegte Rechtecke.
+/// Als zwei Rechtecke sieht die Füllung zwar richtig aus, aber jeder
+/// Strich zeichnet beide Umrisse — auch die Kanten, die mitten in der
+/// Form liegen. Dann hat der Ordner eine Naht quer durch die Lasche.
+struct ArcaOrdnerForm: Shape {
+    /// Anteil der Breite, den die Lasche einnimmt.
+    var laschenBreite: CGFloat = 0.46
+    /// Anteil der Höhe, um den die Lasche über dem Körper steht.
+    var laschenHoehe: CGFloat = 0.14
+    var radius: CGFloat = 15
+
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        let lh = h * laschenHoehe
+        let r = min(radius, min(w, h) / 2)
+        let lw = min(w * laschenBreite, w - r * 2)
+        let lr = min(r * 0.55, lh * 0.9)   // Ecken der Lasche
+        let kr = min(r * 0.5, lh)          // Kehle zwischen Lasche und Körper
+
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x, y: rect.minY + y)
+        }
+
+        var p = Path()
+        p.move(to: pt(0, h - r))
+        // Linke Kante ganz hoch — Lasche und Körper haben dieselbe Flucht
+        p.addLine(to: pt(0, lr))
+        p.addQuadCurve(to: pt(lr, 0), control: pt(0, 0))
+        p.addLine(to: pt(lw - lr, 0))
+        p.addQuadCurve(to: pt(lw, lr), control: pt(lw, 0))
+        // Rechte Laschenkante hinunter, dann die Kehle auf die Körperkante
+        p.addLine(to: pt(lw, lh - kr))
+        p.addQuadCurve(to: pt(lw + kr, lh), control: pt(lw, lh))
+        // Körper: Oberkante, rechte Kante, Unterkante
+        p.addLine(to: pt(w - r, lh))
+        p.addQuadCurve(to: pt(w, lh + r), control: pt(w, lh))
+        p.addLine(to: pt(w, h - r))
+        p.addQuadCurve(to: pt(w - r, h), control: pt(w, h))
+        p.addLine(to: pt(r, h))
+        p.addQuadCurve(to: pt(0, h - r), control: pt(0, h))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Die Vordertasche des Ordners: oben eine gerade Kante, unten die
+/// Rundung des Ordners selbst.
+///
+/// Oben nur ein Hauch Radius. Eine runde Oberkante sähe aus wie eine
+/// zweite Karte, die im Ordner liegt — die Tasche ist aber die Vorderseite
+/// des Ordners und muss an seinen Seiten anschließen.
+struct ArcaTaschenForm: Shape {
+    var untenRadius: CGFloat = 15
+    var obenRadius: CGFloat = 3
+
+    func path(in rect: CGRect) -> Path {
+        Path(
+            UnevenRoundedRectangle(
+                topLeadingRadius: obenRadius,
+                bottomLeadingRadius: untenRadius,
+                bottomTrailingRadius: untenRadius,
+                topTrailingRadius: obenRadius,
+                style: .continuous
+            ).path(in: rect).cgPath
+        )
+    }
+}
+
+/// Ein Blatt in der Ordner-Vorschau: das Vorschaubild auf weißem Papier,
+/// leicht gekippt. Ohne die Kippung sähen zwei Blätter wie ein Block aus.
+private struct ArcaVorschauBlatt: View {
+    let url: URL
+    let typ: DocumentType
+    var winkel: Double
+
+    private var breite: CGFloat { ARCASpacing.ordnerBlattWidth }
+    private var hoehe: CGFloat { ARCASpacing.ordnerBlattHeight }
+
+    var body: some View {
+        DocThumbnail(url: url, type: typ,
+                     groesse: CGSize(width: breite, height: hoehe))
+            .frame(width: breite, height: hoehe)
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            // Weißer Rand: das Blatt ist Papier, das im Ordner steckt —
+            // ohne ihn klebt das Bild direkt auf dem Glas.
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .strokeBorder(.white.opacity(0.95), lineWidth: 1.5)
+            )
+            .shadow(color: .black.opacity(0.20), radius: 2.5, x: 0, y: 1.5)
+            .rotationEffect(.degrees(winkel))
+    }
+}
+
+/// Deterministische Streuzahl zwischen 0 und 1.
+///
+/// `hashValue` taugt dafür nicht: Swift würfelt den Hash-Startwert pro
+/// Programmlauf neu, die Flecken säßen nach jedem Start woanders. Ein
+/// eigener, fester Hash sorgt dafür, dass „Urlaub" immer dasselbe Glas
+/// hat — nur eben ein anderes als „Rechnungen".
+private func arcaStreuwert(_ saat: Int, _ i: Int) -> CGFloat {
+    var x = UInt64(truncatingIfNeeded: saat &* 73856093 ^ ((i &+ 1) &* 19349663))
+    x ^= x >> 33
+    x = x &* 0xff51afd7ed558ccd
+    x ^= x >> 33
+    return CGFloat(x % 997) / 997.0
+}
+
+private func arcaSaat(_ text: String) -> Int {
+    var h = 5381
+    for b in text.utf8 { h = (h &* 33) &+ Int(b) }
+    return h
+}
+
+/// Die Unebenheiten im Glas: ein paar weiche Farbwolken, die sich
+/// überlagern.
+///
+/// Ein gleichmäßiger Farbton sieht aus wie eingefärbtes Plastik. Was das
+/// Glas in der Studie lebendig macht, sind Stellen, an denen die Farbe
+/// dichter steht, und andere, an denen sie fast verschwindet — als wäre
+/// sie hineingegossen und nicht ganz verrührt.
+private struct ArcaGlasFlecken: View {
+    let tint: Color
+    let saat: Int
+    var anzahl: Int = 4
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            ZStack {
+                ForEach(0..<anzahl, id: \.self) { i in
+                    let x = arcaStreuwert(saat, i * 4)
+                    let y = arcaStreuwert(saat, i * 4 + 1)
+                    let groesse = arcaStreuwert(saat, i * 4 + 2)
+                    let dichte = arcaStreuwert(saat, i * 4 + 3)
+                    Ellipse()
+                        .fill(tint.opacity(0.07 + 0.13 * Double(dichte)))
+                        .frame(width: w * (0.45 + 0.40 * groesse),
+                               height: h * (0.34 + 0.34 * (1 - groesse)))
+                        .offset(x: w * (x - 0.5), y: h * (y - 0.5))
+                        .blur(radius: 9)
+                }
+            }
+            .frame(width: w, height: h)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Ein unbeschriebenes Blatt — der zweite Platz, wenn nur ein Dokument da
+/// ist. Ohne ihn rutscht das einzelne Blatt in die Mitte und jeder Ordner
+/// der Reihe ist anders aufgebaut.
+///
+/// Bewusst OHNE gestrichelten Rand: gestrichelt heißt „hier fehlt etwas,
+/// tu was hinein". Der Ordner sagt aber nur, wie viel drin ist. Blasses
+/// Papier ist ruhig genug, um nicht gelesen zu werden.
+private struct ArcaLeeresBlatt: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(.white.opacity(0.45))
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .strokeBorder(.white.opacity(0.7), lineWidth: 1.5)
+            )
+            .shadow(color: .black.opacity(0.10), radius: 2, x: 0, y: 1)
+            .frame(width: ARCASpacing.ordnerBlattWidth,
+                   height: ARCASpacing.ordnerBlattHeight)
+            .rotationEffect(.degrees(3.5))
+    }
+}
+
+/// Der Kategorie-Ordner, der seinen Inhalt zeigt: Glasordner mit Lasche,
+/// darin bis zu zwei echte Vorschaublätter, darunter Name und Anzahl.
+///
+/// Ist die Gruppe leer, tritt das Symbol an die Stelle der Blätter — eine
+/// Vorschau von nichts wäre ein weißer Fleck, und dann wüsste man nicht
+/// mehr, was für ein Ordner das ist.
+struct ArcaOrdnerKarte: View {
+    let name: String
+    let icon: String
+    let farben: NoteColor
+    let anzahl: Int
+    /// Bis zu zwei Dokumente für die Vorschau — (Datei, Typ).
+    var vorschau: [(url: URL, typ: DocumentType)] = []
+    var tintDeckkraft: Double = 0.55
+
+    @Environment(\.colorScheme) private var schema
+
+    private var breite: CGFloat { ARCASpacing.ordnerTileWidth }
+    private var hoehe: CGFloat { ARCASpacing.ordnerTileHeight }
+    private var dunkel: Bool { schema == .dark }
+
+    var body: some View {
+        // Drei Schichten übereinander, nicht ein Stapel untereinander.
+        //
+        // Das ist der Kern der Vorlage: die Blätter STECKEN im Ordner. Sie
+        // ragen oben heraus und verschwinden unten hinter einer Tasche,
+        // durch die man sie noch ahnt. In einem VStack läge das Papier
+        // einfach auf der Fläche — dann ist es ein Bildchen auf einer
+        // Kachel, kein Inhalt in einem Behälter.
+        ZStack(alignment: .top) {
+
+            // ── 0. Der Maßstab ──
+            //
+            // Ohne diese unsichtbare Fläche ist der ZStack nur so hoch wie
+            // sein größtes Kind, und ein `.frame` darum ZENTRIERT ihn. Die
+            // Versätze unten rechnen aber ab Oberkante der Kachel — ohne
+            // Maßstab landen Tasche und Zahl unterhalb des Ordners und
+            // werden vom Zuschnitt gefressen.
+            Color.clear
+                .frame(width: breite, height: hoehe)
+
+            // ── 1. Die Blätter ──
+            HStack(spacing: 5) {
+                if vorschau.isEmpty {
+                    ArcaIcon(name: icon, groesse: 24)
+                        .foregroundStyle(farben.accent.opacity(0.75))
+                        .frame(width: ARCASpacing.ordnerBlattWidth * 2 + 5,
+                               height: ARCASpacing.ordnerBlattHeight)
+                } else {
+                    ForEach(Array(vorschau.prefix(2).enumerated()), id: \.offset) { i, blatt in
+                        ArcaVorschauBlatt(url: blatt.url, typ: blatt.typ,
+                                          winkel: i == 0 ? -5 : 3.5)
+                    }
+                    if vorschau.count == 1 {
+                        ArcaLeeresBlatt()
+                    }
+                }
+            }
+            .frame(height: ARCASpacing.ordnerBlattHeight)
+            .offset(y: hoehe * ARCASpacing.ordnerBlattOben)
+
+            // ── 2. Die Vordertasche mit Name und Zahl ──
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Text(name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.primary.opacity(0.78))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .arcaGraviert(tiefe: 0.85)
+                Text("\(anzahl)")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(farben.accent.opacity(0.92))
+                    .arcaGraviert()
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 6)
+            .frame(width: breite, height: hoehe * (1 - ARCASpacing.ordnerTascheOben))
+            .background {
+                ArcaTaschenForm()
+                    // Milchig, nicht deckend: unter der Kante soll das
+                    // Papier noch durchschimmern, sonst ist die Tasche
+                    // ein Balken und kein Vordergrund.
+                    .fill(farben.bg.opacity(0.62))
+                    // Der weiße Anteil hebt die Tasche im Hellen ab. Im
+                    // Dunkeln legt er sich als Schleier über den halben
+                    // Ordner — dort reicht ein Zehntel.
+                    .background(ArcaTaschenForm()
+                        .fill(.white.opacity(dunkel ? 0.10 : 0.34)))
+                    // Lichtkante auf der Taschenoberkante — aber nur
+                    // angedeutet. Von Kante zu Kante durchgezogen teilt
+                    // der Strich den Ordner in zwei Hälften; er soll aber
+                    // nur sagen, wo das Papier verschwindet. Also in der
+                    // Mitte hell und zu den Seiten hin weg.
+                    .overlay(alignment: .top) {
+                        Rectangle()
+                            .fill(LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0.00),
+                                    .init(color: .white.opacity(dunkel ? 0.28 : 0.70), location: 0.30),
+                                    .init(color: .white.opacity(dunkel ? 0.28 : 0.70), location: 0.70),
+                                    .init(color: .clear, location: 1.00),
+                                ],
+                                startPoint: .leading, endPoint: .trailing))
+                            .frame(height: 1)
+                    }
+                    // Schatten NACH OBEN: die Tasche liegt vor dem Papier.
+                    .shadow(color: .black.opacity(0.13), radius: 3, x: 0, y: -2)
+            }
+            .offset(y: hoehe * ARCASpacing.ordnerTascheOben)
+        }
+        .frame(width: breite, height: hoehe)
+        // Was über die Ordnerkante hinausragt, wird abgeschnitten — sonst
+        // steht das Papier seitlich heraus.
+        .clipShape(ArcaOrdnerForm())
+        // Die Farbwolken liegen AUF dem Glas und UNTER den Blättern —
+        // deshalb als background des Inhalts, nicht als eigene Schicht
+        // darüber. Sonst läge Farbe über dem Papier.
+        .background {
+            ArcaGlasFlecken(tint: farben.accent, saat: arcaSaat(name))
+                .clipShape(ArcaOrdnerForm())
+        }
+        // Glas in Ordnerform — eine Schicht. Die Vorschaublätter darin
+        // sind Bilder auf Papier, kein zweites Glas.
+        .glassEffect(.regular.tint(farben.bg.opacity(tintDeckkraft)),
+                     in: ArcaOrdnerForm())
+        .overlay {
+            // Die Lichtkante folgt der Ordnerform, nicht einem Rechteck —
+            // sonst schwebt ein Rahmen um die Lasche herum.
+            ArcaOrdnerForm()
+                .stroke(farben.accent.opacity(0.20), lineWidth: 1)
+        }
+    }
+}
+
+/// „+ Kategorie hinzufügen" in Ordnerform — der leere Platz am Ende der Reihe.
+struct ArcaOrdnerHinzufuegenKarte: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "plus")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(ArcaWarm.terrakotta)
+                .frame(width: 34, height: 34)
+                .background(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45),
+                                                  style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            Text("Kategorie\nhinzufügen")
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, ARCASpacing.ordnerTileHeight * 0.14)
+        .frame(width: ARCASpacing.ordnerTileWidth, height: ARCASpacing.ordnerTileHeight)
+        .glassEffect(.regular, in: ArcaOrdnerForm())
+        .overlay {
+            ArcaOrdnerForm()
+                .stroke(Color.secondary.opacity(0.28),
+                        style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+    }
+}
+
 /// „+ Kategorie hinzufügen" — gleiche schmale Form, Glas.
 struct ArcaKategorieHinzufuegenKarte: View {
     var body: some View {
