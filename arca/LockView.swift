@@ -96,6 +96,12 @@ struct LockView: View {
     @State private var showNotfall = false
     @State private var showErbe = false
 
+    private func oeffneNotfallVomWidget() {
+        guard store.zeigeNotfallGesperrt else { return }
+        store.zeigeNotfallGesperrt = false
+        showNotfall = true
+    }
+
     private var hasPIN: Bool {
         KeychainManager.shared.load(key: "arca_pin_hash") != nil
     }
@@ -171,7 +177,11 @@ struct LockView: View {
         }
         .sheet(isPresented: $showNotfall) {
             NotfallView(karten: [], nurOeffentlich: true)
+                .environmentObject(store)
         }
+        // Vom Notfall-Widget
+        .onAppear { oeffneNotfallVomWidget() }
+        .onChange(of: store.zeigeNotfallGesperrt) { _, _ in oeffneNotfallVomWidget() }
         .sheet(isPresented: $showErbe) {
             ErbeUnlockView().environmentObject(store)
         }

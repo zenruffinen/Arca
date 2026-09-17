@@ -116,6 +116,15 @@ struct ArcaApp: App {
             case "tasks":      store.pendingSection = .lists
             case "blitzidee":
                 store.pendingQuickCapture = true
+            case "notfall":
+                // Kurz warten: kommt die App aus dem Hintergrund, entscheidet
+                // erst die Auto-Sperre, ob gesperrt ist. Gesperrt oeffnet der
+                // Sperrbildschirm die oeffentliche Fassung — ein Blatt der
+                // ContentView laege sonst UEBER dem Sperrbildschirm.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    if isUnlocked { store.zeigeNotfall = true }
+                    else { store.zeigeNotfallGesperrt = true }
+                }
             default:           store.pendingSection = .home
             }
         } else {
