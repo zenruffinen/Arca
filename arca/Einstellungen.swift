@@ -877,8 +877,15 @@ struct SettingsView: View {
                     }
 
                     // ── 4) Arca unterstützen ──
-                    glasGruppe("Arca unterstützen") {
-                        TrinkgeldKarte().padding(.horizontal, 12).padding(.vertical, 10)
+                    //
+                    // Aus, solange die Käufe nicht in App Store Connect
+                    // stehen — siehe ArcaFeatures.trinkgeld. Eine Sektion,
+                    // die „nicht erreichbar" meldet, ist schlimmer als
+                    // keine Sektion.
+                    if ArcaFeatures.trinkgeld {
+                        glasGruppe("Arca unterstützen") {
+                            TrinkgeldKarte().padding(.horizontal, 12).padding(.vertical, 10)
+                        }
                     }
 
                     // ── 5) Über Arca ──

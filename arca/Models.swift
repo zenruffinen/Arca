@@ -33,6 +33,19 @@ enum ArcaFeatures {
     /// eine schoene Sache, aber keine, die jemand vermisst.
     /// Der Code bleibt liegen — zum Wiederaufmachen: auf `true`.
     static let stift = false
+
+    /// Das Trinkgeld-Glas in den Einstellungen.
+    ///
+    /// Am 16.09. ausgeblendet. Die drei Verbrauchsartikel werden erst beim
+    /// Hochladen in App Store Connect angelegt — bis dahin findet StoreKit
+    /// nichts und die Sektion sagt „nicht erreichbar". Das liest sich wie
+    /// ein Fehler, auch für einen Prüfer, der die Absprache nicht kennt.
+    ///
+    /// Nur die Anzeige ist aus. ArcaTrinkgeld.swift, Configuration.storekit
+    /// und der Verweis im Schema bleiben unangetastet — zum Wiederaufmachen
+    /// genügt `true`, sobald die Käufe in App Store Connect stehen. Sie
+    /// müssen ZUSAMMEN mit der App eingereicht werden.
+    static let trinkgeld = false
 }
 
 enum ArcaSection: String, CaseIterable, Identifiable {
