@@ -201,57 +201,69 @@ struct PINSetupView: View {
     enum SetupStep { case create, confirm }
 
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        // Das Feld richtet sich nach der Hoehe, die wirklich da ist.
+        //
+        // Mit festen 32 Punkt Abstand und einem 92er Logo braucht die
+        // Ansicht rund 700 Punkt. Auf dem Aussendisplay des iPhone Duo
+        // sind es 678 — dort ragte das Logo oben aus dem Bild und
+        // „Digitales Erbe" fiel unten heraus. Statt eines Sonderfalls
+        // fuer ein Geraet: enger werden, sobald es eng wird. Das hilft
+        // auch im Querformat und bei kleinen iPhones. (01.10.)
+        GeometryReader { geo in
+            let eng = geo.size.height < 720
+            VStack(spacing: eng ? 18 : 32) {
+                Spacer(minLength: 0)
 
-            ArcaGlassIcon(size: 92)
+                ArcaGlassIcon(size: eng ? 62 : 92)
 
-            VStack(spacing: 8) {
-                Text("Arca schützen")
-                    .font(.title.bold())
-                Text(step == .create ? "Erstelle deinen 4-stelligen PIN" : "PIN wiederholen zur Bestätigung")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    // Bei grosser Systemschrift stand hier „Erstelle deinen
-                    // 4-stelli…" — der Satz wurde abgeschnitten statt
-                    // umgebrochen, weil der Text seine Hoehe nicht nehmen
-                    // durfte. fixedSize laesst ihn nach unten wachsen, das
-                    // Polster haelt ihn vom Rand weg. (01.10.)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 24)
-            }
-
-            // PIN Punkte
-            HStack(spacing: 20) {
-                ForEach(0..<4, id: \.self) { i in
-                    let filled = step == .create ? i < pin.count : i < confirmPin.count
-                    Circle()
-                        .fill(filled ? Color.blue : Color.secondary.opacity(0.3))
-                        .frame(width: 18, height: 18)
-                        .scaleEffect(filled ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.2), value: filled)
+                VStack(spacing: 8) {
+                    Text("Arca schützen")
+                        .font(.title.bold())
+                    Text(step == .create ? "Erstelle deinen 4-stelligen PIN" : "PIN wiederholen zur Bestätigung")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        // Bei grosser Systemschrift stand hier „Erstelle deinen
+                        // 4-stelli…" — der Satz wurde abgeschnitten statt
+                        // umgebrochen, weil der Text seine Hoehe nicht nehmen
+                        // durfte. fixedSize laesst ihn nach unten wachsen, das
+                        // Polster haelt ihn vom Rand weg. (01.10.)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 24)
                 }
-            }
-            .offset(x: shake ? -10 : 0)
-            .animation(shake ? .default.repeatCount(4, autoreverses: true).speed(6) : .default, value: shake)
 
-            if !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
+                // PIN Punkte
+                HStack(spacing: 20) {
+                    ForEach(0..<4, id: \.self) { i in
+                        let filled = step == .create ? i < pin.count : i < confirmPin.count
+                        Circle()
+                            .fill(filled ? Color.blue : Color.secondary.opacity(0.3))
+                            .frame(width: 18, height: 18)
+                            .scaleEffect(filled ? 1.1 : 1.0)
+                            .animation(.spring(response: 0.2), value: filled)
+                    }
+                }
+                .offset(x: shake ? -10 : 0)
+                .animation(shake ? .default.repeatCount(4, autoreverses: true).speed(6) : .default, value: shake)
 
-            // Ziffernfeld
-            PINPad { digit in
-                handleInput(digit)
-            } onDelete: {
-                handleDelete()
-            }
+                if !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
 
-            Spacer()
+                // Ziffernfeld
+                PINPad { digit in
+                    handleInput(digit)
+                } onDelete: {
+                    handleDelete()
+                }
+
+                Spacer()
+            }
+            .padding()
+            .frame(width: geo.size.width, height: geo.size.height)
         }
-        .padding()
     }
 
     func handleInput(_ digit: String) {

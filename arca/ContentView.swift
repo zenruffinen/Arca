@@ -303,6 +303,31 @@ struct ContentView: View {
     /// Arca Desktop; der Knopf oben links holt sie jederzeit zurück.
     @State private var spaltenSichtbarkeit: NavigationSplitViewVisibility = .detailOnly
 
+    /// Der Weg zurück zum Space, wenn die Seitenleiste zu ist.
+    private var spaceZurueckKnopf: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                selectedSection = .home
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                Text("Space")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(ArcaWarm.terrakotta)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .glassEffect(.regular, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 14)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+        .accessibilityLabel("Zurück zum Space")
+    }
+
     private var iPadLayout: some View {
         NavigationSplitView(columnVisibility: $spaltenSichtbarkeit) {
             ArcaIPadSidebar(selectedSection: $selectedSection)
@@ -344,29 +369,18 @@ struct ContentView: View {
                 // Überall dieselbe warme Bühne wie auf dem Start —
                 // kein Farbsprung beim Umschalten
                 .background(ArcaWarm.hintergrund.ignoresSafeArea())
-                // Zurück zum Space: bei eingeklappter Leiste sonst kein Weg raus
-                .overlay(alignment: .topLeading) {
+                // Zurück zum Space: bei eingeklappter Leiste sonst kein Weg raus.
+                //
+                // Als safeAreaInset, nicht als Overlay. Bis 01.10. lag der
+                // Knopf ÜBER dem Inhalt: auf dem iPad blieb das unbemerkt,
+                // weil oben genug Luft ist, aber auf dem aufgeklappten
+                // iPhone Duo stand er mitten in der Kopfzeile — aus „Neues
+                // Dokument" wurde „…ues Dokument". Der Inset haelt ihm
+                // stattdessen Platz frei, so wie Apple es fuer Geraete mit
+                // wechselnder Hoehe vorsieht.
+                .safeAreaInset(edge: .top, alignment: .leading, spacing: 0) {
                     if selectedSection != .home {
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                selectedSection = .home
-                            }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 13, weight: .bold))
-                                Text("Space")
-                                    .font(.system(size: 14, weight: .semibold))
-                            }
-                            .foregroundStyle(ArcaWarm.terrakotta)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .glassEffect(.regular, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.leading, 14)
-                        .padding(.top, 6)
-                        .accessibilityLabel("Zurück zum Space")
+                        spaceZurueckKnopf
                     }
                 }
                 // Von außen hineingezogen (Mail, Finder-Datei) →
