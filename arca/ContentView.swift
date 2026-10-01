@@ -67,6 +67,9 @@ struct ContentView: View {
                 store.pendingBackupURL = url
                 selectedSection = .settings
             }
+            // Der Wiederherstellungs-Hinweis wartet hinter dem Schloss:
+            // vorher lag er ueber dem Sperrbildschirm.
+            if unlocked { evaluateRecoveryHint() }
         }
         .onChange(of: selectedSection) { _, section in
             if section != .documents {
@@ -157,7 +160,7 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: store.isCloudSyncPending)
-        .onAppear { evaluateRecoveryHint(isFirstLaunch: true) }
+        .onAppear { evaluateRecoveryHint() }
         .onChange(of: store.isCloudSyncPending) { _, pending in
             if !pending { evaluateRecoveryHint() }
         }
@@ -174,9 +177,20 @@ struct ContentView: View {
         }
     }
 
-    private func evaluateRecoveryHint(isFirstLaunch: Bool = false) {
-        guard store.shouldShowRecoveryHint else { return }
-        if isFirstLaunch || store.isLikelyEmptyWithPendingCloud {
+    /// „Daten fehlen?" — nur, wenn wirklich welche fehlen koennen.
+    ///
+    /// Bis 01.10. stand hier `isFirstLaunch || …`: beim ersten Start kam
+    /// der Hinweis damit IMMER, auch bei einer frischen Installation, in
+    /// der es nichts zu vermissen gibt. Er landete als zweiter von drei
+    /// Dialogen ueber dem noch nicht gesetzten PIN — ContentView liegt
+    /// auch gesperrt im Speicher und schickt sein onAppear los.
+    ///
+    /// Jetzt entscheidet allein `isLikelyEmptyWithPendingCloud`: leer UND
+    /// es gibt einen Datenspeicher oder offene iCloud-Downloads. Und
+    /// gezeigt wird erst hinter dem Schloss.
+    private func evaluateRecoveryHint() {
+        guard store.shouldShowRecoveryHint, isUnlocked else { return }
+        if store.isLikelyEmptyWithPendingCloud {
             showRecoveryHint = true
         }
     }

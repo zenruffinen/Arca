@@ -90,23 +90,16 @@ struct ArcaTabBar: View {
         ZStack {
             // Rahmen mit Bogen in der Mitte — eine schwebende Kapsel.
             //
-            // Zwei Schatten statt einem: der weite, weiche trägt die Leiste
-            // über der Seite, der enge, dunklere setzt sie auf. Mit nur
-            // einem sieht sie entweder aufgeklebt oder nach oben verrutscht
-            // aus.
-            NotchedBar(notchRadius: 36, corner: 26)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    NotchedBar(notchRadius: 36, corner: 26)
-                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                )
-                .overlay(
-                    NotchedBar(notchRadius: 36, corner: 26)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                )
+            // Echtes Liquid Glass statt gemaltem: bis 01.10. lag hier
+            // „.ultraThinMaterial plus zwei Striche plus zwei Schatten" —
+            // die Technik von vor iOS 26. Der weisse Strich (0.5) war im
+            // Dunkelmodus als heller Fremdkoerper auf der Leiste zu sehen,
+            // weil er nicht mitdunkelt. .glassEffect bringt Rand,
+            // Lichtbrechung und Schatten selbst mit und richtet sich nach
+            // Hell und Dunkel — das Gemalte kann dabei nur stoeren.
+            Color.clear
                 .frame(height: 52)
-                .shadow(color: .black.opacity(0.13), radius: 18, x: 0, y: 8)
-                .shadow(color: .black.opacity(0.07), radius: 4, x: 0, y: 1)
+                .arcaGlass(in: NotchedBar(notchRadius: 36, corner: 26))
 
             // Seiten-Items: Home + Suche links, Mikro + Mehr rechts, Mitte frei
             HStack(spacing: 0) {

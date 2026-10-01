@@ -1428,7 +1428,12 @@ struct HomeView: View {
                     // Umbruch greift nur, wo er gebraucht wird.
                     Text("Deine Dokumente. Immer da.")
                         .font(.system(size: 12))
-                        .foregroundStyle(.tertiary)
+                        // .tertiary war auf der warmen Buehne zu blass und
+                        // im Dunkelmodus kaum noch zu lesen. .secondary ist
+                        // die Stufe, die Apple fuer untergeordneten Text
+                        // vorsieht — sie haelt den Mindestkontrast in Hell
+                        // und Dunkel. (01.10.)
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1438,147 +1443,157 @@ struct HomeView: View {
 
                 // Die Suche liegt jetzt unten in der Leiste (obere Lupe entfernt 14.08.)
 
-                // Sicherung fällig? Nur dann steht das Schild hier — als
-                // Zeichen statt als Banderole, das spart die halbe Reihe.
-                if backupErinnerungFaellig {
-                    Button {
-                        store.pendingSettingsAktion = "export"
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                            selectedSection = .settings
-                        }
-                    } label: {
-                        Image(systemName: "shield.lefthalf.filled.badge.checkmark")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(ArcaWarm.terrakotta)
-                            .frame(width: 36, height: 36)
-                            .glassEffect(.regular, in: Circle())
-                            .overlay(alignment: .topTrailing) {
-                                Circle()
-                                    .fill(ArcaWarm.terrakotta)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: 1, y: -1)
+                // Die Kopf-Knoepfe als eine Gruppe.
+                //
+                // Liquid Glass will wissen, welche Glasflaechen zusammen
+                // gehoeren: in einem GlassEffectContainer sehen sie sich
+                // gegenseitig, brechen das Licht gemeinsam und fliessen
+                // beim Erscheinen ineinander, statt als drei einzelne
+                // Scheiben zu rendern. Ohne Container rechnet jede fuer
+                // sich — teurer und optisch unruhiger. (01.10., iOS 27)
+                GlassEffectContainer(spacing: 12) {
+                    HStack(spacing: 12) {
+                        // Sicherung fällig? Nur dann steht das Schild hier — als
+                        // Zeichen statt als Banderole, das spart die halbe Reihe.
+                        if backupErinnerungFaellig {
+                            Button {
+                                store.pendingSettingsAktion = "export"
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    selectedSection = .settings
+                                }
+                            } label: {
+                                Image(systemName: "shield.lefthalf.filled.badge.checkmark")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(ArcaWarm.terrakotta)
+                                    .frame(width: 36, height: 36)
+                                    .glassEffect(.regular, in: Circle())
+                                    .overlay(alignment: .topTrailing) {
+                                        Circle()
+                                            .fill(ArcaWarm.terrakotta)
+                                            .frame(width: 8, height: 8)
+                                            .offset(x: 1, y: -1)
+                                    }
                             }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(backupErinnerungText)
-                    .contextMenu {
-                        Button {
-                            store.pendingSettingsAktion = "export"
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                selectedSection = .settings
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(backupErinnerungText)
+                            .contextMenu {
+                                Button {
+                                    store.pendingSettingsAktion = "export"
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                        selectedSection = .settings
+                                    }
+                                } label: { Label("Jetzt sichern", systemImage: "arrow.down.doc") }
+                                Button {
+                                    UserDefaults.standard.set(
+                                        Date().addingTimeInterval(7 * 86400), forKey: "arcaBackupSnooze")
+                                    withAnimation { backupSnoozeSignal += 1 }
+                                } label: { Label("Später erinnern", systemImage: "clock") }
                             }
-                        } label: { Label("Jetzt sichern", systemImage: "arrow.down.doc") }
+                        }
+
+                        // Notfall immer griffbereit: Notrufnummern + Karten sperren
                         Button {
-                            UserDefaults.standard.set(
-                                Date().addingTimeInterval(7 * 86400), forKey: "arcaBackupSnooze")
-                            withAnimation { backupSnoozeSignal += 1 }
-                        } label: { Label("Später erinnern", systemImage: "clock") }
-                    }
-                }
+                            store.zeigeNotfall = true
+                        } label: {
+                            Image(systemName: "cross.case.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.red)
+                                .frame(width: 36, height: 36)
+                                .glassEffect(.regular, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Notfallkoffer")
 
-                // Notfall immer griffbereit: Notrufnummern + Karten sperren
-                Button {
-                    store.zeigeNotfall = true
-                } label: {
-                    Image(systemName: "cross.case.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.red)
-                        .frame(width: 36, height: 36)
-                        .glassEffect(.regular, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Notfallkoffer")
-
-                // Persönlicher Kopf: Profilbild (antippen zum Wählen).
-                // QR-Scan liegt jetzt im „Mehr"-Menü unten.
-                // Antippen fragt erst, WOHER: die Mediathek allein reichte
-                // nicht — wer sich gerade ein Bild machen will, hat es noch
-                // nicht in der Mediathek. PhotosPicker kann keine Kamera,
-                // deshalb ein eigener Knopf mit Auswahl davor.
-                Button {
-                    zeigeBildQuelle = true
-                } label: {
-                    // Foto klein & mittig im Glas-Puck (wie der Notfall-Knopf) —
-                    // ringsum bleibt ein sichtbarer Glasrand.
-                    Group {
-                        if let data = store.profilBildData, let ui = UIImage(data: data) {
-                            Image(uiImage: ui).resizable().scaledToFill()
-                        } else {
-                            Image(systemName: "person.crop.circle.fill")
-                                .resizable().scaledToFit()
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 0.5))
-                    // Glas-Puck rundherum (gleiche Größe wie der Notfall-Knopf: 36)
-                    .frame(width: 37, height: 37)
-                    .glassEffect(.regular.interactive(), in: Circle())
-                    // diagonaler Reflex → 3D-Tiefe wie die anderen Glas-Elemente
-                    .overlay(
-                        Circle()
-                            .fill(LinearGradient(colors: [.white.opacity(0.4), .white.opacity(0.06), .clear],
-                                                 startPoint: .topLeading, endPoint: .center))
-                            .allowsHitTesting(false)
-                    )
-                    .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 0.75))
-                    .shadow(color: .black.opacity(0.18), radius: 2.5, x: 0, y: 1.5)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Profilbild wählen")
-                .confirmationDialog("Profilbild", isPresented: $zeigeBildQuelle,
-                                    titleVisibility: .visible) {
-                    if KameraAufnahme.verfuegbar {
-                        Button("Foto aufnehmen") { zeigeKamera = true }
-                    }
-                    Button("Aus der Mediathek") { zeigeMediathek = true }
-                    if store.profilBildData != nil {
-                        Button("Bild entfernen", role: .destructive) {
-                            store.profilBildData = nil
-                        }
-                    }
-                    Button("Abbrechen", role: .cancel) { }
-                }
-                .photosPicker(isPresented: $zeigeMediathek, selection: $profilAuswahl,
-                              matching: .images, photoLibrary: .shared())
-                .fullScreenCover(isPresented: $zeigeKamera) {
-                    KameraAufnahme { bild in
-                        store.profilBildData = bild.arcaKleinesQuadrat(240)
-                        zeigeKamera = false
-                    } onAbbruch: {
-                        zeigeKamera = false
-                    }
-                    .ignoresSafeArea()
-                }
-                .onChange(of: profilAuswahl) { _, neu in
-                    guard let neu else { return }
-                    Task {
-                        if let data = try? await neu.loadTransferable(type: Data.self),
-                           let ui = UIImage(data: data) {
-                            store.profilBildData = ui.arcaKleinesQuadrat(240)
-                        }
-                        // Zuruecksetzen, sonst waehlt man dasselbe Bild nie
-                        // ein zweites Mal aus.
-                        profilAuswahl = nil
-                    }
-                }
-
-                // Zahnrad: auf iPad/Mac ist die Seitenleiste oft zu —
-                // die Einstellungen bleiben trotzdem einen Tipp entfernt
-                if horizontalSizeClass == .regular {
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                            selectedSection = .settings
-                        }
-                    } label: {
-                        ArcaIcon(name: "ArcaSettings", groesse: 18)
-                            .foregroundStyle(.primary)
+                        // Persönlicher Kopf: Profilbild (antippen zum Wählen).
+                        // QR-Scan liegt jetzt im „Mehr"-Menü unten.
+                        // Antippen fragt erst, WOHER: die Mediathek allein reichte
+                        // nicht — wer sich gerade ein Bild machen will, hat es noch
+                        // nicht in der Mediathek. PhotosPicker kann keine Kamera,
+                        // deshalb ein eigener Knopf mit Auswahl davor.
+                        Button {
+                            zeigeBildQuelle = true
+                        } label: {
+                            // Foto klein & mittig im Glas-Puck (wie der Notfall-Knopf) —
+                            // ringsum bleibt ein sichtbarer Glasrand.
+                            Group {
+                                if let data = store.profilBildData, let ui = UIImage(data: data) {
+                                    Image(uiImage: ui).resizable().scaledToFill()
+                                } else {
+                                    Image(systemName: "person.crop.circle.fill")
+                                        .resizable().scaledToFit()
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: 0.5))
+                            // Glas-Puck rundherum — gleiche Größe wie Schild und
+                            // Notfall (36), damit die drei eine Reihe sind.
+                            //
+                            // Der gemalte Reflex, der zweite weisse Rand und der
+                            // Schatten sind am 01.10. weggefallen: Liquid Glass
+                            // zeichnet Reflex, Rand und Schatten selbst. Darueber
+                            // gelegt machten sie aus dem Glas-Puck eine graue
+                            // Scheibe, die neben den beiden Nachbarn fremd aussah.
                             .frame(width: 36, height: 36)
-                            .glassEffect(.regular, in: Circle())
+                            .glassEffect(.regular.interactive(), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Profilbild wählen")
+                        .confirmationDialog("Profilbild", isPresented: $zeigeBildQuelle,
+                                            titleVisibility: .visible) {
+                            if KameraAufnahme.verfuegbar {
+                                Button("Foto aufnehmen") { zeigeKamera = true }
+                            }
+                            Button("Aus der Mediathek") { zeigeMediathek = true }
+                            if store.profilBildData != nil {
+                                Button("Bild entfernen", role: .destructive) {
+                                    store.profilBildData = nil
+                                }
+                            }
+                            Button("Abbrechen", role: .cancel) { }
+                        }
+                        .photosPicker(isPresented: $zeigeMediathek, selection: $profilAuswahl,
+                                      matching: .images, photoLibrary: .shared())
+                        .fullScreenCover(isPresented: $zeigeKamera) {
+                            KameraAufnahme { bild in
+                                store.profilBildData = bild.arcaKleinesQuadrat(240)
+                                zeigeKamera = false
+                            } onAbbruch: {
+                                zeigeKamera = false
+                            }
+                            .ignoresSafeArea()
+                        }
+                        .onChange(of: profilAuswahl) { _, neu in
+                            guard let neu else { return }
+                            Task {
+                                if let data = try? await neu.loadTransferable(type: Data.self),
+                                   let ui = UIImage(data: data) {
+                                    store.profilBildData = ui.arcaKleinesQuadrat(240)
+                                }
+                                // Zuruecksetzen, sonst waehlt man dasselbe Bild nie
+                                // ein zweites Mal aus.
+                                profilAuswahl = nil
+                            }
+                        }
+
+                        // Zahnrad: auf iPad/Mac ist die Seitenleiste oft zu —
+                        // die Einstellungen bleiben trotzdem einen Tipp entfernt
+                        if horizontalSizeClass == .regular {
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    selectedSection = .settings
+                                }
+                            } label: {
+                                ArcaIcon(name: "ArcaSettings", groesse: 18)
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 36, height: 36)
+                                    .glassEffect(.regular, in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Einstellungen")
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Einstellungen")
                 }
             }
             .padding(.horizontal, 20)
@@ -2041,6 +2056,12 @@ struct HomeView: View {
                     .padding(.leading, deskSichtbar ? 16 : 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Unter der schwebenden Leiste blendet der Inhalt weich aus,
+                // statt hart dagegenzulaufen. Der Randeffekt ist das, was
+                // iOS 26/27 fuer Inhalt unter einer Glasleiste vorsieht —
+                // bis 01.10. verschwand die letzte Zeile ohne Uebergang
+                // hinter der Kapsel. (scrollEdgeEffectStyle, iOS 26+)
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
                 .scrollDismissesKeyboard(.interactively)
                 .simultaneousGesture(TapGesture().onEnded { sucheLoslassen() })
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in

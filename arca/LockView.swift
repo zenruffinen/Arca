@@ -213,6 +213,13 @@ struct PINSetupView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    // Bei grosser Systemschrift stand hier „Erstelle deinen
+                    // 4-stelli…" — der Satz wurde abgeschnitten statt
+                    // umgebrochen, weil der Text seine Hoehe nicht nehmen
+                    // durfte. fixedSize laesst ihn nach unten wachsen, das
+                    // Polster haelt ihn vom Rand weg. (01.10.)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 24)
             }
 
             // PIN Punkte
