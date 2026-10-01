@@ -124,6 +124,16 @@ struct HomeView: View {
     @State private var wandFrac: Double = 0
     @State private var sichtbareDokKarte: String? = nil
     @State private var dokScrollPos = ScrollPosition()
+    /// Höhe der Kategorienreihe. Waechst mit der Systemschrift, weil die
+    /// Karten darin es auch tun — stuende hier ein fester Wert, schnitte
+    /// die Reihe bei grosser Schrift die Leiste der Karten ab.
+    ///
+    /// Derselbe Deckel wie in ArcaCategoryCard (1,3): die Reihe muss
+    /// genau so weit mitwachsen wie die Karten darin, nicht weiter.
+    @ScaledMetric(relativeTo: .subheadline) private var kategorieSkala: CGFloat = 100
+    private var kategorieReihenHoehe: CGFloat {
+        ARCASpacing.kategorieRowHeight * min(kategorieSkala / 100, 1.3)
+    }
     @State private var dokFrac: Double = 0
     /// Sichtbarer Anteil der Gruppenreihe — treibt die Breite des Läufers.
     @State private var dokAnteil: CGFloat = 1
@@ -601,7 +611,7 @@ struct HomeView: View {
     /// Nachbarn, sich aber anders verhaelt, muss man sich merken.
     @ViewBuilder
     private var angepinntKachel: some View {
-        ArcaOrdnerKarte(
+        ArcaCategoryCard(
             name: "Angepinnt",
             icon: "pin.fill",
             farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.20),
@@ -609,11 +619,12 @@ struct HomeView: View {
                               name: "Angepinnt"),
             anzahl: angepinnteDokumente.count,
             vorschau: blaetter(aus: angepinnteDokumente),
-            tintDeckkraft: 0.26)
+            tintDeckkraft: 0.45)
         // Der Schatten nach rechts sagt: das hier liegt oben, der Rest zieht
         // darunter vorbei.
         .shadow(color: .black.opacity(0.14), radius: 5, x: 3, y: 1)
-        .contentShape(ArcaOrdnerForm())
+        .contentShape(RoundedRectangle(cornerRadius: ARCASpacing.kategorieKarteRadius,
+                                       style: .continuous))
         .onTapGesture { oeffneAngepinnt() }
         .accessibilityLabel("Angepinnt. Antippen öffnet die angepinnten Dokumente.")
     }
@@ -699,7 +710,7 @@ struct HomeView: View {
                         }
 
                         ForEach(dokumentGruppen, id: \.name) { gruppe in
-                            ArcaOrdnerKarte(
+                            ArcaCategoryCard(
                                 name: gruppe.name,
                                 icon: store.iconFor(gruppe.name),
                                 farben: categoryColor(gruppe.name, overrides: store.categoryColors),
@@ -713,7 +724,9 @@ struct HomeView: View {
                                     : .clear, radius: 4, y: 2)
                             .zIndex(gruppe.name == aktiverName ? 1 : 0)
                             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: aktiverName)
-                            .contentShape(ArcaOrdnerForm())
+                            .contentShape(RoundedRectangle(
+                                cornerRadius: ARCASpacing.kategorieKarteRadius,
+                                style: .continuous))
                             .onTapGesture { openDocuments(category: gruppe.name) }
                             .wennDraggable(gruppe.name != "Unsortiert", gruppe.name)
                             .dropDestination(for: String.self) { eingeworfen, _ in
@@ -753,8 +766,8 @@ struct HomeView: View {
                     .scrollTargetLayout()
                 }
                 // Feste Höhe, damit die Seite nicht springt — der Wert kommt
-                // aus dem Kit und wächst mit der Kachel mit.
-                .frame(height: ARCASpacing.ordnerRowHeight)
+                // aus dem Kit und wächst mit der Karte und der Schrift mit.
+                .frame(height: kategorieReihenHoehe)
                 .contentMargins(.horizontal, ARCASpacing.card, for: .scrollContent)
                 .scrollPosition($dokScrollPos)
                 .onScrollGeometryChange(for: ScrollInfo.self) { geo in
