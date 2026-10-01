@@ -33,10 +33,16 @@ Das Außendisplay ist **breiter und kürzer** als ein normales iPhone
 Tab-Bars und die Statusleiste **senkrecht an die Seite**, um Höhe für
 Inhalt zu sparen.
 
-Im Simulator: Device Hub (`/Applications/Xcode.app/Contents/Applications/DeviceHub.app`
-— die Simulator.app gibt es in Xcode 27 nicht mehr). Unten die drei
-Posen **Closed · Book · Open**. In der Book-Pose läuft der Falz
-**senkrecht** durch die Mitte.
+Im Simulator: **Device Hub** — die Simulator.app gibt es in Xcode 27
+nicht mehr. Drei Wege hinein:
+
+- **Xcode → Open Developer Tool → Device Hub**
+- **Spotlight** (⌘ Leertaste) → „Device Hub"
+- `open -a "Device Hub"`
+
+Die App liegt in `/Applications/Xcode.app/Contents/Applications/DeviceHub.app`.
+Unten im Fenster die drei Posen **Closed · Book · Open**. In der
+Book-Pose läuft der Falz **senkrecht** durch die Mitte.
 
 Screenshots pro Display:
 
