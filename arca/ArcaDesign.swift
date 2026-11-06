@@ -523,77 +523,6 @@ struct ArcaKategorieKarte: View {
 
 // MARK: - Ordner mit Vorschau (Studie, Reihe 2)
 
-/// Die Silhouette eines Ordners: Lasche oben links, Körper darunter.
-///
-/// EINE durchgehende Kontur, nicht zwei übereinandergelegte Rechtecke.
-/// Als zwei Rechtecke sieht die Füllung zwar richtig aus, aber jeder
-/// Strich zeichnet beide Umrisse — auch die Kanten, die mitten in der
-/// Form liegen. Dann hat der Ordner eine Naht quer durch die Lasche.
-struct ArcaOrdnerForm: Shape {
-    /// Anteil der Breite, den die Lasche einnimmt.
-    var laschenBreite: CGFloat = 0.46
-    /// Anteil der Höhe, um den die Lasche über dem Körper steht.
-    var laschenHoehe: CGFloat = 0.14
-    var radius: CGFloat = 15
-
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width
-        let h = rect.height
-        let lh = h * laschenHoehe
-        let r = min(radius, min(w, h) / 2)
-        let lw = min(w * laschenBreite, w - r * 2)
-        let lr = min(r * 0.55, lh * 0.9)   // Ecken der Lasche
-        let kr = min(r * 0.5, lh)          // Kehle zwischen Lasche und Körper
-
-        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: rect.minX + x, y: rect.minY + y)
-        }
-
-        var p = Path()
-        p.move(to: pt(0, h - r))
-        // Linke Kante ganz hoch — Lasche und Körper haben dieselbe Flucht
-        p.addLine(to: pt(0, lr))
-        p.addQuadCurve(to: pt(lr, 0), control: pt(0, 0))
-        p.addLine(to: pt(lw - lr, 0))
-        p.addQuadCurve(to: pt(lw, lr), control: pt(lw, 0))
-        // Rechte Laschenkante hinunter, dann die Kehle auf die Körperkante
-        p.addLine(to: pt(lw, lh - kr))
-        p.addQuadCurve(to: pt(lw + kr, lh), control: pt(lw, lh))
-        // Körper: Oberkante, rechte Kante, Unterkante
-        p.addLine(to: pt(w - r, lh))
-        p.addQuadCurve(to: pt(w, lh + r), control: pt(w, lh))
-        p.addLine(to: pt(w, h - r))
-        p.addQuadCurve(to: pt(w - r, h), control: pt(w, h))
-        p.addLine(to: pt(r, h))
-        p.addQuadCurve(to: pt(0, h - r), control: pt(0, h))
-        p.closeSubpath()
-        return p
-    }
-}
-
-/// Die Vordertasche des Ordners: oben eine gerade Kante, unten die
-/// Rundung des Ordners selbst.
-///
-/// Oben nur ein Hauch Radius. Eine runde Oberkante sähe aus wie eine
-/// zweite Karte, die im Ordner liegt — die Tasche ist aber die Vorderseite
-/// des Ordners und muss an seinen Seiten anschließen.
-struct ArcaTaschenForm: Shape {
-    var untenRadius: CGFloat = 15
-    var obenRadius: CGFloat = 3
-
-    func path(in rect: CGRect) -> Path {
-        Path(
-            UnevenRoundedRectangle(
-                topLeadingRadius: obenRadius,
-                bottomLeadingRadius: untenRadius,
-                bottomTrailingRadius: untenRadius,
-                topTrailingRadius: obenRadius,
-                style: .continuous
-            ).path(in: rect).cgPath
-        )
-    }
-}
-
 /// Ein Blatt in der Ordner-Vorschau: das Vorschaubild auf weißem Papier,
 /// leicht gekippt. Ohne die Kippung sähen zwei Blätter wie ein Block aus.
 private struct ArcaVorschauBlatt: View {
@@ -674,28 +603,6 @@ private struct ArcaGlasFlecken: View {
             .frame(width: w, height: h)
         }
         .allowsHitTesting(false)
-    }
-}
-
-/// Ein unbeschriebenes Blatt — der zweite Platz, wenn nur ein Dokument da
-/// ist. Ohne ihn rutscht das einzelne Blatt in die Mitte und jeder Ordner
-/// der Reihe ist anders aufgebaut.
-///
-/// Bewusst OHNE gestrichelten Rand: gestrichelt heißt „hier fehlt etwas,
-/// tu was hinein". Der Ordner sagt aber nur, wie viel drin ist. Blasses
-/// Papier ist ruhig genug, um nicht gelesen zu werden.
-private struct ArcaLeeresBlatt: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: 5, style: .continuous)
-            .fill(.white.opacity(0.45))
-            .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .strokeBorder(.white.opacity(0.7), lineWidth: 1.5)
-            )
-            .shadow(color: .black.opacity(0.10), radius: 2, x: 0, y: 1)
-            .frame(width: ARCASpacing.ordnerBlattWidth,
-                   height: ARCASpacing.ordnerBlattHeight)
-            .rotationEffect(.degrees(3.5))
     }
 }
 
