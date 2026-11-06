@@ -13,3 +13,6 @@ DerivedData/
 
 # Obsidian (Arbeitsdateien des docs-Vaults)
 docs/.obsidian/
+
+# Lokale Claude-Einstellungen (enthalten Zugangsdaten, nie committen)
+.claude/settings.local.json
