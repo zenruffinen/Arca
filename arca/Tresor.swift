@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import ARCAKit   // Leitlinie: Kartenmaße kommen aus ARCASpacing
 import UniformTypeIdentifiers
 import VisionKit
 import Vision
@@ -559,8 +560,11 @@ struct ArcaKreditkarte: View {
             vorderseite.opacity(hinten ? 0 : 1)
             rueckseite.opacity(hinten ? 1 : 0).rotation3DEffect(.degrees(180), axis: (0, 1, 0))
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 200)
+        // Echtes Kartenformat statt fester Höhe: auf dem iPad war die
+        // Fläche dreimal so breit wie hoch, und vom Kartenfoto blieb nur
+        // ein Streifen aus der Mitte — der Kopf fehlte.
+        .aspectRatio(ARCASpacing.kreditkarteSeitenverhaeltnis, contentMode: .fit)
+        .frame(maxWidth: ARCASpacing.kreditkarteMaxBreite)
         .rotation3DEffect(.degrees(hinten ? 180 : 0), axis: (0, 1, 0))
         .shadow(color: farbe.accent.opacity(0.35), radius: 12, x: 0, y: 6)
         .contentShape(RoundedRectangle(cornerRadius: 20))
@@ -585,9 +589,12 @@ struct ArcaKreditkarte: View {
     }
 
     private func fotoSeite(_ bild: UIImage, applePayBadge zeigen: Bool) -> some View {
-        Image(uiImage: bild)
-            .resizable().scaledToFill()
-            .frame(maxWidth: .infinity).frame(height: 200)
+        // Die Fläche gibt die Größe vor, nicht das Bild: ein Bild mit
+        // scaledToFill meldet seine eigene, übergroße Wunschgröße nach
+        // oben und schiebt den Rahmen auf. Color.clear nimmt das Karten-
+        // format an, das Foto füllt es nur.
+        Color.clear
+            .overlay { Image(uiImage: bild).resizable().scaledToFill() }
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.18), lineWidth: 1))
             .overlay(alignment: .topTrailing) { if zeigen { applePayPille.padding(10) } }
@@ -631,7 +638,7 @@ struct ArcaKreditkarte: View {
             }
         }
         .padding(18)
-        .frame(maxWidth: .infinity).frame(height: 200)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { kartenGrund }
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.18), lineWidth: 1))
         .overlay(alignment: .topTrailing) { if applePay { applePayPille.padding(10) } }
@@ -659,7 +666,7 @@ struct ArcaKreditkarte: View {
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(maxWidth: .infinity, alignment: .trailing).padding(.horizontal, 22)
         }
-        .frame(maxWidth: .infinity).frame(height: 200)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { kartenGrund }
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.18), lineWidth: 1))
         .overlay(alignment: .bottomTrailing) { flipHinweis.padding(10) }
