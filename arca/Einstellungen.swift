@@ -435,6 +435,12 @@ struct SettingsView: View {
     @State private var exportShareItem: ShareURLItem? = nil
     @State private var exportErfolgText: String? = nil
     @State private var exportLaeuft = false
+    /// 0…1 — wie weit die Sicherung ist. Vorher gab es nur ein Kreiseln;
+    /// bei vielen Dateien lief das eine Minute ohne sichtbare Bewegung und
+    /// sah aus wie ein Hänger.
+    @State private var exportFortschritt: Double = 0
+    /// Was gerade passiert — „aus iCloud laden", „bereitstellen", „verschlüsseln".
+    @State private var exportPhase: String = ""
 
     // Import flow
     @State private var showImportPicker = false
@@ -671,9 +677,18 @@ struct SettingsView: View {
 
         // Das Erstellen (Verschlüsseln + Archivieren) läuft im Hintergrund —
         // sonst blockiert die UI, bis der Datei-Manager aufgeht („hängt").
+        exportFortschritt = 0
+        exportPhase = "Backup wird vorbereitet …"
         exportLaeuft = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let ergebnis = store.exportData(password: password)
+            let ergebnis = store.exportData(password: password) { wert, phase in
+                exportPhase = phase
+                // Nie rückwärts: der Beobachter und der Abschluss können
+                // sich um einen Takt überholen.
+                withAnimation(.linear(duration: 0.25)) {
+                    exportFortschritt = max(exportFortschritt, wert)
+                }
+            }
             DispatchQueue.main.async {
                 exportLaeuft = false
                 switch ergebnis {
@@ -689,6 +704,13 @@ struct SettingsView: View {
                     exportPasswordError = "Das Passwort muss mindestens 4 Zeichen lang sein."
                 case .failure(.archiveFailed):
                     exportPasswordError = "Sicherung fehlgeschlagen. Bitte erneut versuchen."
+                case .failure(.dateienNichtGeladen(let anzahl)):
+                    // Abbrechen statt still weitermachen: eine Sicherung,
+                    // der Dokumente fehlen, merkt man erst beim
+                    // Wiederherstellen — also zu spät.
+                    exportPasswordError = anzahl == 1
+                        ? "1 Datei liegt noch in iCloud und kam nicht an. Ohne sie wäre die Sicherung unvollständig — bitte Internetverbindung prüfen und erneut sichern."
+                        : "\(anzahl) Dateien liegen noch in iCloud und kamen nicht an. Ohne sie wäre die Sicherung unvollständig — bitte Internetverbindung prüfen und erneut sichern."
                 }
             }
         }
@@ -1134,12 +1156,25 @@ struct SettingsView: View {
                         }
                         if exportLaeuft {
                             Section {
-                                HStack(spacing: 12) {
-                                    ProgressView()
-                                    Text("Backup wird erstellt … das kann bei vielen Dateien einen Moment dauern.")
-                                        .font(.subheadline)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text(exportPhase)
+                                            .font(.subheadline)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                        Spacer()
+                                        Text("\(Int((exportFortschritt * 100).rounded())) %")
+                                            .font(.subheadline.monospacedDigit().weight(.semibold))
+                                            .foregroundStyle(ArcaWarm.terrakotta)
+                                            .contentTransition(.numericText())
+                                    }
+                                    ProgressView(value: exportFortschritt)
+                                        .tint(ArcaWarm.terrakotta)
+                                    Text("Bei vielen Dateien dauert das einen Moment — bitte die App offen lassen.")
+                                        .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
+                                .padding(.vertical, 4)
                             }
                         }
                     }

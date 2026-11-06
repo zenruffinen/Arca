@@ -1271,6 +1271,9 @@ final class AppStore: ObservableObject {
     enum BackupExportError: Equatable, Error {
         case passwordTooShort
         case archiveFailed
+        /// So viele Dateien liegen noch in iCloud und kamen nicht an.
+        /// Lieber keine Sicherung als eine, der unbemerkt Dokumente fehlen.
+        case dateienNichtGeladen(Int)
     }
 
     enum BackupImportError: Equatable, Error {
@@ -1386,11 +1389,48 @@ final class AppStore: ObservableObject {
 
     /// Backup-Export, Format v2: verschlüsseltes Apple-Archiv (AEA).
     /// Speicherschonend — die Dateien werden gestreamt statt in den RAM geladen.
-    func exportData(password: String) -> Result<URL, BackupExportError> {
+    /// Erstellt die verschlüsselte Sicherung.
+    ///
+    /// `fortschritt` meldet (0…1, Phasentext) auf dem Main-Thread. Drei Phasen:
+    /// Dateien aus iCloud holen (nur falls nötig), bereitstellen (Hardlinks,
+    /// schnell) und verschlüsseln. Beim Verschlüsseln gibt es keinen Rückruf,
+    /// dort wird gemessen, wie groß die Sicherungsdatei schon ist.
+    func exportData(password: String,
+                    fortschritt: ((Double, String) -> Void)? = nil) -> Result<URL, BackupExportError> {
         guard password.count >= Self.minBackupPasswordLength else {
             return .failure(.passwordTooShort)
         }
-        // 1. Staging-Ordner: manifest.json (Metadaten) + files/ (Hardlinks/Kopien)
+        func melde(_ wert: Double, _ phase: String) {
+            guard let fortschritt else { return }
+            let w = min(max(wert, 0), 1)
+            DispatchQueue.main.async { fortschritt(w, phase) }
+        }
+
+        // ── 0. Erst alles aus iCloud holen ──
+        //
+        // Bis 17.09. stiess die Schleife unten den Download nur AN und prüfte
+        // gleich danach, ob die Datei da ist — war sie es nicht, ging es mit
+        // `continue` weiter. Dateien, die noch in iCloud lagen, fehlten damit
+        // stillschweigend in der Sicherung. Auf einem frisch eingerichteten
+        // iPad entstand so ein Backup, das vollständig aussah und es nicht war;
+        // bemerkt hätte man es erst beim Wiederherstellen.
+        let namen = gesicherteDateinamen
+        let wartend = namen.filter { istNochInICloud($0) }
+        let mitDownload = !wartend.isEmpty
+        let bereitstellenAb = mitDownload ? 0.30 : 0.0
+        let verschluesselnAb = mitDownload ? 0.35 : 0.10
+
+        if mitDownload {
+            melde(0, "Dateien werden aus iCloud geladen … 0 von \(wartend.count)")
+            let offen = ladeAusICloud(wartend) { geladen in
+                melde(0.30 * Double(geladen) / Double(wartend.count),
+                      "Dateien werden aus iCloud geladen … \(geladen) von \(wartend.count)")
+            }
+            if offen > 0 { return .failure(.dateienNichtGeladen(offen)) }
+        }
+
+        // ── 1. Staging-Ordner: manifest.json (Metadaten) + files/ (Hardlinks/Kopien) ──
+        melde(bereitstellenAb, "Dateien werden bereitgestellt …")
         let stage = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArcaExport_\(UUID().uuidString)")
         let stageFiles = stage.appendingPathComponent("files")
@@ -1410,10 +1450,14 @@ final class AppStore: ObservableObject {
             )
             let manifest = try JSONEncoder().encode(backup)
             try manifest.write(to: stage.appendingPathComponent("manifest.json"))
-            for name in gesicherteDateinamen {
-                // Falls nur iCloud-Platzhalter: Download anstossen
-                ensureFileDownloaded(name)
+            for (i, name) in namen.enumerated() {
+                melde(bereitstellenAb + (verschluesselnAb - bereitstellenAb)
+                      * Double(i + 1) / Double(max(namen.count, 1)),
+                      "Dateien werden bereitgestellt …")
                 let src = documentURL(for: name)
+                // Weder lokal noch in iCloud: die Datei gibt es nicht mehr
+                // (z. B. ein Eintrag ohne Datei). Das war schon vorher so und
+                // lässt sich nicht sichern — aber es ist kein Warten wert.
                 guard FileManager.default.fileExists(atPath: src.path) else { continue }
                 let dst = stageFiles.appendingPathComponent(name)
                 // Hardlink (kein Platzverbrauch); falls nicht möglich: kopieren
@@ -1423,14 +1467,83 @@ final class AppStore: ObservableObject {
             }
         } catch { return .failure(.archiveFailed) }
 
-        // 2. Verschlüsselt archivieren
+        // ── 2. Verschlüsselt archivieren ──
+        melde(verschluesselnAb, "Backup wird verschlüsselt …")
         let filename = "ArcaBackup_\(Date().formatted(date: .abbreviated, time: .omitted)).arcabackup"
             .replacingOccurrences(of: " ", with: "_")
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        guard archiveDirectory(stage, to: url, password: password, deriveBackupPassword: true),
+        let gesamt = Self.ordnerGroesse(stage)
+        guard archiveDirectory(stage, to: url, password: password, deriveBackupPassword: true,
+                               gesamtBytes: gesamt,
+                               fortschritt: {
+                                   melde(verschluesselnAb + (1 - verschluesselnAb) * $0,
+                                         "Backup wird verschlüsselt …")
+                               }),
               let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int,
               size > 0 else { return .failure(.archiveFailed) }
+        melde(1, "Fertig")
         return .success(url)
+    }
+
+    /// Liegt die Datei noch (nur) in iCloud, ist also nicht auf dem Gerät?
+    ///
+    /// Zwei Wege, weil iOS beide kennt: der Downloadstatus am Eintrag selbst
+    /// (neuere Systeme zeigen nicht geladene Dateien unter ihrem echten Namen,
+    /// `fileExists` sagt dort „ja", obwohl nichts da ist) und der alte
+    /// Platzhalter `.Name.icloud`.
+    private func istNochInICloud(_ name: String) -> Bool {
+        guard cloudContainer != nil, !name.isEmpty else { return false }
+        let url = filesDirectory.appendingPathComponent(name)
+        if let w = try? url.resourceValues(forKeys: [.isUbiquitousItemKey,
+                                                     .ubiquitousItemDownloadingStatusKey]),
+           w.isUbiquitousItem == true {
+            return w.ubiquitousItemDownloadingStatus != .current
+        }
+        let platzhalter = filesDirectory.appendingPathComponent(".\(name).icloud")
+        return FileManager.default.fileExists(atPath: platzhalter.path)
+    }
+
+    /// Holt Dateien aus iCloud und wartet, bis sie da sind.
+    ///
+    /// Gibt zurück, wie viele trotzdem fehlen. Aufgegeben wird nicht nach
+    /// einer festen Zeit, sondern erst, wenn eine Minute lang KEINE weitere
+    /// Datei angekommen ist: 300 Dateien über eine langsame Leitung dürfen
+    /// dauern, ein Funkloch soll aber nicht ewig kreiseln.
+    /// Läuft auf dem aufrufenden (Hintergrund-)Thread.
+    private func ladeAusICloud(_ namen: [String], meldung: (Int) -> Void) -> Int {
+        for n in namen {
+            try? FileManager.default.startDownloadingUbiquitousItem(
+                at: filesDirectory.appendingPathComponent(n))
+        }
+        var offen = namen
+        var letzterFortschritt = Date()
+        meldung(0)
+        while !offen.isEmpty {
+            Thread.sleep(forTimeInterval: 0.5)
+            let vorher = offen.count
+            offen.removeAll { !istNochInICloud($0) }
+            if offen.count < vorher {
+                letzterFortschritt = Date()
+                meldung(namen.count - offen.count)
+            } else if Date().timeIntervalSince(letzterFortschritt) > 60 {
+                break
+            }
+        }
+        return offen.count
+    }
+
+    /// Summe aller Dateigrößen in einem Ordner — die Messlatte für den
+    /// Fortschritt beim Verschlüsseln. Hardlinks zählen mit ihrer vollen
+    /// Größe, denn so werden sie auch ins Archiv geschrieben.
+    private static func ordnerGroesse(_ dir: URL) -> Int64 {
+        guard let e = FileManager.default.enumerator(
+            at: dir, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) else { return 0 }
+        var summe: Int64 = 0
+        for case let f as URL in e {
+            let w = try? f.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            if w?.isRegularFile == true { summe += Int64(w?.fileSize ?? 0) }
+        }
+        return summe
     }
 
     /// Kopiert eine externe Backup-Datei lokal und prüft das Format (Magic-Bytes).
@@ -1816,9 +1929,32 @@ final class AppStore: ObservableObject {
 
     /// Archiviert einen Ordner in eine Datei — optional passwortverschlüsselt (AEA).
     private func archiveDirectory(
-        _ dir: URL, to dest: URL, password: String?, deriveBackupPassword: Bool = false
+        _ dir: URL, to dest: URL, password: String?, deriveBackupPassword: Bool = false,
+        gesamtBytes: Int64 = 0, fortschritt: ((Double) -> Void)? = nil
     ) -> Bool {
         try? FileManager.default.removeItem(at: dest)
+
+        // Beobachter: schaut alle Viertelsekunde, wie groß die Zieldatei ist.
+        //
+        // Apple Archive meldet beim Schreiben nichts zurück. Die geschriebenen
+        // Bytes sind das Ehrlichste, was sich messen lässt. Gedeckelt bei 98 %:
+        // verschlüsselt und komprimiert wird die Datei kleiner als die Summe
+        // der Eingaben, und ein Balken, der bei 100 % stehen bleibt, sähe
+        // wieder nach Hänger aus. Die letzten Prozent kommen mit dem Ende.
+        var beobachter: DispatchSourceTimer? = nil
+        if let fortschritt, gesamtBytes > 0 {
+            let t = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+            t.schedule(deadline: .now() + 0.25, repeating: 0.25)
+            t.setEventHandler {
+                let groesse = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size]
+                               as? Int64) ?? 0
+                fortschritt(min(Double(groesse) / Double(gesamtBytes), 0.98))
+            }
+            t.resume()
+            beobachter = t
+        }
+        defer { beobachter?.cancel() }
+
         do {
             guard let fileStream = ArchiveByteStream.fileStream(
                 path: FilePath(dest.path), mode: .writeOnly,
