@@ -989,10 +989,10 @@ struct SettingsView: View {
                 NavigationStack {
                     List {
                         Section {
-                            Label("Der Start ist in Felder gegliedert: Kategorien und Bestand stehen jeweils in ihrem eigenen Bereich mit Lichtkante", systemImage: "rectangle.3.group.fill")
-                            Label("Kategorien sind jetzt Ordner, die ihren Inhalt zeigen – zwei Vorschaublätter stecken darin, Name und Anzahl eingraviert", systemImage: "folder.fill")
-                            Label("„Angepinnt“ öffnet einen eigenen Ordner statt die Startliste zu filtern – mit Rückweg über „Alle Kategorien“", systemImage: "pin.fill")
-                            Label("Reihenfolge der Liste wählbar unter Mehr: zuletzt geöffnet, neueste, älteste oder A–Z. Dafür entfällt „Zuletzt verwendet“ – die Kategorien rücken nach oben", systemImage: "arrow.up.arrow.down")
+                            Label("Der Start ist in Felder gegliedert: Ordner und Bestand stehen jeweils in ihrem eigenen Bereich mit Lichtkante", systemImage: "rectangle.3.group.fill")
+                            Label("Ordner zeigen ihren Inhalt – Vorschau, Name und Anzahl auf einer Karte", systemImage: "folder.fill")
+                            Label("„Angepinnt“ öffnet einen eigenen Ordner statt die Startliste zu filtern – mit Rückweg über „Alle Ordner“", systemImage: "pin.fill")
+                            Label("Reihenfolge der Liste wählbar unter Mehr: zuletzt geöffnet, neueste, älteste oder A–Z. Dafür entfällt „Zuletzt verwendet“ – die Ordner rücken nach oben", systemImage: "arrow.up.arrow.down")
                             Label("Die untere Leiste schwebt jetzt frei über der Seite, mit runden Ecken und Licht auf der Kante", systemImage: "dock.rectangle")
                             Label("Plus und Besen sind plastische Körper mit Glanzlicht, das Haus für Home ist neu gezeichnet", systemImage: "plus.circle.fill")
                             Label("Ganz neuer Startbildschirm mit persönlichem Profilbild, Bereichs-Wahlleiste und der glasigen „Arca virtual crown“ zum Blättern", systemImage: "sparkles")

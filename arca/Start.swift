@@ -168,6 +168,11 @@ struct HomeView: View {
     /// Wand-Vorschau links oder rechts vom Rad — siehe Einstellungen.
     @AppStorage("wandVorschauRechts") private var wandVorschauRechts: Bool = false
     @AppStorage("arcaUserNameAsked") private var userNameAsked: Bool = false
+    /// Gewählte Start-Ansicht auf dem iPad (seit 24.11.) — das iPhone
+    /// bleibt immer bei der Übersicht.
+    @AppStorage("iPadStartAnsicht") private var startAnsichtRoh: String = StartAnsicht.uebersicht.rawValue
+    /// Ordner-Filter der Kachel-Ansicht; nil = alle Dokumente.
+    @State private var kachelOrdner: String? = nil
     @State private var showNamePrompt = false
     @State private var namePromptInput = ""
     // Ausgeklappte Ordner und Tasklisten auf dem Start
@@ -314,10 +319,10 @@ struct HomeView: View {
                                 neueGruppeName = ""
                                 showNeueGruppe = true
                             } label: {
-                                Label("Neue Gruppe…", systemImage: "folder.badge.plus")
+                                Label("Neuer Ordner…", systemImage: "folder.badge.plus")
                             }
                         } label: {
-                            Label("In Gruppe verschieben", systemImage: "folder")
+                            Label("In Ordner verschieben", systemImage: "folder")
                         }
                         ArcaMenue.loeschen {
                             store.deleteDocument(doc)
@@ -759,7 +764,7 @@ struct HomeView: View {
                                         gruppeUmbenennenText = gruppe.name
                                         gruppeZumUmbenennen = gruppe.name
                                     }
-                                    ArcaMenue.loeschen("Gruppe löschen") {
+                                    ArcaMenue.loeschen("Ordner löschen") {
                                         gruppeZumLoeschen = gruppe.name
                                     }
                                 }
@@ -867,6 +872,257 @@ struct HomeView: View {
         store.fokusKategorie = category
         store.pendingScrollCategory = category
         selectedSection = .documents
+    }
+
+    // MARK: - iPad: drei Start-Ansichten (24.11.)
+    //
+    // Hans auf dem iPad mini: die Ordner mal als Reihe zum Wischen
+    // (Übersicht, wie auf dem iPhone), mal alle auf einen Blick, mal nur
+    // als schmale Zeile über Dokument-Kacheln. Die Wahl merkt sich das
+    // Gerät. Auf dem iPhone gibt es nur die Übersicht.
+
+    private var startAnsicht: StartAnsicht {
+        guard horizontalSizeClass == .regular else { return .uebersicht }
+        return StartAnsicht(rawValue: startAnsichtRoh) ?? .uebersicht
+    }
+
+    /// Kopf rechts im Ordner-Feld: auf dem iPad der Ansichts-Umschalter,
+    /// dazu überall „Alle anzeigen".
+    @ViewBuilder
+    private var ordnerFeldKopf: some View {
+        HStack(spacing: ARCASpacing.element) {
+            if horizontalSizeClass == .regular {
+                Picker("Ansicht", selection: Binding(
+                    get: { startAnsicht.rawValue },
+                    set: { neu in withAnimation(.easeInOut(duration: 0.2)) { startAnsichtRoh = neu } })
+                ) {
+                    ForEach(StartAnsicht.allCases) { ansicht in
+                        Label(ansicht.titel, systemImage: ansicht.symbol)
+                            .labelStyle(.iconOnly)
+                            .tag(ansicht.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: ARCASpacing.ansichtWahlBreite)
+                .accessibilityLabel("Ansicht der Startseite")
+            }
+            ARCAPanelLink("Alle anzeigen", tint: ArcaWarm.terrakotta) {
+                store.fokusKategorie = nil
+                selectedSection = .documents
+            }
+        }
+    }
+
+    /// Ansicht „Ordner": alle Ordner mehrreihig auf einen Blick.
+    @ViewBuilder
+    private var ordnerRaster: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: ARCASpacing.kategorieKarteWidth),
+                                     spacing: ARCASpacing.inCard)],
+                  alignment: .leading,
+                  spacing: ARCASpacing.inCard) {
+            if !angepinnteDokumente.isEmpty {
+                ArcaCategoryCard(
+                    name: "Angepinnt",
+                    icon: "pin.fill",
+                    farben: NoteColor(bg: ArcaWarm.terrakotta.opacity(0.20),
+                                      accent: ArcaWarm.terrakotta,
+                                      name: "Angepinnt"),
+                    anzahl: angepinnteDokumente.count,
+                    vorschau: blaetter(aus: angepinnteDokumente),
+                    tintDeckkraft: 0.45)
+                .contentShape(RoundedRectangle(cornerRadius: ARCASpacing.kategorieKarteRadius,
+                                               style: .continuous))
+                .onTapGesture { oeffneAngepinnt() }
+                .accessibilityLabel("Angepinnt. Antippen öffnet die angepinnten Dokumente.")
+            }
+            ForEach(dokumentGruppen, id: \.name) { gruppe in
+                ArcaCategoryCard(
+                    name: gruppe.name,
+                    icon: store.iconFor(gruppe.name),
+                    farben: categoryColor(gruppe.name, overrides: store.categoryColors),
+                    anzahl: gruppe.anzahl,
+                    vorschau: vorschauBlaetter(fuer: gruppe.name))
+                .contentShape(RoundedRectangle(cornerRadius: ARCASpacing.kategorieKarteRadius,
+                                               style: .continuous))
+                .onTapGesture { openDocuments(category: gruppe.name) }
+                .dropDestination(for: String.self) { eingeworfen, _ in
+                    verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
+                }
+                .contextMenu { ordnerMenue(gruppe.name) }
+            }
+            Button {
+                docFuerNeueGruppe = nil
+                neueGruppeName = ""
+                showNeueGruppe = true
+            } label: {
+                ArcaOrdnerHinzufuegenKarte()
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, ARCASpacing.card)
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func ordnerMenue(_ name: String) -> some View {
+        Button {
+            symbolZiel = SymbolZiel(name: name)
+        } label: {
+            Label("Symbol ändern", systemImage: "square.grid.2x2")
+        }
+        ArcaMenue.farbe(aktuell: store.categoryColors[name]) { idx in
+            store.categoryColors[name] = idx
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+        if name != "Unsortiert" {
+            ArcaMenue.umbenennen {
+                gruppeUmbenennenText = name
+                gruppeZumUmbenennen = name
+            }
+            ArcaMenue.loeschen("Ordner löschen") {
+                gruppeZumLoeschen = name
+            }
+        }
+    }
+
+    /// Ansicht „Dokumente": die Ordner nur als schmale Zeile — sie
+    /// filtern die Kacheln darunter an Ort und Stelle.
+    @ViewBuilder
+    private var ordnerChipZeile: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ordnerChip("Alle", icon: "square.grid.2x2",
+                           farbe: ArcaWarm.terrakotta, aktiv: kachelOrdner == nil) {
+                    kachelOrdner = nil
+                }
+                ForEach(dokumentGruppen, id: \.name) { gruppe in
+                    ordnerChip(gruppe.name, icon: store.iconFor(gruppe.name),
+                               farbe: categoryColor(gruppe.name, overrides: store.categoryColors).accent,
+                               aktiv: kachelOrdner == gruppe.name) {
+                        kachelOrdner = kachelOrdner == gruppe.name ? nil : gruppe.name
+                    }
+                    .dropDestination(for: String.self) { eingeworfen, _ in
+                        verarbeiteAblage(eingeworfen, aufGruppe: gruppe.name)
+                    }
+                    .contextMenu { ordnerMenue(gruppe.name) }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .contentMargins(.horizontal, ARCASpacing.card, for: .scrollContent)
+    }
+
+    private func ordnerChip(_ name: String, icon: String, farbe: Color,
+                            aktiv: Bool, aktion: @escaping () -> Void) -> some View {
+        HStack(spacing: ARCASpacing.micro) {
+            ArcaIcon(name: icon, groesse: 13)
+                .foregroundStyle(farbe)
+            Text(name)
+                .font(.system(size: 13, weight: aktiv ? .bold : .medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(aktiv ? farbe : Color.primary)
+        .padding(.horizontal, ARCASpacing.chipHorizontal)
+        .padding(.vertical, 8)
+        .background { Capsule().fill(aktiv ? farbe.opacity(0.16) : Color.primary.opacity(0.04)) }
+        .overlay {
+            Capsule().strokeBorder(aktiv ? farbe.opacity(0.45) : Color.primary.opacity(0.10),
+                                   lineWidth: 1)
+        }
+        .contentShape(Capsule())
+        .onTapGesture {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.easeInOut(duration: 0.2)) { aktion() }
+        }
+        .accessibilityAddTraits(aktiv ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Die Dokumente der Kachel-Ansicht — gefiltert nach dem gewählten Chip.
+    private var kachelDokumente: [FavoriteItem] {
+        guard let ordner = kachelOrdner else { return streamItems }
+        let bekannte = Set(store.documentCategories)
+        return streamItems.filter { item in
+            guard let d = store.documents.first(where: { $0.id == item.id }) else { return false }
+            return ordner == "Unsortiert"
+                ? (d.category == "Unsortiert" || !bekannte.contains(d.category))
+                : d.category == ordner
+        }
+    }
+
+    @ViewBuilder
+    private var dokumentKacheln: some View {
+        let docs = kachelDokumente
+        if docs.isEmpty {
+            Text(kachelOrdner == nil
+                 ? "Noch keine Dokumente — leg das erste mit dem Plus an."
+                 : "Dieser Ordner ist noch leer.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 8)
+        } else {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: ARCASpacing.dokumentKachelMin),
+                                         spacing: ARCASpacing.element)],
+                      alignment: .leading,
+                      spacing: ARCASpacing.element + 4) {
+                ForEach(docs) { item in
+                    dokumentKachel(item)
+                }
+            }
+            ArcaListenSchluss(anzahl: docs.count)
+                .padding(.top, 6)
+        }
+    }
+
+    @ViewBuilder
+    private func dokumentKachel(_ item: FavoriteItem) -> some View {
+        let doc = store.documents.first(where: { $0.id == item.id })
+        VStack(alignment: .leading, spacing: ARCASpacing.micro) {
+            Color.clear
+                .aspectRatio(ARCASpacing.dokumentKachelSeitenverhaeltnis, contentMode: .fit)
+                .overlay {
+                    if let doc {
+                        DocThumbnail(url: store.documentURL(for: doc.filename),
+                                     type: doc.type, gross: true)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                }
+                .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+            Text(item.title)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            if kachelOrdner == nil, let doc {
+                Text(doc.category)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { openFavorite(item) }
+        .wennDraggable(true, item.id.uuidString)
+        .contextMenu {
+            ArcaMenue.favorit(ist: istFavorit(item)) {
+                store.toggleFavorite(kind: item.kind, id: item.id)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+            ArcaMenue.umbenennen {
+                streamRenameText = item.title
+                streamRenameItem = item
+            }
+            ArcaMenue.loeschen { dokZumLoeschen = item }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// Ansicht „Ordner": unter dem Raster nur die jüngsten Dokumente.
+    private var juengsteDokumente: [FavoriteItem] {
+        Array(streamItems.sorted { $0.date > $1.date }.prefix(5))
     }
 
 
@@ -1809,14 +2065,18 @@ struct HomeView: View {
                         // sie in ihrem eigenen Feld — „Kategorien" sagt,
                         // was die Kacheln sind; vorher musste man es aus
                         // ihnen schliessen.
-                        if streamFilter == .dokumente {
-                            ARCASectionPanel("Kategorien", systemImage: "folder", randlos: true) {
-                                ARCAPanelLink("Alle anzeigen", tint: ArcaWarm.terrakotta) {
-                                    store.fokusKategorie = nil
-                                    selectedSection = .documents
-                                }
+                        // In der Ansicht „Ordner" (iPad) wandert das Feld
+                        // in den Scrollbereich: alle Ordner auf einmal
+                        // wären für einen festen Kopf zu hoch.
+                        if streamFilter == .dokumente, startAnsicht != .ordner {
+                            ARCASectionPanel("Ordner", systemImage: "folder", randlos: true) {
+                                ordnerFeldKopf
                             } content: {
-                                dokumentKarussell
+                                if startAnsicht == .dokumente {
+                                    ordnerChipZeile
+                                } else {
+                                    dokumentKarussell
+                                }
                             }
                             .padding(.horizontal, 20)
                         }
@@ -1837,6 +2097,14 @@ struct HomeView: View {
                     // Ab hier scrollt es — und nur hier.
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
+                        if streamFilter == .dokumente, startAnsicht == .ordner {
+                            ARCASectionPanel("Ordner", systemImage: "folder", randlos: true) {
+                                ordnerFeldKopf
+                            } content: {
+                                ordnerRaster
+                            }
+                            .padding(.horizontal, 20)
+                        }
                         // ── Der Bestand in seinem eigenen Feld ──
                         //
                         // Ohne Kopfzeile. Sie stand am 16.09. noch da und
@@ -1849,7 +2117,24 @@ struct HomeView: View {
                         // Lichtkante, kein Glas — die Zeilen darin tragen
                         // ihres schon, und Glas auf Glas rendert falsch.
                         VStack(alignment: .leading, spacing: ARCASpacing.inCard) {
-                        if streamFilter == .dokumente {
+                        if streamFilter == .dokumente, startAnsicht == .dokumente {
+                            dokumentKacheln
+                        } else if streamFilter == .dokumente, startAnsicht == .ordner {
+                            Text("Zuletzt hinzugefügt")
+                                .font(.system(size: 15, weight: .bold))
+                            if juengsteDokumente.isEmpty {
+                                Text("Noch keine Dokumente — leg das erste mit dem Plus an.")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.vertical, 4)
+                            } else {
+                                LazyVStack(spacing: 8) {
+                                    ForEach(juengsteDokumente) { item in
+                                        streamZeile(item)
+                                    }
+                                }
+                            }
+                        } else if streamFilter == .dokumente {
                             if streamItems.isEmpty {
                                 Text("Noch keine Dokumente — leg das erste mit dem Plus an.")
                                     .font(.system(size: 13))
@@ -2244,7 +2529,7 @@ struct HomeView: View {
             Button("Abbrechen", role: .cancel) { punktFuerListe = nil }
         }
         // Gruppe umbenennen — direkt vom Start
-        .alert("Gruppe umbenennen", isPresented: Binding(
+        .alert("Ordner umbenennen", isPresented: Binding(
             get: { gruppeZumUmbenennen != nil },
             set: { if !$0 { gruppeZumUmbenennen = nil } }
         )) {
@@ -2258,7 +2543,7 @@ struct HomeView: View {
             Button("Abbrechen", role: .cancel) { gruppeZumUmbenennen = nil }
         }
         // Gruppe löschen — mit Rückfrage, Dokumente wandern nach Unsortiert
-        .alert("Gruppe löschen?", isPresented: Binding(
+        .alert("Ordner löschen?", isPresented: Binding(
             get: { gruppeZumLoeschen != nil },
             set: { if !$0 { gruppeZumLoeschen = nil } }
         )) {
@@ -2289,8 +2574,8 @@ struct HomeView: View {
             Button("Abbrechen", role: .cancel) { homeRenameDoc = nil }
         }
         // Neue Gruppe anlegen (und optional das Dokument gleich hineinlegen)
-        .alert("Neue Gruppe", isPresented: $showNeueGruppe) {
-            TextField("Name der Gruppe", text: $neueGruppeName)
+        .alert("Neuer Ordner", isPresented: $showNeueGruppe) {
+            TextField("Name des Ordners", text: $neueGruppeName)
             Button("Erstellen") {
                 let name = neueGruppeName.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !name.isEmpty {
@@ -3980,5 +4265,35 @@ struct NeueWandKachel: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Neue Wand anlegen")
+    }
+}
+
+// MARK: - Start-Ansicht (iPad)
+
+/// Die drei Ansichten des Starts auf dem iPad (seit 24.11.).
+enum StartAnsicht: String, CaseIterable, Identifiable {
+    /// Ordner als Reihe zum Wischen, darunter alle Dokumente — wie auf dem iPhone.
+    case uebersicht
+    /// Alle Ordner mehrreihig, darunter die jüngsten Dokumente.
+    case ordner
+    /// Ordner als schmale Zeile, darunter die Dokumente als Kacheln.
+    case dokumente
+
+    var id: String { rawValue }
+
+    var titel: String {
+        switch self {
+        case .uebersicht: "Übersicht"
+        case .ordner:     "Ordner"
+        case .dokumente:  "Dokumente"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .uebersicht: "rectangle.split.1x2"
+        case .ordner:     "square.grid.2x2"
+        case .dokumente:  "doc.on.doc"
+        }
     }
 }

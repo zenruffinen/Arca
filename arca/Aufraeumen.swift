@@ -124,8 +124,8 @@ struct AufraeumModus: View {
             } message: {
                 Text("„\(loeschKandidat?.title ?? "")“ wird endgültig gelöscht — samt Datei.")
             }
-            .alert("Neue Gruppe", isPresented: $zeigeNeueGruppe) {
-                TextField("Name der Gruppe", text: $neueGruppeName)
+            .alert("Neuer Ordner", isPresented: $zeigeNeueGruppe) {
+                TextField("Name des Ordners", text: $neueGruppeName)
                 Button("Anlegen und einsortieren") {
                     let name = neueGruppeName.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !name.isEmpty else { return }
@@ -139,7 +139,7 @@ struct AufraeumModus: View {
                 }
                 Button("Abbrechen", role: .cancel) {}
             } message: {
-                Text("Die Gruppe wird angelegt und das Dokument direkt hineinsortiert.")
+                Text("Der Ordner wird angelegt und das Dokument direkt hineinsortiert.")
             }
         }
     }
@@ -255,7 +255,7 @@ struct AufraeumModus: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "folder.badge.plus")
                                     .font(.system(size: 12, weight: .semibold))
-                                Text("Neue Gruppe")
+                                Text("Neuer Ordner")
                                     .font(.system(size: 13, weight: .semibold))
                             }
                             .foregroundStyle(ArcaWarm.terrakotta)

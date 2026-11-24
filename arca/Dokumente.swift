@@ -370,7 +370,7 @@ struct DocumentsView: View {
                     }
                 }
             }
-            .alert("Gruppe löschen", isPresented: Binding(
+            .alert("Ordner löschen", isPresented: Binding(
                 get: { deletingCategory != nil },
                 set: { if !$0 { deletingCategory = nil } }
             )) {
@@ -706,7 +706,7 @@ struct DocumentsView: View {
                     HStack(spacing: 5) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 12, weight: .bold))
-                        Text("Alle Kategorien")
+                        Text("Alle Ordner")
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .foregroundStyle(ArcaWarm.terrakotta)
@@ -884,7 +884,7 @@ struct DocumentsView: View {
                                             shareItem = ShareURLItem(url: url)
                                         }
                                     } label: {
-                                        Label("Gruppe teilen", systemImage: "person.2.fill")
+                                        Label("Ordner teilen", systemImage: "person.2.fill")
                                     }
 
                                     Divider()
@@ -892,7 +892,7 @@ struct DocumentsView: View {
                                     Button(role: .destructive) {
                                         deletingCategory = category
                                     } label: {
-                                        Label("Gruppe löschen", systemImage: "trash")
+                                        Label("Ordner löschen", systemImage: "trash")
                                     }
                                 }
                             }
@@ -1042,7 +1042,7 @@ struct DocumentsView: View {
                 Text("Der Ordner \"\(importedFolderName ?? "")\" wurde hinzugefügt.")
             }
             // Ordner Umbenennen Alert
-            .alert("Gruppe umbenennen", isPresented: $showCategoryRename) {
+            .alert("Ordner umbenennen", isPresented: $showCategoryRename) {
                 TextField("Neuer Name", text: $categoryRenameText)
                 Button("Speichern") {
                     if let old = renamingCategory {
@@ -1658,8 +1658,8 @@ struct DocumentSaveSheet: View {
                 Section("Titel") {
                     TextField("Titel", text: $title)
                 }
-                Section("Gruppe") {
-                    Picker("Gruppe", selection: $category) {
+                Section("Ordner") {
+                    Picker("Ordner", selection: $category) {
                         ForEach(store.documentCategories, id: \.self) { cat in
                             HStack {
                                 Image(store.iconFor(cat))
@@ -1773,8 +1773,8 @@ struct TextDocumentInputView: View {
                 Section("Titel") {
                     TextField("Titel", text: $title)
                 }
-                Section("Gruppe") {
-                    Picker("Gruppe", selection: $category) {
+                Section("Ordner") {
+                    Picker("Ordner", selection: $category) {
                         ForEach(store.documentCategories, id: \.self) { cat in
                             HStack {
                                 Image(store.iconFor(cat))

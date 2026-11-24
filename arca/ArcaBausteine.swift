@@ -397,7 +397,7 @@ struct DocumentCategoryManagerView: View {
                     store.documentCategories.move(fromOffsets: from, toOffset: to)
                 }
             }
-            .navigationTitle("Gruppen verwalten")
+            .navigationTitle("Ordner verwalten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { EditButton() }
@@ -408,7 +408,7 @@ struct DocumentCategoryManagerView: View {
                     Button("Fertig") { dismiss() }
                 }
             }
-            .alert("Neue Gruppe", isPresented: $showAddAlert) {
+            .alert("Neuer Ordner", isPresented: $showAddAlert) {
                 TextField("Name", text: $newCategoryName)
                 Button("Hinzufügen") {
                     let trimmed = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -419,7 +419,7 @@ struct DocumentCategoryManagerView: View {
                 }
                 Button("Abbrechen", role: .cancel) { newCategoryName = "" }
             }
-            .alert("Gruppe umbenennen", isPresented: Binding(
+            .alert("Ordner umbenennen", isPresented: Binding(
                 get: { renameTarget != nil },
                 set: { if !$0 { renameTarget = nil } }
             )) {

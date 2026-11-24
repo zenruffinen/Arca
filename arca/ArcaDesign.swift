@@ -679,7 +679,7 @@ struct ArcaCategoryCard: View {
         .shadow(color: .black.opacity(dunkel ? 0.26 : 0.07), radius: 3, y: 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(name), \(anzahl) \(dokumentWort)")
-        .accessibilityHint("Öffnet die Kategorie")
+        .accessibilityHint("Öffnet den Ordner")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -862,7 +862,7 @@ struct ArcaOrdnerHinzufuegenKarte: View {
                 .frame(width: linsenMass, height: linsenMass)
                 .background(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45),
                                                   style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
-            Text("Kategorie hinzufügen")
+            Text("Ordner hinzufügen")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -881,7 +881,7 @@ struct ArcaOrdnerHinzufuegenKarte: View {
                               style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Kategorie hinzufügen")
+        .accessibilityLabel("Ordner hinzufügen")
         .accessibilityAddTraits(.isButton)
     }
 }
@@ -896,7 +896,7 @@ struct ArcaKategorieHinzufuegenKarte: View {
                 .frame(width: 36, height: 36)
                 .background(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.45),
                                                   style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
-            Text("Kategorie\nhinzufügen")
+            Text("Ordner\nhinzufügen")
                 .font(.system(size: 9.5, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -1027,7 +1027,7 @@ struct ArcaDrehregler: View {
                 .onEnded { _ in lokal = nil }
         )
         .onAppear { motor.vorbereiten() }
-        .accessibilityLabel("Gruppen durchblättern")
+        .accessibilityLabel("Ordner durchblättern")
     }
 }
 
