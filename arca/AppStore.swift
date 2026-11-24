@@ -1039,6 +1039,7 @@ final class AppStore: ObservableObject {
         isLoadingData = false
         speichereNachfusion()
         for key in synchronisierteSchluessel { merkeStand(key) }
+        volltextNachholen()   // neue Dokumente vom anderen Gerät
     }
 
     /// Nach dem Zusammenführen: Bestände mit lokalen Ergänzungen zurück
@@ -1111,6 +1112,11 @@ final class AppStore: ObservableObject {
         load()
         isLoadingData = false
         entferneDoppelteKategorien()   // bestehende Doppelnamen einmalig zusammenführen
+        // Volltext für den Bestand nachholen (24.11.) — etwas verzögert,
+        // damit der Start nicht wartet und iCloud Dateien nachladen kann.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            self?.volltextNachholen()
+        }
         // Demo-Seeding vorübergehend DEAKTIVIERT (Fehler: räumt sich selbst weg).
         // seedeDemodatenWennErststart()
         ladeZuletztGeoeffnet()
@@ -2163,6 +2169,7 @@ final class AppStore: ObservableObject {
                 title: titel.isEmpty ? (alsMail ? "Mail" : "Import") : titel,
                 type: typ, filename: zielName, dateAdded: Date(), category: kategorie)
             self.documents.append(eintrag)
+            self.volltextNachholen()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             fertig?(neueID)
         }
@@ -2172,6 +2179,7 @@ final class AppStore: ObservableObject {
         let entry = DocumentEntry(title: title, type: type, filename: filename, dateAdded: Date(), category: category, subcategory: subcategory, ocrText: ocrText)
         documents.append(entry)
         haengeAufWand(.document, entry.id)
+        if ocrText.isEmpty { volltextNachholen() }
     }
 
     /// Existierende Kategorie, die diesem Namen entspricht (case-insensitiv, getrimmt).

@@ -1705,7 +1705,9 @@ struct HomeView: View {
 
                 Spacer()
 
-                // Die Suche liegt jetzt unten in der Leiste (obere Lupe entfernt 14.08.)
+                // Die Suche liegt auf dem iPhone unten in der Leiste (obere
+                // Lupe dort entfernt 14.08.). Das iPad hat keine Leiste —
+                // dort steht die Lupe seit 24.11. wieder hier oben.
 
                 // Die Kopf-Knoepfe als eine Gruppe.
                 //
@@ -1717,6 +1719,19 @@ struct HomeView: View {
                 // sich — teurer und optisch unruhiger. (01.10., iOS 27)
                 GlassEffectContainer(spacing: 12) {
                     HStack(spacing: 12) {
+                        if horizontalSizeClass == .regular {
+                            Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                store.sucheFokusSignal += 1
+                            } label: {
+                                ArcaIcon(name: "ArcaSearch", groesse: 18)
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 36, height: 36)
+                                    .glassEffect(.regular, in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Suche")
+                        }
                         // Sicherung fällig? Nur dann steht das Schild hier — als
                         // Zeichen statt als Banderole, das spart die halbe Reihe.
                         if backupErinnerungFaellig {
@@ -2720,7 +2735,9 @@ struct SearchResultsView: View {
                             SearchResultRow(
                                 title: doc.title,
                                 subtitle: "\(doc.category) · \(doc.type.rawValue)",
-                                color: docTypeColor(doc.type)
+                                color: docTypeColor(doc.type),
+                                fundstelle: doc.title.lowercased().contains(q)
+                                    ? nil : SearchResultRow.fundstelle(in: doc.ocrText, suche: q)
                             ) {
                                 onPreviewDocument(store.documentURL(for: doc.filename))
                             }
@@ -2738,7 +2755,9 @@ struct SearchResultsView: View {
                             SearchResultRow(
                                 title: note.title.isEmpty ? "Ohne Titel" : note.title,
                                 subtitle: note.text.isEmpty ? "Leer" : String(note.text.prefix(60)),
-                                color: NoteColor.for_(note.colorTag).accent
+                                color: NoteColor.for_(note.colorTag).accent,
+                                fundstelle: note.title.lowercased().contains(q)
+                                    ? nil : SearchResultRow.fundstelle(in: note.text, suche: q)
                             ) { onSelectSection(.notes) }
                         }
                     }
@@ -2794,7 +2813,31 @@ struct SearchResultRow: View {
     let title: String
     let subtitle: String
     let color: Color
+    /// Die Stelle im Text, an der das Suchwort steht (seit 24.11.) —
+    /// zeigt, WARUM ein Dokument gefunden wurde.
+    var fundstelle: AttributedString? = nil
     let action: () -> Void
+
+    /// Schneidet die Umgebung des Suchworts aus und hebt es hervor.
+    static func fundstelle(in text: String, suche: String) -> AttributedString? {
+        guard !suche.isEmpty,
+              let treffer = text.range(of: suche, options: .caseInsensitive) else { return nil }
+        let start = text.index(treffer.lowerBound, offsetBy: -40, limitedBy: text.startIndex) ?? text.startIndex
+        let ende = text.index(treffer.upperBound, offsetBy: 90, limitedBy: text.endIndex) ?? text.endIndex
+        let flach: (Substring) -> String = {
+            $0.split(whereSeparator: \.isNewline).joined(separator: " · ")
+        }
+        var ergebnis = AttributedString(start > text.startIndex ? "…" : "")
+        ergebnis += AttributedString(flach(text[start..<treffer.lowerBound]))
+        var wort = AttributedString(String(text[treffer]))
+        wort.font = .system(size: 12, weight: .bold)
+        wort.foregroundColor = .primary
+        wort.backgroundColor = Color.yellow.opacity(0.35)
+        ergebnis += wort
+        ergebnis += AttributedString(flach(text[treffer.upperBound..<ende]))
+        if ende < text.endIndex { ergebnis += AttributedString("…") }
+        return ergebnis
+    }
 
     var body: some View {
         Button(action: action) {
@@ -2811,6 +2854,13 @@ struct SearchResultRow: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                    if let fundstelle {
+                        Text(fundstelle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .padding(.top, 2)
+                    }
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
