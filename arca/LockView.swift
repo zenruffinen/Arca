@@ -329,11 +329,16 @@ struct PINEntryView: View {
     @State private var showResetConfirm = false
 
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        // Dieselbe Regel wie beim PIN-Anlegen: enger werden, sobald es
+        // eng wird. Auf dem iPad mini quer (744 pt minus Fuss) ragte das
+        // Logo oben aus dem Bild und der Notfall-Knopf fiel unten heraus.
+        GeometryReader { geo in
+        let eng = geo.size.height < 720
+        VStack(spacing: eng ? 16 : 32) {
+            Spacer(minLength: 0)
 
-            VStack(spacing: 14) {
-                ArcaGlassIcon(size: 96)
+            VStack(spacing: eng ? 8 : 14) {
+                ArcaGlassIcon(size: eng ? 62 : 96)
                 Text("Arca")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
             }
@@ -389,9 +394,11 @@ struct PINEntryView: View {
                     .foregroundStyle(.secondary)
                     .underline()
             }
-            .padding(.top, -12)
+            .padding(.top, eng ? -8 : -12)
 
-            Spacer()
+            Spacer(minLength: 0)
+        }
+        .frame(width: geo.size.width, height: geo.size.height)
         }
         .padding()
         .onAppear {

@@ -71,6 +71,18 @@ struct ArcaDeskRail: View {
         flaechenFarbe.map { NoteColor.for_($0).bg.opacity(0.45) } ?? Color.clear
     }
 
+    /// Wo die Überschrift steht: normal mittig über den Karten. Ist die
+    /// Fläche so schmal, dass sie in den Auswurf rechts oben (44 pt)
+    /// liefe, rückt sie an den linken Rand und nimmt den Platz bis dorthin.
+    private func titelRahmen(in flaeche: CGFloat) -> (links: CGFloat, breite: CGFloat) {
+        let breite = kartenBreite + 8
+        let links = (flaeche - breite) / 2
+        if links + breite > flaeche - 50 {
+            return (12, max(60, flaeche - 62))
+        }
+        return (links, breite)
+    }
+
     /// Nur Karten, deren Original noch existiert.
     private var items: [DeskItem] {
         store.deskItems.filter { $0.seite == seite && existiert($0) }
@@ -94,7 +106,7 @@ struct ArcaDeskRail: View {
                             .tracking(0.8)
                             .foregroundStyle(.primary)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.6)
                         Spacer(minLength: 0)
                     }
                     // Feine Terrakotta-Linie als Unterstreichung
@@ -102,7 +114,12 @@ struct ArcaDeskRail: View {
                         .fill(ArcaWarm.terrakotta.opacity(0.45))
                         .frame(width: 46, height: 3)
                 }
-                .frame(width: kartenBreite + 8, alignment: .leading)
+                // Rechts oben sitzt der Auswurf (44 pt): die Überschrift
+                // hält beidseitig Abstand, sonst läuft „Schnellzugriff"
+                // auf schmalen Flächen in den Kreis hinein.
+                .frame(width: titelRahmen(in: geo.size.width).breite, alignment: .leading)
+                .padding(.leading, titelRahmen(in: geo.size.width).links)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 12)
                 .contentShape(Rectangle())
                 .contextMenu {

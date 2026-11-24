@@ -78,13 +78,7 @@ struct ArcaTabBar: View {
     }
 
     /// „Unsortiert" zählt eigene Dateien PLUS Waisen (wie der Aufräum-Balken).
-    private var unsortiertAnzahl: Int {
-        let bekannte = Set(store.documentCategories)
-        return store.documents.filter {
-            $0.category != "Top Secret" &&
-            ($0.category == "Unsortiert" || !bekannte.contains($0.category))
-        }.count
-    }
+    private var unsortiertAnzahl: Int { store.unsortiertAnzahl }
 
     var body: some View {
         ZStack {
@@ -445,9 +439,34 @@ struct ArcaPlusKnopf: View {
         // Zwei Freunde nebeneinander: links das Blitzidee-Mikro,
         // rechts der Plus für die vier Eingaben (Plakette = Gruppe).
         HStack(spacing: 14) {
-            // Die Schreibtisch-Uhr: ganz links in der Werkzeug-Reihe
-            if groessenKlasse == .regular {
-                ArcaDeskUhr()
+            // Der Aufräum-Besen — wie auf dem iPhone nur, wenn etwas
+            // unsortiert herumliegt. (Hier stand bis 18.11. die Uhr
+            // „Arca Desktop heute"; sie gehörte zum Schreibtisch, der auf
+            // dem iPad stillgelegt ist.)
+            if groessenKlasse == .regular, store.unsortiertAnzahl > 0 {
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    store.zeigeAufraeumen = true
+                } label: {
+                    ArcaIcon(name: "ArcaBroom", groesse: 22)
+                        .foregroundStyle(ArcaWarm.terrakotta)
+                        .frame(width: 50, height: 50)
+                        .background(ArcaWarm.karte, in: Circle())
+                        .overlay(Circle().strokeBorder(ArcaWarm.terrakotta.opacity(0.5), lineWidth: 2))
+                        .shadow(color: .black.opacity(0.18), radius: 7, x: 0, y: 3)
+                        .overlay(alignment: .topTrailing) {
+                            Text("\(store.unsortiertAnzahl)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(minWidth: 19, minHeight: 19)
+                                .padding(.horizontal, 2)
+                                .background(Color.red, in: Capsule())
+                                .offset(x: 4, y: -3)
+                        }
+                }
+                .buttonStyle(.plain)
+                .transition(.scale.combined(with: .opacity))
+                .accessibilityLabel("Aufräumen — \(store.unsortiertAnzahl) unsortiert")
             }
 
             // Arca Pen: immer griffbereit, auch bei eingeklappter
@@ -687,3 +706,15 @@ struct ArcaIPadSidebar: View {
     }
 }
 
+extension AppStore {
+    /// Dokumente, die noch keinen Platz haben: in „Unsortiert" oder in
+    /// einer Gruppe, die es nicht mehr gibt. Treibt den Aufräum-Besen
+    /// (iPhone-Leiste und iPad-Werkzeugreihe).
+    var unsortiertAnzahl: Int {
+        let bekannte = Set(documentCategories)
+        return documents.filter {
+            $0.category != "Top Secret" &&
+            ($0.category == "Unsortiert" || !bekannte.contains($0.category))
+        }.count
+    }
+}

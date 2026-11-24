@@ -46,6 +46,15 @@ enum ArcaFeatures {
     /// genügt `true`, sobald die Käufe in App Store Connect stehen. Sie
     /// müssen ZUSAMMEN mit der App eingereicht werden.
     static let trinkgeld = false
+
+    /// Der Schreibtisch auf dem iPad („Zu erledigen" · „Schnellzugriff"
+    /// neben der App).
+    ///
+    /// Am 18.11. stillgelegt: auf dem iPad mini drückte er die App in eine
+    /// schmale Spalte, und Hans fand ihn weder hochkant noch quer nötig.
+    /// Ohne ihn nutzt die App die ganze Breite. Code und die gesicherten
+    /// Karten (store.deskItems) bleiben — zum Wiederaufmachen: `true`.
+    static let schreibtisch = false
 }
 
 enum ArcaSection: String, CaseIterable, Identifiable {

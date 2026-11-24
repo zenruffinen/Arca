@@ -16,3 +16,5 @@ docs/.obsidian/
 
 # Lokale Claude-Einstellungen (enthalten Zugangsdaten, nie committen)
 .claude/settings.local.json
+.claude/settings.local*.json
+.claude/worktrees/

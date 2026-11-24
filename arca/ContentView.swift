@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import ARCAKit
 import UniformTypeIdentifiers
 import QuickLook
 import QuickLookThumbnailing
@@ -236,7 +237,7 @@ struct ContentView: View {
         ZStack(alignment: .bottom) {
             Group {
                 switch selectedSection {
-                case .home:      HomeView(selectedSection: $selectedSection)
+                case .home:      HomeView(selectedSection: $selectedSection, isUnlocked: isUnlocked)
                 // Die Wände liegen neben dem Start, nicht darüber: die
                 // Leiste bleibt stehen, kein Exit-Knopf, zurück wird
                 // gewischt.
@@ -336,15 +337,19 @@ struct ContentView: View {
             // Der Schreibtisch bleibt in JEDEM Bereich rechts stehen —
             // die App arbeitet links, das Pult liegt daneben.
             GeometryReader { geo in
-                // Die App-Spalte endet an der Passwörter-Blase —
-                // der Löwenanteil gehört dem Schreibtisch
-                let inhaltsBreite: CGFloat = 410
+                // Die App-Spalte wächst mit dem Fenster (siehe ARCASpacing):
+                // auf dem iPad mini quer bekommt die App gut die Hälfte,
+                // auf dem großen iPad bleibt der Löwenanteil beim Schreibtisch.
+                let inhaltsBreite = min(max(geo.size.width * ARCASpacing.iPadAppSpalteAnteil,
+                                            ARCASpacing.iPadAppSpalteMin),
+                                        ARCASpacing.iPadAppSpalteMax)
                 let zonenBreite = (geo.size.width - inhaltsBreite - 24) / 2
-                let zeigtDesk = zonenBreite >= 165
+                let zeigtDesk = ArcaFeatures.schreibtisch
+                    && zonenBreite >= ARCASpacing.deskZoneMinBreite
                 HStack(alignment: .top, spacing: 8) {
                     Group {
                         switch selectedSection {
-                        case .home:      HomeView(selectedSection: $selectedSection)
+                        case .home:      HomeView(selectedSection: $selectedSection, isUnlocked: isUnlocked)
                         case .waende:    IdeenPinnwand(alsSeite: true,
                                                        nachHome: { wechsleZu(.home) })
                         case .spaceHub:  SpaceHubView(selectedSection: $selectedSection)
@@ -355,7 +360,8 @@ struct ContentView: View {
                         case .settings:  SettingsView()
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(width: zeigtDesk ? inhaltsBreite : nil)
+                    .frame(maxWidth: zeigtDesk ? nil : .infinity)
                     if zeigtDesk {
                         ArcaDeskRail(seite: "links",
                                      selectedSection: $selectedSection,
@@ -379,7 +385,9 @@ struct ContentView: View {
                 // stattdessen Platz frei, so wie Apple es fuer Geraete mit
                 // wechselnder Hoehe vorsieht.
                 .safeAreaInset(edge: .top, alignment: .leading, spacing: 0) {
-                    if selectedSection != .home {
+                    // Bei offener Seitenleiste steht „Start" schon dort —
+                    // dann braucht es keinen zweiten Weg zurück.
+                    if selectedSection != .home, spaltenSichtbarkeit == .detailOnly {
                         spaceZurueckKnopf
                     }
                 }

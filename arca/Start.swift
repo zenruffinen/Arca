@@ -109,6 +109,9 @@ func formatActivityDate(_ date: Date) -> String {
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @Binding var selectedSection: ArcaSection
+    /// Die Namensfrage wartet hinter dem Schloss — sonst liegt sie beim
+    /// ersten Start über dem PIN-Anlegen (ContentView lebt auch gesperrt).
+    var isUnlocked: Bool = true
     @State private var profilAuswahl: PhotosPickerItem? = nil
     /// Woher soll das Profilbild kommen — Kamera oder Mediathek?
     @State private var zeigeBildQuelle = false
@@ -230,6 +233,14 @@ struct HomeView: View {
     /// begrenzt, damit er auf großen Bildschirmen nicht gestreckt/leer wirkt.
     private var homeContentMaxWidth: CGFloat {
         horizontalSizeClass == .regular ? 700 : .infinity
+    }
+
+    /// Einmalige Namensfrage — erst wenn die App offen ist.
+    private func frageNachNamen() {
+        guard isUnlocked,
+              userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !userNameAsked else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showNamePrompt = true }
     }
 
 
@@ -541,7 +552,8 @@ struct HomeView: View {
     }
 
     private var deskSichtbar: Bool {
-        horizontalSizeClass == .regular && deskZonenBreite >= 165
+        ArcaFeatures.schreibtisch && horizontalSizeClass == .regular
+            && deskZonenBreite >= ARCASpacing.deskZoneMinBreite
     }
 
     @ViewBuilder
@@ -2155,11 +2167,8 @@ struct HomeView: View {
         .arcaVorschau($quickAccessPreviewURL)
         // Einmalige Namensfrage für die Begrüßung (iOS gibt den
         // Gerätenamen aus Datenschutzgründen nicht mehr her)
-        .onAppear {
-            if userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !userNameAsked {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showNamePrompt = true }
-            }
-        }
+        .onAppear { frageNachNamen() }
+        .onChange(of: isUnlocked) { _, _ in frageNachNamen() }
         .alert("Wie dürfen wir dich begrüßen?", isPresented: $showNamePrompt) {
             TextField("Dein Vorname", text: $namePromptInput)
                 .textInputAutocapitalization(.words)
