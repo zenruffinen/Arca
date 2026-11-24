@@ -156,8 +156,6 @@ struct HomeView: View {
     /// Sitzung entsperrt. Nur Top Secret verlangt eine eigene Gesichtskontrolle.
     @State private var tresorEntsperrt = false
     @State private var laKontext = LAContext()   // festhalten, sonst verpufft der Face-ID-Callback
-    @State private var showSpiderGame = false
-    @State private var logoTapCount = 0
     @State private var quickAccessPreviewURL: URL? = nil
     @State private var quickAccessNote: NoteEntry? = nil
     @State private var quickAccessVault: VaultEntry? = nil
@@ -1636,18 +1634,17 @@ struct HomeView: View {
         }
     }
 
-    /// „Guten Morgen, Hans" — nach Tageszeit, oder „Dein Space", wenn
-    /// kein Name da ist. Dieselbe Einteilung wie die alte Hero-Karte.
+    /// „Guten Morgen, Hans" — nach Tageszeit; ohne Namen nur der Gruss.
+    /// Die Einteilung (und die Farbe) kommt aus ARCAColors.Tageszeit.
     private var begruessung: String {
         let n = userName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !n.isEmpty else { return "Dein Space" }
         let gruss: String
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<11:  gruss = "Guten Morgen"
-        case 11..<18: gruss = "Guten Tag"
-        default:      gruss = "Guten Abend"
+        switch ARCAColors.Tageszeit.jetzt {
+        case .morgen: gruss = "Guten Morgen"
+        case .tag:    gruss = "Guten Tag"
+        case .abend, .nacht: gruss = "Guten Abend"
         }
-        return "\(gruss), \(n)"
+        return n.isEmpty ? gruss : "\(gruss), \(n)"
     }
 
     private var totalEntryCount: Int {
@@ -1673,28 +1670,14 @@ struct HomeView: View {
             VStack(spacing: 0) {
             // ── Kopf: Marke + Space-Zeile + QR-Scan ──
             HStack(alignment: .center, spacing: 12) {
-                Button {
-                    logoTapCount += 1
-                    if logoTapCount >= 5 {
-                        logoTapCount = 0
-                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                        showSpiderGame = true
-                    }
-                } label: {
-                    ArcaGlassIcon(size: 40)
-                }
-                .buttonStyle(.plain)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Arca")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                    // Der Gruss wohnt hier, wo er keinen Platz kostet. Er
-                    // war mit der Hero-Karte verschwunden — die App fragte
-                    // beim ersten Start nach dem Namen und begruesste dann
-                    // nie. Ohne Namen bleibt es beim „Dein Space".
+                // Logo und Namenszug „Arca" sind am 24.11. gegangen: die
+                // App weiss man vom Symbol und vom Sperrbildschirm. Der Kopf
+                // begruesst jetzt nur noch — in derselben Schrift wie
+                // vorher, aber in der Pastellfarbe der Tageszeit.
+                VStack(alignment: .leading, spacing: 2) {
                     Text(begruessung)
-                        .font(.system(size: 15))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(ARCAColors.Tageszeit.jetzt.farbe)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                     // Die Zusage darunter. Sie stand vorher nirgends — der
@@ -2412,9 +2395,6 @@ struct HomeView: View {
                     .onChange(of: geo.size.width) { _, neu in seitenBreite = neu }
             }
         )
-        .fullScreenCover(isPresented: $showSpiderGame) {
-            SpiderGameView()
-        }
         .sheet(item: $symbolZiel) { ziel in
             CategoryIconPickerSheet(
                 categoryName: ziel.name,
