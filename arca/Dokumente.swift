@@ -64,6 +64,15 @@ struct DocSource: Identifiable {
         DocSource(id: "text",  icon: "doc.text.fill",             label: "Text",           colorTag: 3, action: .text),  // Grün
         DocSource(id: "diktat", icon: "mic.fill",                 label: "Diktieren",      colorTag: 5, action: .diktat), // Pfirsich
     ]
+
+    /// Die Handnotiz mit dem Stift — nur auf dem iPad (seit 24.11.).
+    static let stift = DocSource(id: "stift", icon: "pencil.and.scribble", label: "Stift",
+                                 colorTag: 6, action: .stift)
+
+    /// Was das Blatt „Neues Dokument" anbietet: auf dem iPad mit Stift.
+    /// Nach Geraet, nicht nach Groessenklasse — das Blatt erscheint auch
+    /// auf dem iPad als schmale Karte und meldet dort „compact".
+    static func angebot(iPad: Bool) -> [DocSource] { iPad ? all + [stift] : all }
 }
 
 struct DocumentsView: View {
@@ -213,7 +222,7 @@ struct DocumentsView: View {
     private var iPhoneDocumentsBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                AddTriggerButton(label: "Neues Dokument", subtitle: "Scan · PDF · Fotos/Videos · Text", icon: "plus") {
+                AddTriggerButton(label: "Neues Dokument", subtitle: UIDevice.current.userInterfaceIdiom == .pad ? "Scan · PDF · Fotos/Videos · Text · Stift" : "Scan · PDF · Fotos/Videos · Text", icon: "plus") {
                     showAddMenu = true
                 }
                 .padding(.horizontal, 20)
@@ -317,7 +326,8 @@ struct DocumentsView: View {
                     showScanner = false
                 }
             }
-            .sheet(isPresented: $showStiftNotiz) {
+            // Vollbild: die Handnotiz ist eine Seite, kein Zettel.
+            .fullScreenCover(isPresented: $showStiftNotiz) {
                 ArcaStiftNotiz()
                     .environmentObject(store)
             }
@@ -1596,7 +1606,7 @@ struct NewDocumentSourceSheet: View {
                 // Drei Spalten mit kompakteren Kacheln — so bleiben
                 // alle fünf Quellen ohne Scrollen sichtbar
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    ForEach(DocSource.all) { source in
+                    ForEach(DocSource.angebot(iPad: UIDevice.current.userInterfaceIdiom == .pad)) { source in
                         Button {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             dismiss()

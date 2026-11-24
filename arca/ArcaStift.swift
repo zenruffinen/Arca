@@ -2,41 +2,107 @@
 //  ArcaStift.swift
 //  Arca
 //
-//  Arca Pad: der Stift zieht ein. Eine PencilKit-Leinwand für
-//  Stift-Notizen — speichern als Skizze (durchsuchbar) oder auf
-//  Wunsch per Handschrift-Erkennung umgewandelt in eine Text-Notiz.
+//  Arca Pad: der Stift zieht ein. Eine PencilKit-Seite für Hand-
+//  notizen und Zeichnungen — gesichert als PDF in „Unsortiert"
+//  (durchsuchbar über die Handschrift-Erkennung) oder auf Wunsch
+//  umgewandelt in eine Text-Notiz.
+//
+//  24.11.: vom Pergament-Zettel zur Seite. Weisses Blatt, das beim
+//  Schreiben nach unten waechst, mit A4-Seitengrenzen; Sichern legt
+//  ein mehrseitiges PDF ab statt eines Bildes. Erreichbar über
+//  „Neues Dokument" → „Stift" auf dem iPad.
 //
 //  Entwickler: Hans zen Ruffinen
 //
 
 import SwiftUI
 import PencilKit
-import Vision
+import ARCAKit
 
-// MARK: - Die Leinwand
+// MARK: - Die Seite (UIKit)
+
+/// PencilKit-Leinwand, die wie ein Stapel A4-Blätter funktioniert:
+/// so breit wie der Bildschirm, so hoch wie nötig. Nähert sich die
+/// Schrift dem unteren Rand, kommt ein Blatt dazu.
+final class ArcaSeitenLeinwand: PKCanvasView {
+
+    /// Höhe einer Seite in Leinwand-Punkten — folgt dem A4-Verhältnis.
+    var seitenHoehe: CGFloat {
+        bounds.width * ARCASpacing.a4Seite.height / ARCASpacing.a4Seite.width
+    }
+    private(set) var seiten = 1
+    private let grenzen = CAShapeLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        grenzen.strokeColor = UIColor.black.withAlphaComponent(0.12).cgColor
+        grenzen.lineDashPattern = [6, 6]
+        grenzen.lineWidth = 1
+        layer.insertSublayer(grenzen, at: 0)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// Genug Blätter für die Schrift plus eines Luft.
+    func passeSeitenAn() {
+        guard seitenHoehe > 0 else { return }
+        let unten = drawing.strokes.isEmpty ? 0 : drawing.bounds.maxY
+        let noetig = max(1, Int(ceil((unten + seitenHoehe * 0.35) / seitenHoehe)))
+        if noetig > seiten { seiten = noetig }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let hoehe = max(bounds.height, seitenHoehe * CGFloat(seiten))
+        if contentSize.width != bounds.width || contentSize.height != hoehe {
+            contentSize = CGSize(width: bounds.width, height: hoehe)
+        }
+        // Gestrichelte Seitengrenzen — sie scrollen mit dem Inhalt.
+        let pfad = UIBezierPath()
+        for i in 1..<seiten {
+            let y = seitenHoehe * CGFloat(i)
+            pfad.move(to: CGPoint(x: 0, y: y))
+            pfad.addLine(to: CGPoint(x: bounds.width, y: y))
+        }
+        grenzen.frame = CGRect(origin: .zero, size: contentSize)
+        grenzen.path = pfad.cgPath
+    }
+}
 
 struct StiftLeinwand: UIViewRepresentable {
     @Binding var zeichnung: PKDrawing
+    /// Wird beim Erzeugen gesetzt, damit die Notiz die Seitenhöhe kennt.
+    var leinwandGefunden: (ArcaSeitenLeinwand) -> Void = { _ in }
 
-    func makeUIView(context: Context) -> PKCanvasView {
-        let leinwand = PKCanvasView()
+    func makeUIView(context: Context) -> ArcaSeitenLeinwand {
+        let leinwand = ArcaSeitenLeinwand(frame: .zero)
         leinwand.drawing = zeichnung
-        leinwand.drawingPolicy = .anyInput   // Pencil, Finger und Maus (Mac)
-        leinwand.backgroundColor = .clear    // das Pergament liegt darunter
-        leinwand.isOpaque = false
+        // .default folgt der Systemeinstellung „Nur mit Apple Pencil
+        // zeichnen": mit Pencil scrollt der Finger, ohne Pencil zeichnet er.
+        leinwand.drawingPolicy = .default
+        leinwand.backgroundColor = .white
+        leinwand.isOpaque = true
+        leinwand.alwaysBounceVertical = true
+        // Papier ist weiss — auch im Dunkelmodus. Sonst kehrt PencilKit
+        // die Tinte um, und schwarze Schrift wird auf dem PDF unsichtbar.
+        leinwand.overrideUserInterfaceStyle = .light
         leinwand.delegate = context.coordinator
         leinwand.tool = PKInkingTool(.pen, color: .black, width: 3)
 
-        // Apples Werkzeugkasten: Stifte, Marker, Radierer, Lineal
+        // Apples Werkzeugkasten: Stifte, Marker, Radierer, Lineal, Farben
         let kasten = PKToolPicker()
+        kasten.colorUserInterfaceStyle = .light
         context.coordinator.kasten = kasten
         kasten.setVisible(true, forFirstResponder: leinwand)
         kasten.addObserver(leinwand)
-        DispatchQueue.main.async { leinwand.becomeFirstResponder() }
+        DispatchQueue.main.async {
+            leinwand.becomeFirstResponder()
+            leinwandGefunden(leinwand)
+        }
         return leinwand
     }
 
-    func updateUIView(_ leinwand: PKCanvasView, context: Context) {}
+    func updateUIView(_ leinwand: ArcaSeitenLeinwand, context: Context) {}
 
     func makeCoordinator() -> Koordinator { Koordinator(self) }
 
@@ -48,88 +114,45 @@ struct StiftLeinwand: UIViewRepresentable {
 
         func canvasViewDrawingDidChange(_ leinwand: PKCanvasView) {
             elternteil.zeichnung = leinwand.drawing
+            (leinwand as? ArcaSeitenLeinwand)?.passeSeitenAn()
         }
     }
 }
 
-// MARK: - Das Pergament
-
-/// Ein altes Pergament als Schreibgrund: warmer Grundton, dunkle,
-/// unregelmäßige Ränder und ein paar Altersflecken — deterministisch
-/// gezeichnet, damit es auf jedem Gerät gleich aussieht.
-struct PergamentHintergrund: View {
-    var body: some View {
-        ZStack {
-            // Grundton
-            Color(red: 0.93, green: 0.87, blue: 0.74)
-
-            // Leichtes Farbspiel in der Fläche
-            LinearGradient(
-                colors: [Color(red: 0.96, green: 0.91, blue: 0.79).opacity(0.9),
-                         Color(red: 0.90, green: 0.82, blue: 0.66).opacity(0.9)],
-                startPoint: .topLeading, endPoint: .bottomTrailing)
-
-            // Altersflecken
-            GeometryReader { geo in
-                let flecken: [(x: CGFloat, y: CGFloat, r: CGFloat, a: Double)] = [
-                    (0.18, 0.22, 130, 0.10), (0.78, 0.15, 90, 0.08),
-                    (0.65, 0.62, 160, 0.09), (0.25, 0.78, 110, 0.10),
-                    (0.88, 0.85, 80, 0.08), (0.45, 0.40, 200, 0.05)
-                ]
-                ForEach(0..<flecken.count, id: \.self) { i in
-                    let f = flecken[i]
-                    Circle()
-                        .fill(Color(red: 0.62, green: 0.50, blue: 0.32).opacity(f.a))
-                        .frame(width: f.r, height: f.r)
-                        .blur(radius: f.r * 0.35)
-                        .position(x: geo.size.width * f.x, y: geo.size.height * f.y)
-                }
-            }
-
-            // Dunkle, gealterte Ränder (Vignette)
-            RadialGradient(
-                colors: [.clear, .clear, Color(red: 0.48, green: 0.36, blue: 0.20).opacity(0.28)],
-                center: .center, startRadius: 100, endRadius: 700)
-        }
-        .ignoresSafeArea()
-    }
-}
-
-// MARK: - Die Stift-Notiz
+// MARK: - Die Handnotiz
 
 struct ArcaStiftNotiz: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var zeichnung = PKDrawing()
+    @State private var leinwand: ArcaSeitenLeinwand? = nil
     @State private var arbeitet = false
     @State private var hinweis: String? = nil
+    @State private var verwerfenFragen = false
 
     private var leer: Bool { zeichnung.strokes.isEmpty }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                PergamentHintergrund()
-                StiftLeinwand(zeichnung: $zeichnung)
-            }
+            StiftLeinwand(zeichnung: $zeichnung) { leinwand = $0 }
                 .ignoresSafeArea(edges: .bottom)
                 .overlay {
                     if arbeitet {
-                        ProgressView("Handschrift wird gelesen …")
+                        ProgressView("Wird gesichert …")
                             .padding(18)
                             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
                     }
                 }
-                .navigationTitle("Stift-Notiz")
+                .navigationTitle("Handnotiz")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button {
-                            dismiss()
+                            if leer { dismiss() } else { verwerfenFragen = true }
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
+                            Image(systemName: "xmark")
                         }
+                        .accessibilityLabel("Schliessen")
                     }
                     ToolbarItemGroup(placement: .confirmationAction) {
                         Button {
@@ -139,13 +162,19 @@ struct ArcaStiftNotiz: View {
                         }
                         .disabled(leer || arbeitet)
                         Button {
-                            sichereSkizze()
+                            sichereAlsPDF()
                         } label: {
-                            Label("Sichern", systemImage: "checkmark")
+                            Label("Als PDF sichern", systemImage: "checkmark")
                                 .fontWeight(.semibold)
                         }
                         .disabled(leer || arbeitet)
                     }
+                }
+                .confirmationDialog("Handnotiz verwerfen?", isPresented: $verwerfenFragen,
+                                    titleVisibility: .visible) {
+                    Button("Als PDF sichern") { sichereAlsPDF() }
+                    Button("Verwerfen", role: .destructive) { dismiss() }
+                    Button("Weiterschreiben", role: .cancel) {}
                 }
                 .alert("Nichts erkannt", isPresented: Binding(
                     get: { hinweis != nil },
@@ -158,50 +187,69 @@ struct ArcaStiftNotiz: View {
         }
     }
 
-    /// Die Zeichnung als Bild (weißer Grund, großzügiger Rand).
-    private func bild() -> UIImage? {
-        guard !leer else { return nil }
-        let rahmen = zeichnung.bounds.insetBy(dx: -24, dy: -24)
-        let strich = zeichnung.image(from: rahmen, scale: 2)
-        return UIGraphicsImageRenderer(size: strich.size).image { _ in
-            UIColor(red: 0.93, green: 0.87, blue: 0.74, alpha: 1).setFill()
-            UIBezierPath(rect: CGRect(origin: .zero, size: strich.size)).fill()
-            strich.draw(at: .zero)
+    // MARK: Seiten
+
+    /// Breite der Leinwand beim Schreiben — Grundlage der Seitenteilung.
+    private var leinwandBreite: CGFloat { max(leinwand?.bounds.width ?? 0, 1) }
+    private var seitenHoehe: CGFloat {
+        leinwandBreite * ARCASpacing.a4Seite.height / ARCASpacing.a4Seite.width
+    }
+
+    /// Die beschriebenen Seiten als Bilder, Tinte immer hell gerendert.
+    private func seitenBilder() -> [UIImage] {
+        guard !leer else { return [] }
+        let anzahl = max(1, Int(ceil(zeichnung.bounds.maxY / seitenHoehe)))
+        // Etwa 216 dpi auf A4 — scharf beim Drucken, klein genug als Datei.
+        let skala = ARCASpacing.a4Seite.width * 3 / leinwandBreite
+        var bilder: [UIImage] = []
+        UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
+            for i in 0..<anzahl {
+                let rahmen = CGRect(x: 0, y: CGFloat(i) * seitenHoehe,
+                                    width: leinwandBreite, height: seitenHoehe)
+                bilder.append(zeichnung.image(from: rahmen, scale: skala))
+            }
         }
+        return bilder
     }
 
-    /// Handschrift lesen (on-device, offline).
-    private func erkenneHandschrift(_ bild: UIImage) -> String {
-        guard let cg = bild.cgImage else { return "" }
-        let anfrage = VNRecognizeTextRequest()
-        anfrage.recognitionLevel = .accurate
-        anfrage.recognitionLanguages = ["de-DE", "fr-FR", "en-US"]
-        anfrage.usesLanguageCorrection = true
-        try? VNImageRequestHandler(cgImage: cg, orientation: .up).perform([anfrage])
-        return (anfrage.results ?? [])
-            .compactMap { $0.topCandidates(1).first?.string }
-            .joined(separator: "\n")
-    }
+    // MARK: Sichern
 
-    /// Als Skizze sichern: Bild-Dokument in „Unsortiert" —
-    /// die stille Handschrift-Erkennung macht es durchsuchbar.
-    private func sichereSkizze() {
-        guard let skizze = bild(), let daten = skizze.pngData() else { return }
+    /// Als PDF in „Unsortiert" — einsortiert wird später, wie bei jedem
+    /// anderen Neuzugang. Die Handschrift wird gelesen: die erste Zeile
+    /// wird der Titel, der ganze Text macht das PDF durchsuchbar.
+    private func sichereAlsPDF() {
+        let bilder = seitenBilder()
+        guard !bilder.isEmpty else { return }
         arbeitet = true
-        DispatchQueue.global(qos: .userInitiated).async {
-            let erkannt = erkenneHandschrift(skizze)
-            DispatchQueue.main.async {
-                let name = UUID().uuidString + ".png"
-                try? daten.write(to: store.documentURL(for: name), options: .atomic)
+        Task.detached(priority: .userInitiated) {
+            let seite = CGRect(origin: .zero, size: ARCASpacing.a4Seite)
+            let daten = UIGraphicsPDFRenderer(bounds: seite).pdfData { ctx in
+                for bild in bilder {
+                    ctx.beginPage()
+                    UIColor.white.setFill()
+                    ctx.fill(seite)
+                    bild.draw(in: seite)
+                }
+            }
+            let erkannt = bilder.map(ArcaTextLeser.erkenne).joined(separator: "\n")
+            await MainActor.run {
+                let name = UUID().uuidString + ".pdf"
+                do {
+                    try daten.write(to: store.documentURL(for: name), options: .atomic)
+                } catch {
+                    arbeitet = false
+                    hinweis = "Die Handnotiz konnte nicht gesichert werden: \(error.localizedDescription)"
+                    return
+                }
                 let ersteZeile = erkannt.components(separatedBy: .newlines)
                     .map { $0.trimmingCharacters(in: .whitespaces) }
                     .first { $0.count >= 3 }
                 store.addDocument(
                     title: ersteZeile.map { String($0.prefix(50)) }
-                        ?? "Skizze \(Date().formatted(date: .abbreviated, time: .shortened))",
-                    type: .image, filename: name,
+                        ?? "Handnotiz \(Date().formatted(date: .abbreviated, time: .shortened))",
+                    type: .pdf, filename: name,
                     category: store.ensureImportCategoryExists(),
-                    ocrText: erkannt)
+                    ocrText: String(erkannt.prefix(ArcaTextLeser.maxZeichen)))
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 dismiss()
             }
@@ -210,11 +258,12 @@ struct ArcaStiftNotiz: View {
 
     /// Auf Wunsch: Handschrift → Text, gespeichert als Arca-Notiz.
     private func wandleInText() {
-        guard let skizze = bild() else { return }
+        let bilder = seitenBilder()
+        guard !bilder.isEmpty else { return }
         arbeitet = true
-        DispatchQueue.global(qos: .userInitiated).async {
-            let text = erkenneHandschrift(skizze)
-            DispatchQueue.main.async {
+        Task.detached(priority: .userInitiated) {
+            let text = bilder.map(ArcaTextLeser.erkenne).joined(separator: "\n")
+            await MainActor.run {
                 arbeitet = false
                 let sauber = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !sauber.isEmpty else {
